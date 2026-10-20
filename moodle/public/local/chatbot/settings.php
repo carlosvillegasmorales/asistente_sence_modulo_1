@@ -56,6 +56,15 @@ if ($hassiteconfig) {
         PARAM_TEXT
     ));
 
+    // Cursos donde el asistente no aparece (por ejemplo, los Modulos 2 y 3), por id, separados por coma.
+    $settings->add(new admin_setting_configtext(
+        'local_chatbot/nochatcourses',
+        get_string('nochatcourses_setting', 'local_chatbot'),
+        get_string('nochatcourses_setting_desc', 'local_chatbot'),
+        '',
+        PARAM_TEXT
+    ));
+
     // Ruta de derivacion a soporte humano. La gobernanza del modulo la exige
     // para cuando hay falla tecnica, incertidumbre metodologica relevante o una
     // solicitud que excede el alcance del modulo: el asistente debe poder

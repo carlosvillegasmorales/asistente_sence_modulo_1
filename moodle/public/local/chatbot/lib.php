@@ -140,6 +140,11 @@ function local_chatbot_get_analytics_button_html(): string {
     if (!has_capability('local/chatbot:viewanalytics', context_system::instance())) {
         return '';
     }
+    // Cursos sin asistente: tampoco el acceso flotante a los indicadores.
+    $coursepage = isset($PAGE->course->id) ? (int) $PAGE->course->id : 0;
+    if (\local_chatbot\ux::hidden_in_course($coursepage)) {
+        return '';
+    }
 
     // En la propia pagina de indicadores el boton apuntaria a donde ya se esta.
     // has_set_url() y no isset(): url es una propiedad magica de moodle_page,
@@ -190,6 +195,10 @@ function local_chatbot_get_widget_html(): string {
     // la persona hacia ahi quedaba guardado con courseid=1.
     if ((int) $courseid === (int) SITEID) {
         $courseid = 0;
+    }
+    // Cursos sin asistente (por ejemplo, los Modulos 2 y 3): no se pinta nada.
+    if (\local_chatbot\ux::hidden_in_course($courseid)) {
+        return '';
     }
     // Actividad desde la que se abre el asistente: el Anexo E §11 pide registrar el recurso
     // de origen (source_resource). El servidor comprueba que pertenezca al curso.

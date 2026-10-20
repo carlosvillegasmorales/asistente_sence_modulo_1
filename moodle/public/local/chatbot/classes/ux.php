@@ -65,6 +65,37 @@ class ux {
     }
 
     /**
+     * Si el asistente se oculta en un curso (ajuste «Cursos sin asistente», `nochatcourses`).
+     *
+     * @param int $courseid Curso de la pagina; 0 o el del sitio nunca se ocultan.
+     * @return bool
+     */
+    public static function hidden_in_course(int $courseid): bool {
+        return self::is_listed($courseid, (string) get_config('local_chatbot', 'nochatcourses'));
+    }
+
+    /**
+     * Si un curso esta en una lista de ids separados por coma, punto y coma o espacio. Funcion pura.
+     *
+     * El curso 1 es el del sitio: no se puede listar, el asistente siempre se ve fuera de los cursos.
+     *
+     * @param int $courseid
+     * @param string $raw Lista escrita en el ajuste.
+     * @return bool
+     */
+    public static function is_listed(int $courseid, string $raw): bool {
+        if ($courseid <= 1) {
+            return false;
+        }
+        foreach (preg_split('/[\s,;]+/', trim($raw)) as $parte) {
+            if (ctype_digit($parte) && (int) $parte === $courseid) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Valor efectivo de un interruptor. Funcion pura.
      *
      * Sin valor guardado (instalacion que aun no paso por la pagina de ajustes) manda el valor

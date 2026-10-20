@@ -36,6 +36,13 @@ $screen = \local_chatbot\ux::on('screencontext') ? max(0, min(6, optional_param(
 
 global $USER, $DB;
 
+// Cursos sin asistente (ajuste «nochatcourses»): el turno no se atiende.
+if (\local_chatbot\ux::hidden_in_course($courseid)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'assistant_disabled']);
+    exit;
+}
+
 // Respuesta en vivo (SSE): solo si esta encendida, con Gemini y si el widget la pide. Los
 // encabezados van antes de cualquier salida; desde aqui todo lo que se devuelve pasa por
 // local_chatbot_ajax_respond(), que en vivo lo manda como evento «final».

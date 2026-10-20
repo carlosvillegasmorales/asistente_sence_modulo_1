@@ -1,5 +1,14 @@
 # Changelog
 
+## M1-v1.16.12 (2026-10-20)
+
+**Cursos sin asistente**
+
+- Ajuste nuevo «Cursos sin asistente» (`nochatcourses`): ids de curso, separados por coma, donde no
+  aparecen ni el asistente ni el botón flotante de indicadores (por ejemplo, los Módulos 2 y 3). El
+  servidor tampoco atiende las consultas que declaran ese curso. Vacío por defecto: nada cambia hasta
+  que se complete. Fuera de los cursos (Área personal) el asistente se sigue viendo.
+
 ## M1-v1.16.11 (2026-10-17)
 
 - La actividad del curso con la declaración de consentimiento (código `M1-CONSENTIMIENTO` en «Número de

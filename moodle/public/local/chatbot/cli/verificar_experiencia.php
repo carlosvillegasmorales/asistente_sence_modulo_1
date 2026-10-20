@@ -229,6 +229,17 @@ local_chatbot_verificar($d['rol'] === '[[rol_otro]]: Tutor de practica' && $d['p
     && $d['fortalecer'] === ['evaluar en taller'] && $d['aplicacion'] === null && $d['experiencia'] === null,
     'el perfil en palabras: Otro especificado, y lo de perfiles anteriores se conserva');
 
+// Cursos sin asistente (ajuste nochatcourses): lista de ids; el curso del sitio nunca se oculta.
+local_chatbot_verificar(\local_chatbot\ux::is_listed(18, '18,19') && \local_chatbot\ux::is_listed(19, '18,19'),
+    'un curso de la lista se oculta');
+local_chatbot_verificar(!\local_chatbot\ux::is_listed(20, '18,19') && !\local_chatbot\ux::is_listed(6, ''),
+    'un curso fuera de la lista, o con la lista vacia, se ve');
+local_chatbot_verificar(\local_chatbot\ux::is_listed(4, ' 4 ; 5 ,6') && \local_chatbot\ux::is_listed(5, '4 5'),
+    'la lista admite coma, punto y coma y espacios');
+local_chatbot_verificar(!\local_chatbot\ux::is_listed(1, '1,18') && !\local_chatbot\ux::is_listed(0, '0,18'),
+    'el curso del sitio y el id 0 nunca se ocultan');
+local_chatbot_verificar(!\local_chatbot\ux::is_listed(18, '180,118,x18'), 'solo cuenta el id exacto');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Mejoras de experiencia conformes: interruptores, proximo paso, respuestas en vivo y valoracion.\n";
