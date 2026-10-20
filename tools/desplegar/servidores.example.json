@@ -1,0 +1,26 @@
+{
+  "_leeme": "Copia este archivo como servidores.json (sin '.example') y reemplaza los valores. servidores.json queda fuera de git a proposito: lleva la contraseña real de cada VPS en texto plano.",
+
+  "propio": {
+    "host": "REEMPLAZAR",
+    "port": 22,
+    "usuario": "REEMPLAZAR",
+    "clave": "REEMPLAZAR",
+    "modo": "docker",
+    "contenedor": "moodle_app",
+    "propietario": "33:33",
+    "raiz_remota": "/var/www/html/public/local/chatbot",
+    "config_remoto": "/var/www/html/config.php"
+  },
+
+  "cliente": {
+    "host": "REEMPLAZAR",
+    "port": 22,
+    "usuario": "REEMPLAZAR",
+    "clave": "REEMPLAZAR",
+    "modo": "directo",
+    "propietario": "nginx:nginx",
+    "raiz_remota": "/var/www/moodle/public/local/chatbot",
+    "config_remoto": "/var/www/moodle/config.php"
+  }
+}

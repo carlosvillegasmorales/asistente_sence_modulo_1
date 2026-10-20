@@ -1,0 +1,84 @@
+#!/bin/sh
+# Hook pre-commit anti-secretos — Moodle Proyecto Completo y plugin local_chatbot.
+# Instalar en los dos repos con:  sh tools/hooks/instalar.sh
+#
+# Revisa lo que está en stage: secretos en el contenido, claves privadas, cadenas de
+# conexión con credencial, archivos que no deben versionarse y archivos de más de 5 MB.
+# No pretende ser exhaustivo: atrapa los casos obvios antes de que entren al historial,
+# donde ya no salen fácil. Es el mismo hook en el repo raíz y en el del plugin.
+#
+# El núcleo de Moodle (moodle/public/..., moodle/vendor/...) se excluye: trae fixtures .zip
+# y constantes como TOKEN/SECRET que no son credenciales. El plugin vive en su propio repo
+# (moodle/public/local/chatbot), donde el hook sí revisa todo.
+
+EXCLUIR=':!moodle/public/lib :!moodle/public/admin :!moodle/public/mod :!moodle/public/theme :!moodle/public/h5p :!moodle/public/enrol :!moodle/public/auth :!moodle/public/question :!moodle/public/repository :!moodle/public/backup :!moodle/public/user :!moodle/public/sms :!moodle/public/webservice :!moodle/public/cache :!moodle/.github :!moodle/vendor :!moodle/npm-shrinkwrap.json'
+fallo=0
+
+# Rutas en stage, ya sin el núcleo de Moodle (con -- y pathspec excluyentes)
+# shellcheck disable=SC2086
+archivos=$(git diff --cached --name-only --diff-filter=ACM -- . $EXCLUIR)
+[ -z "$archivos" ] && exit 0
+
+# --- 1. Patrones de secretos en el contenido ---
+patrones='(password|passwd|contrasena|contraseña|secret|api[_-]?key|token|bearer|pw)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9/+_.!*$-]{8,}["'"'"']'
+# shellcheck disable=SC2086
+coincidencias=$(git diff --cached --diff-filter=ACM -U0 -- . $EXCLUIR | grep -nEi "^\+.*$patrones" \
+  | grep -viE '(example|ejemplo|placeholder|xxx+|<.*>|tu[_-]|your[_-]|change[_-]?me|getenv|\$\{|os\.environ|\$_ENV|\$argv)')
+if [ -n "$coincidencias" ]; then
+  echo "BLOQUEADO: posible secreto en el diff (valor literal asignado a password/token/pw...):"
+  # Nunca imprimir el valor: se tapan todos los textos entre comillas de la línea.
+  echo "$coincidencias" | sed -E "s/[\"'][^\"']*[\"']/\"***\"/g" | head -20
+  echo ""
+  fallo=1
+fi
+
+# --- 2. Claves privadas completas ---
+# shellcheck disable=SC2086
+if git diff --cached --diff-filter=ACM -- . $EXCLUIR | grep -qE '^\+.*BEGIN (RSA |OPENSSH |EC |DSA |PGP )?PRIVATE KEY'; then
+  echo "BLOQUEADO: clave privada en el diff."
+  echo ""
+  fallo=1
+fi
+
+# --- 3. Cadenas de conexión con credencial embebida ---
+# shellcheck disable=SC2086
+if git diff --cached --diff-filter=ACM -- . $EXCLUIR | grep -qEi '^\+.*(ldaps?|oracle|postgres|mysql|mongodb|redis|https?)://[^[:space:]:@/]+:[^[:space:]@/]+@'; then
+  echo "BLOQUEADO: cadena de conexión con usuario:contraseña embebidos."
+  echo "  Separar la credencial a una variable de entorno."
+  echo ""
+  fallo=1
+fi
+
+# --- 4. Archivos que nunca deberían entrar ---
+# grep -E es POSIX: no soporta lookahead; se excluyen las plantillas *.example aparte.
+prohibidos=$(echo "$archivos" \
+  | grep -iE '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|dmp|bak|sql)$|\.(zip|tar\.gz|tgz|7z|rar)$|(^|/)config\.php(\.prod)?$|(^|/)deploy_vps\.py$|(^|/)servidores\.json$' \
+  | grep -viE '\.(example|ejemplo)$|(^|/)\.env\.(example|ejemplo)$')
+if [ -n "$prohibidos" ]; then
+  echo "BLOQUEADO: archivos que no deben versionarse (credenciales, volcados o binarios):"
+  echo "$prohibidos"
+  echo ""
+  fallo=1
+fi
+
+# --- 5. Archivos grandes (> 5 MB) ---
+echo "$archivos" | while IFS= read -r archivo; do
+  [ -f "$archivo" ] || continue
+  tam=$(wc -c < "$archivo" 2>/dev/null || echo 0)
+  if [ "$tam" -gt 5242880 ]; then
+    echo "BLOQUEADO: $archivo pesa $((tam / 1048576)) MB (límite 5 MB)."
+    echo 1 > "${TMPDIR:-/tmp}/precommit_grande.$$"
+  fi
+done
+if [ -f "${TMPDIR:-/tmp}/precommit_grande.$$" ]; then
+  rm -f "${TMPDIR:-/tmp}/precommit_grande.$$"
+  fallo=1
+fi
+
+if [ "$fallo" -ne 0 ]; then
+  echo "Commit detenido. Si es un falso positivo: git commit --no-verify"
+  echo "Si era un secreto real: NO lo comitees; si ya se usó en algún servidor, rotalo."
+  exit 1
+fi
+
+exit 0

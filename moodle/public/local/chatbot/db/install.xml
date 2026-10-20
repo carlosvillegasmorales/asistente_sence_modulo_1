@@ -1,0 +1,485 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/chatbot/db" VERSION="20260911" COMMENT="XMLDB file for local/chatbot - Modulo 1: diagnostico, PDP y proyecto integrador"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="local_chatbot_profile" COMMENT="Objeto de datos Perfil de facilitador/a: contexto declarado y aceptacion de condiciones de uso de IA (componente 0, Bienvenida y perfilamiento)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="rol" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Docente, relator/a, instructor/a, facilitador/a"/>
+        <FIELD NAME="contexto" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="experiencia" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="modalidad" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="sector" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="necesidad" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Necesidad de acompanamiento declarada por la persona"/>
+        <FIELD NAME="tiempo" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Horas semanales disponibles para el modulo (RU-COA-001, criterio 6 de RU-COA-PRIOR-002)"/>
+        <FIELD NAME="rolotro" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Rol especificado cuando se elige Otro (acta 13-10-2026)"/>
+        <FIELD NAME="programa" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false" COMMENT="Tipo de programa principal"/>
+        <FIELD NAME="programaotro" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="familiaridad" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Familiaridad con diseno y evaluacion por competencias"/>
+        <FIELD NAME="aplicacion" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Curso o unidad donde aplicara lo aprendido; nr = prefiere no responder"/>
+        <FIELD NAME="fortalecer" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Hasta dos aspectos a fortalecer, separados por coma"/>
+        <FIELD NAME="fortalecerotro" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="consentaccepted" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Aceptacion informada de las condiciones de uso de IA"/>
+        <FIELD NAME="consenttime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="consentversion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Version de la declaracion vigente al aceptar: si cambia, se vuelve a pedir (RU-CONS-002)"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="true" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_dimension" COMMENT="Dimensiones del diagnostico de brechas metodologicas (enfoque de competencias)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0 = instrumento base disponible para todo el sitio"/>
+        <FIELD NAME="code" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="criterios" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Criterios formativos configurados, uno por linea, contra los que se revisan las evidencias de los apoyos adaptativos (RU-ADAPT-004)"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_diag_item" COMMENT="Items del diagnostico auto aplicado, agrupados por dimension">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="dimensionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="statement" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="kind" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="declarativa" SEQUENCE="false" COMMENT="declarativa = escala de practica habitual; situacional = alternativas con respuesta correcta (RU-CALC-001)"/>
+        <FIELD NAME="options" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Alternativas del item situacional, en JSON. Nulo en items declarativos"/>
+        <FIELD NAME="correctoption" TYPE="int" LENGTH="4" NOTNULL="false" SEQUENCE="false" COMMENT="Indice base 0 de la alternativa correcta. Nunca viaja al navegador ni al modelo"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="dimensionid" UNIQUE="false" FIELDS="dimensionid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_diag_response" COMMENT="Objeto de datos Resultado diagnostico: respuesta por item, con etapa entrada/salida para el contraste de progreso">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="itemid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="dimensionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Desnormalizado: la matriz de brechas agrupa por dimension sin join adicional"/>
+        <FIELD NAME="score" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Escala 1 a 5 de dominio autodeclarado. 0 en items situacionales, que aportan acierto y no puntaje"/>
+        <FIELD NAME="kind" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="declarativa" SEQUENCE="false" COMMENT="Copiado del item para poder separar PDd de CSd sin join"/>
+        <FIELD NAME="chosenoption" TYPE="int" LENGTH="4" NOTNULL="false" SEQUENCE="false" COMMENT="Alternativa elegida en un item situacional"/>
+        <FIELD NAME="iscorrect" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="-1" SEQUENCE="false" COMMENT="-1 no aplica, 0 incorrecta, 1 correcta"/>
+        <FIELD NAME="scalemax" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="5" SEQUENCE="false" COMMENT="Tope de la escala vigente cuando se respondio. Deja auditable la migracion de 1-4 a 1-5"/>
+        <FIELD NAME="stage" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="entrada" SEQUENCE="false" COMMENT="entrada = linea base, salida = contraste de cierre"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_itemid_stage" UNIQUE="true" FIELDS="userid, itemid, stage"/>
+        <INDEX NAME="userid_courseid_stage" UNIQUE="false" FIELDS="userid, courseid, stage"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_pdp" COMMENT="Objeto de datos PDP: Plan Personal de Desarrollo de la persona facilitadora">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="borrador" SEQUENCE="false" COMMENT="borrador, validado, cerrado"/>
+        <FIELD NAME="version" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="ronda" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Version de las metas del diagnostico que se muestra (0 = sin versiones)"/>
+        <FIELD NAME="rondamax" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Ultima version de las metas del diagnostico"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="true" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_pdp_goal" COMMENT="Metas del PDP: brecha, objetivo, acciones y evidencia de avance. Toda meta propuesta por IA queda pendiente hasta que la persona la acepta, modifica o rechaza">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="pdpid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="dimensionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="brecha" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="objetivo" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="acciones" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="evidencia" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="unidad" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Unidad de la ruta base con la que se trabaja la prioridad (RU-COA-003)"/>
+        <FIELD NAME="recurso" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Recurso interno del modulo asociado (RU-COA-003)"/>
+        <FIELD NAME="microcapsula" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Microcapsula complementaria asociada (RU-COA-003)"/>
+        <FIELD NAME="actividad" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Actividad concreta a realizar (RU-COA-003)"/>
+        <FIELD NAME="plazo" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Fecha comprometida. Sin plazo la meta no puede formar parte de un plan activo (RU-COA-PDP-FLOW-001)"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="propuesto" SEQUENCE="false" COMMENT="propuesto, aceptado, modificado, postergado, rechazado, completado"/>
+        <FIELD NAME="origin" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="ia" SEQUENCE="false" COMMENT="ia o usuario"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="ronda" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Version del plan a la que pertenece una meta del diagnostico; null = visible en todas (metas propias)"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="pdpid" UNIQUE="false" FIELDS="pdpid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_pdp_history" COMMENT="Trazabilidad exigida por gobernanza: que cambio en el PDP, por que cambio y a partir de que evidencia">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="pdpid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="goalid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="changetype" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="oldvalue" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="newvalue" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="reason" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Por que cambio"/>
+        <FIELD NAME="evidence" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="A partir de que evidencia"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="pdpid" UNIQUE="false" FIELDS="pdpid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_criterion" COMMENT="Rubrica versionada del proyecto integrador, visible para la persona antes de entregar">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="code" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="descriptor" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Que evidencia se espera para considerar logrado el criterio"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="version" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="active" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid_active" UNIQUE="false" FIELDS="courseid, active"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_project" COMMENT="Objeto de datos Proyecto integrador: campos estructurados del alineamiento Perfil/UCL a retroalimentacion y mejora">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="perfilucl" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Perfil ocupacional o UCL de referencia"/>
+        <FIELD NAME="aprendizajes" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="criterios" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Criterios de desempeno"/>
+        <FIELD NAME="actividades" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="evidencias" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="instrumentos" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="mejora" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Retroalimentacion y decisiones de mejora"/>
+        <FIELD NAME="autoevaluacion" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="attachment" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="version" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="borrador" SEQUENCE="false" COMMENT="borrador, entregado, evaluado"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="true" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_project_fb" COMMENT="Retroalimentacion del Modo C por criterio de rubrica, en el formato estandar de salida del documento de arquitectura">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="projectid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="criterionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="fortaleza" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Fortaleza observada y evidencia que la sustenta"/>
+        <FIELD NAME="mejora" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Aspecto a mejorar"/>
+        <FIELD NAME="porque" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Por que importa: consecuencia pedagogica o evaluativa"/>
+        <FIELD NAME="accion" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Accion sugerida"/>
+        <FIELD NAME="pdpvinculo" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Vinculo con el PDP"/>
+        <FIELD NAME="needshuman" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="La IA declara que se requiere revision humana"/>
+        <FIELD NAME="projectversion" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="projectid" UNIQUE="false" FIELDS="projectid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_messages" COMMENT="Historial de conversacion con el asistente, etiquetado por modo funcional">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="message" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="is_bot" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="mode" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="tutor" SEQUENCE="false" COMMENT="tutor, coach o evaluador"/>
+        <FIELD NAME="attachment_filename" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="attachment_mimetype" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="goalid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Meta del PDP de la conversacion, si es la de una meta; null en el chat general"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+        <INDEX NAME="goalid" UNIQUE="false" FIELDS="goalid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_interaction" COMMENT="Objeto de datos Interaccion IA: modo, intencion, recursos referidos, recomendacion y aceptacion del usuario. Base de la auditoria y la mejora del asistente">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="mode" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="intent" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Tipo de consulta clasificado por regla (RU-PRIV-004). Nunca el texto de la persona"/>
+        <FIELD NAME="resources" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Fuentes de contexto declaradas al usuario en esta interaccion"/>
+        <FIELD NAME="recommendation" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="useraccepted" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="-1" SEQUENCE="false" COMMENT="-1 sin responder, 0 rechazada, 1 aceptada, 2 modificada, 3 postergada"/>
+        <FIELD NAME="guardrail" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Identificadores ERTF de los guardrails activados en esta interaccion (RF-GRD-02)"/>
+        <FIELD NAME="pseudoid" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false" COMMENT="Identificador seudonimizado"/>
+        <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Modelo utilizado en la inferencia"/>
+        <FIELD NAME="input_tokens" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="output_tokens" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="latency_ms" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="ok" SEQUENCE="false" COMMENT="ok, error, timeout, blocked, ratelimit"/>
+        <FIELD NAME="messageid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="promptversion" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="interactioncode" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="IA-T-U1-000001 / IA-C-U1-000001 (Anexo G §2.1)"/>
+        <FIELD NAME="sourceresource" TYPE="char" LENGTH="60" NOTNULL="false" SEQUENCE="false" COMMENT="Recurso desde el que se abrio el asistente, p. ej. U1-CA-01 (Anexo E §11)"/>
+        <FIELD NAME="sourceversion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Version del recurso citado, para reconstruir con que texto se respondio (RU-PRIV-006)"/>
+        <FIELD NAME="kbversion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Version de la base de conocimiento usada en la respuesta (RU-PRIV-006)"/>
+        <FIELD NAME="concepttags" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Etiquetas de concepto de la consulta, separadas por coma (Anexo E §11)"/>
+        <FIELD NAME="sourcesreferred" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Recursos y apartados citados en la respuesta (Anexo E §11)"/>
+        <FIELD NAME="quizguard" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 si se aplico la regla de integridad del quiz"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+        <INDEX NAME="mode" UNIQUE="false" FIELDS="mode"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_prompt" COMMENT="Prompts versionados por modo funcional, exigido por la regla de gobernanza sobre trazabilidad de cambios">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="mode" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="prompttext" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="version" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="active" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="mode_active" UNIQUE="false" FIELDS="mode, active"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_kb_documents" COMMENT="Recursos internos del modulo que el asistente debe citar antes de recurrir a conocimiento general. Versionados: la gobernanza exige trazabilidad de cambios sobre las bases documentales">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="filename" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="content" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="sizebytes" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="version" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Se incrementa al resubir un documento con el mismo nombre"/>
+        <FIELD NAME="active" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Una version retirada deja de alimentar al asistente pero queda registrada"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="0 en cola de extraccion, 1 listo, 2 fallido. Un documento en cola no esta activo, asi que no alimenta al asistente"/>
+        <FIELD NAME="statusmsg" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Motivo por el que la extraccion no prospero, para explicarlo en el panel"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="active" UNIQUE="false" FIELDS="active"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_closure" COMMENT="Objeto de datos Cierre (componente 5): reflexion de la persona, plan de continuidad y acciones priorizadas para derivar a los modulos siguientes">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="reflexion" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Que se lleva la persona del modulo"/>
+        <FIELD NAME="continuidad" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Plan de continuidad declarado"/>
+        <FIELD NAME="acciones" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Acciones priorizadas para los proximos modulos"/>
+        <FIELD NAME="completed" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 cuando se cumplen las cuatro condiciones de cierre del documento"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="true" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_coach_report" COMMENT="Matriz de desarrollo: primera entrega del Coach al terminar el diagnostico, con la plantilla de Doc 3 (RU-COA-OUT-001)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="diagversion" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false" COMMENT="Version del instrumento aplicado"/>
+        <FIELD NAME="estado" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Estado de la matriz: inicial o en_seguimiento"/>
+        <FIELD NAME="content" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Matriz renderizada en Markdown, tal como se le mostro a la persona"/>
+        <FIELD NAME="payload" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Carga util depurada en JSON: sintesis, ambitos y prioridades"/>
+        <FIELD NAME="promptversion" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_adapt" COMMENT="Apoyo adaptativo: microactividad individual ligada a una meta del PDP. Nunca crea una actividad de Moodle (RU-ADAPT-001)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="pseudoid" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="goalid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="dimensionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="unidad" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="activitytype" TYPE="char" LENGTH="30" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="activityversion" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="consigna" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="criterios" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Copia de los criterios configurados al momento de generar el apoyo"/>
+        <FIELD NAME="estado" TYPE="char" LENGTH="30" NOTNULL="true" SEQUENCE="false" COMMENT="Vocabulario controlado de RU-ADAPT-006"/>
+        <FIELD NAME="privacyclass" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="retentionversion" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timegenerated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+        <INDEX NAME="goalid" UNIQUE="false" FIELDS="goalid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_adapt_review" COMMENT="Revision de una evidencia de un apoyo adaptativo: registro estructurado independiente de la conversacion (RU-ADAPT-007). Guarda sintesis, nunca el texto ni el archivo entregado">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="adaptid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="evidenceid" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="evidenceformat" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="evidencesynthesis" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="criteriareviewed" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="reviewstatus" TYPE="char" LENGTH="30" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="feedbacksynthesis" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="strength" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Fortaleza observada (RU-GEN-003 v5)"/>
+        <FIELD NAME="aspecttodeepen" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Aspecto a profundizar (RU-GEN-003 v5)"/>
+        <FIELD NAME="whyitmatters" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Por que importa (RU-GEN-003 v5)"/>
+        <FIELD NAME="updateproposal" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false" COMMENT="mantener, profundizar, registrar_avance, actualizar_meta o proponer_cierre (Anexo F §10)"/>
+        <FIELD NAME="nextaction" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="proposal" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="ninguna" SEQUENCE="false" COMMENT="ninguna, actualizar_meta o cerrar_meta"/>
+        <FIELD NAME="proposaltext" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="personconfirmed" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="2" SEQUENCE="false" COMMENT="-1 pendiente, 0 declinada, 1 confirmada, 2 no requerida"/>
+        <FIELD NAME="pdpstatebefore" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="pdpstateafter" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="rejected" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 si la evidencia se rechazo (NFR-SEC-005)"/>
+        <FIELD NAME="rejectreason" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timedelivered" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timereviewed" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timeconfirmed" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+              <FIELD NAME="record" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Registro estructurado de la intervencion del Coach (Anexo F 10, RU-ADAPT-007)"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="adaptid" UNIQUE="false" FIELDS="adaptid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_trace" COMMENT="Catalogo de eventos de trazabilidad del Anexo G §7 (Tutor, Coach, PDP y calidad IA). Sin texto de la persona">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="eventcode" TYPE="char" LENGTH="60" NOTNULL="true" SEQUENCE="false" COMMENT="p. ej. EVT-IA-T-U1-QUIZ-GUARD"/>
+        <FIELD NAME="objectcode" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Codigo del objeto: IA-T-U1-..., EV-U1-..., VI-U1-..., PDP-UPD-..."/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="pseudoid" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="unitcode" TYPE="char" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="data" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Datos minimos del evento en JSON"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid_eventcode" UNIQUE="false" FIELDS="courseid, eventcode"/>
+        <INDEX NAME="userid" UNIQUE="false" FIELDS="userid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_quiz_pattern" COMMENT="Resultado por pregunta de cada intento de quiz, para las reglas de activacion del Anexo G §5.1 y §8.3">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="attemptid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="attemptnumber" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="questioncode" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false" COMMENT="idnumber de la pregunta, p. ej. U1-QF-01-P04"/>
+        <FIELD NAME="subdimension" TYPE="char" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="responsestatus" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="correcta, incorrecta u omitida"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="attemptid" UNIQUE="false" FIELDS="attemptid"/>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_feedback" COMMENT="Valoracion de las respuestas del asistente: voto util/no util y motivo codificado. Sin texto de la persona (Anexo G 11.4)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="interactionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="vote" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" COMMENT="1 util, -1 no util"/>
+        <FIELD NAME="reason" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false" COMMENT="Motivo de un voto negativo, de una lista cerrada"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="interactionid_userid" UNIQUE="true" FIELDS="interactionid, userid"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

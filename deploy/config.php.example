@@ -1,0 +1,40 @@
+<?php  // Moodle configuration file (Producción) — PLANTILLA: copiar como config.php en el servidor.
+// Variables de entorno: MOODLE_DB_PASSWORD y MOODLE_WWWROOT (ver deploy/.env.example).
+
+unset($CFG);
+global $CFG;
+$CFG = new stdClass();
+
+$CFG->dbtype    = 'mariadb';
+$CFG->dblibrary = 'native';
+$CFG->dbhost    = '127.0.0.1';
+$CFG->dbname    = 'moodle';
+$CFG->dbuser    = 'moodleuser';
+$CFG->dbpass    = getenv('MOODLE_DB_PASSWORD') ?: '';  // viene del entorno, nunca del repo
+$CFG->prefix    = 'mdl_';
+$CFG->dboptions = array (
+  'dbpersist' => 0,
+  'dbport' => 3306,
+  'dbsocket' => '',
+  'dbcollation' => 'utf8mb4_unicode_ci',
+);
+
+// Ajusta a tu IP o dominio:
+$CFG->wwwroot   = getenv('MOODLE_WWWROOT') ?: 'http://localhost';
+// Si configuras DNS y SSL, cambias a: 'https://vps.moodlecapacitacion.cl';
+
+$CFG->dataroot  = '/var/www/moodledata';
+$CFG->admin     = 'admin';
+
+// Ajustes de rendimiento en producción
+$CFG->themedesignermode = false;
+$CFG->cachejs = true;
+$CFG->debug = 0;
+$CFG->debugdisplay = 0;
+
+$CFG->directorypermissions = 02777;
+
+require_once(__DIR__ . '/lib/setup.php');
+
+// There is no php closing tag in this file,
+// it is intentional because it prevents trailing whitespace problems!

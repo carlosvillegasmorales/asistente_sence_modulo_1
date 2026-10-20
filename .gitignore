@@ -1,0 +1,63 @@
+# Ignorar el entorno del servidor local (Apache, PHP, MariaDB y Moodledata)
+env/
+
+# Archivos propios del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Ignorar archivo de configuración local por seguridad (Opcional, pero recomendado)
+# moodle/config.php
+
+# Scripts de operacion del VPS. No se versionan porque llevan la clave root
+# del servidor en texto plano: quedan en el disco de quien administra, no en
+# el repositorio. Si alguna vez hay que compartirlos, primero deben leer las
+# credenciales desde variables de entorno.
+tools/operacion/*
+!tools/operacion/README.md
+
+# Credenciales de los VPS para tools/desplegar/desplegar_plugin.py. El script
+# en si SI se versiona (no tiene ninguna clave adentro); solo este archivo de
+# datos queda fuera. Plantilla sin datos reales: servidores.example.json.
+tools/desplegar/servidores.json
+
+# Archivos temporales y de log
+*.log
+*.tmp
+*.bak
+*.swp
+*.zip
+*.sql
+*.tar.gz
+*.gz
+
+# Paquete generado por tools/plan_pruebas/construir_paquete.py (contiene las claves del quiz)
+tools/plan_pruebas/paquete_u1.json
+tools/plan_pruebas/ejecucion.log
+__pycache__/
+
+# Paquete de entrega para desarrolladores externos: duplica el código del
+# plugin (que ya vive versionado en el repo moodle-chatbot-ia) y trae PDF/DOCX
+# pesados. Se genera bajo demanda, no tiene sentido cargarlo al historial de
+# este repo cada vez que se arma una entrega.
+docs/entrega_desarrolladores/
+
+# --- Categorías de seguridad (protegen archivos nuevos sin acordarse de listarlos) ---
+# Credenciales y variables de entorno reales; solo las plantillas *.example se versionan.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+# Configuración real de Moodle (lleva la clave de la base). Plantillas: config.php.example.
+moodle/config.php
+moodle/config.php.prod
+deploy/config.php
+deploy/config.php.prod
+# Respaldos y volcados
+*.dmp
+*.7z
+*.rar
+*.tgz
+*.tar

@@ -1,0 +1,5 @@
+# Los scripts de shell y los workflows deben ir siempre con LF: con CRLF no corren en Linux (CI, VPS).
+*.sh text eol=lf
+tools/hooks/pre-commit text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

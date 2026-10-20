@@ -1,0 +1,54 @@
+<div class="card course-card-modern mx-1" role="listitem"
+    data-region="course-content"
+    data-course-id="{{{id}}}">
+    
+    <a href="{{viewurl}}" tabindex="-1" class="text-decoration-none">
+        <div class="card-img-wrapper">
+            <img src="{{{courseimage}}}" alt="{{fullname}}" class="card-img-modern" loading="lazy">
+            <div class="img-overlay"></div>
+            {{#showshortname}}
+                <div class="category-badge">
+                    {{{shortname}}}
+                </div>
+            {{/showshortname}}
+            {{^showshortname}}
+                <div class="category-badge">
+                    {{$coursecategory}}{{/coursecategory}}
+                </div>
+            {{/showshortname}}
+        </div>
+    </a>
+    
+    <div class="card-body-modern" id="course-info-container-{{id}}-{{uniqid}}">
+        <div class="w-100 flex-grow-1">
+            <a href="{{viewurl}}" class="coursename">
+                {{> core_course/favouriteicon }}
+                <span class="visually-hidden">
+                    {{#str}}aria:coursename, core_course{{/str}}
+                </span>
+                {{$coursename}}{{/coursename}}
+            </a>
+            
+            {{#summary}}
+            <div class="course-summary-modern">
+                {{{summary}}}
+            </div>
+            {{/summary}}
+            
+            {{^visible}}
+                <div class="d-flex flex-wrap mb-2">
+                    <span class="badge bg-info text-white">{{#str}} hiddenfromstudents {{/str}}</span>
+                </div>
+            {{/visible}}
+        </div>
+        
+        <div class="card-footer-modern">
+            <div class="w-100 pe-2">
+                {{$progress}}{{/progress}}
+            </div>
+            <div class="d-flex gap-1 align-items-center">
+                {{$menu}}{{/menu}}
+            </div>
+        </div>
+    </div>
+</div>

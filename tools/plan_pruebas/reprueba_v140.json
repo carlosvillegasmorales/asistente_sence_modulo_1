@@ -1,0 +1,168 @@
+[
+ {
+  "id": "B-04",
+  "desc": "Evidencia con RUT y teléfono: rechazada por datos de terceros, sin guardar contenido",
+  "auto": "✅",
+  "detalle": {
+   "revision": {
+    "id": "9",
+    "adaptid": "4",
+    "evidenceid": "EV-4-1790032955",
+    "evidenceformat": "texto",
+    "evidencesynthesis": "",
+    "criteriareviewed": "",
+    "reviewstatus": "rechazada",
+    "feedbacksynthesis": "",
+    "strength": null,
+    "aspecttodeepen": null,
+    "whyitmatters": null,
+    "updateproposal": null,
+    "nextaction": "",
+    "proposal": "ninguna",
+    "proposaltext": "",
+    "personconfirmed": "2",
+    "pdpstatebefore": "aceptado",
+    "pdpstateafter": "aceptado",
+    "rejected": "1",
+    "rejectreason": "datos_de_terceros",
+    "timedelivered": "1790032955",
+    "timereviewed": "1790032955",
+    "timeconfirmed": "0"
+   }
+  }
+ },
+ {
+  "id": "C-01",
+  "desc": "Feedback de cinco campos guardado en columnas propias",
+  "auto": "✅",
+  "detalle": {
+   "estado_apoyo": "avance_registrado",
+   "campos": {
+    "strength": "Definiste con claridad una progresión didáctica que transita desde el modelado con apoyo hacia una estación con mayor autonomía, separando con nitidez la evidencia (ejecución y registro de la decisión) del instrumento de valoración (lista de cotejo).",
+    "aspecttodeepen": "La descripción de la incidencia concreta que enfrentarán en la estación simulada y la forma en que esta actividad se proyecta hacia el proyecto integrador del curso.",
+    "whyitmatters": "Precisar la contingencia garantiza que el desafío de seguridad y comunicación sea auténtico para el contexto residencial, y vincularla con el proyecto integrador evita que la práctica quede como un ejercicio aislado de taller.",
+    "updateproposal": "registrar_avance",
+    "nextaction": "Detalla en un párrafo breve qué contingencia enfrentará el estudiante (por ejemplo, resistencia, mareo o dolor del usuario) y cómo el registro de esa decisión se recupera en el proyecto integrador."
+   },
+   "propuesta": "ninguna"
+  }
+ },
+ {
+  "id": "C-01b",
+  "desc": "La revisión que ve la persona (en el chat del asistente) trae los cinco campos v5 y cierra pidiendo decisión",
+  "auto": "✅",
+  "detalle": {
+   "nota": "El chequeo automático buscaba los campos en la página del PDP, que solo muestra un aviso; la revisión se entrega en el chat. Verificado en local_chatbot_messages: los cinco campos y la pregunta final están presentes."
+  }
+ },
+ {
+  "id": "F-21",
+  "desc": "prueba.b: estados de meta con el vocabulario v5",
+  "auto": "✅",
+  "detalle": {
+   "insignias": [
+    "Requiere profundización"
+   ]
+  }
+ },
+ {
+  "id": "F-21",
+  "desc": "prueba.c: estados de meta con el vocabulario v5",
+  "auto": "✅",
+  "detalle": {
+   "insignias": [
+    "Avance registrado"
+   ]
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.b GET pdp.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.b GET proyecto.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.b GET cierre.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.b GET index.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.b GET diagnostico.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.c GET pdp.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.c GET proyecto.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.c GET cierre.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.c GET index.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ },
+ {
+  "id": "S",
+  "desc": "prueba.c GET diagnostico.php",
+  "auto": "✅",
+  "detalle": {
+   "status": 200,
+   "avisos": []
+  }
+ }
+]

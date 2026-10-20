@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  moodle_db:
+    image: mariadb:10.11
+    container_name: moodle_db
+    restart: always
+    command: [
+      '--character-set-server=utf8mb4',
+      '--collation-server=utf8mb4_unicode_ci',
+      '--max-allowed-packet=128M',
+      '--innodb-file-per-table=1',
+      '--innodb-buffer-pool-size=2G'
+    ]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?definir en deploy/.env}
+      MYSQL_DATABASE: moodle
+      MYSQL_USER: moodleuser
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?definir en deploy/.env}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - moodle_net
+
+  moodle_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: moodle_app
+    restart: always
+    depends_on:
+      - moodle_db
+    expose:
+      - "80"
+    volumes:
+      - ./moodle:/var/www/html
+      - ./moodledata:/var/www/moodledata
+    networks:
+      - moodle_net
+
+  nginx_proxy:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+    environment:
+      DISABLE_IPV6: 'true'
+    volumes:
+      - ./npm_data:/data
+      - ./npm_letsencrypt:/etc/letsencrypt
+    depends_on:
+      - moodle_app
+    networks:
+      - moodle_net
+
+volumes:
+  mariadb_data:
+    external: true
+    name: moodle_project_mariadb_data
+
+networks:
+  moodle_net:
+    external: true

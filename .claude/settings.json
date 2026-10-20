@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit)",
+      "Bash(cargo check *)",
+      "Bash(curl -s -o /dev/null -w *)",
+      "Bash(tar -tzf *)",
+      "Bash(pip list*)"
+    ]
+  }
+}

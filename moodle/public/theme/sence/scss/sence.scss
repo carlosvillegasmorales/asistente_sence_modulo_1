@@ -1,0 +1,1165 @@
+// ==========================================
+// TEMA SENCE - ULTRA MODERN LMS UI
+// Inspirado en tendencias líderes (Moove, Canvas, Coursera)
+// Enfoque en: Espacio, Responsividad y Claridad
+// ==========================================
+
+// 1. VARIABLES GLOBALES (CSS CUSTOM PROPERTIES PARA FLEXIBILIDAD)
+//
+// --color-void/--color-bone-white/--color-ash-gray/--color-silver-mist siguen
+// existiendo con sus valores originales porque el login (sección 12, más
+// abajo) los usa directamente para su propio esquema negro — esa página no
+// cambia. Lo que sí cambia es el resto del sitio (Dashboard, cursos, bloques):
+// pasa de "todo flota sobre negro" a un fondo gris claro con tarjetas blancas
+// reales, así que se agregan tokens nuevos para eso en vez de reescribir los
+// que el login ya usa.
+:root {
+  --color-void: #000000;
+  --color-bone-white: #ffffff;
+  --color-ash-gray: #9a9a9a;
+  --color-silver-mist: #bdbdbd;
+  --color-electric-iris: #8052ff;
+  --color-saffron-spark: #ffb829;
+  --color-deep-verdant: #15846e;
+
+  // Tokens del sitio general (todo excepto login).
+  --color-ink: #0f172a;        // texto principal sobre fondo claro
+  --color-ink-muted: #64748b;  // texto secundario/muted sobre fondo claro
+
+  // Azul institucional SENCE/gob.cl (Pantone 301C, #0b4582) en vez del violeta
+  // genérico: el sitio general debe verse como una institución de gobierno de
+  // Chile, no como un producto SaaS cualquiera. El login (línea ~680) conserva
+  // su propio acento violeta a propósito — es un diseño distinto, no branding.
+  --color-inst-blue: #0b4582;
+  --sence-primary: var(--color-inst-blue);
+  --sence-primary-hover: #093566;
+  --sence-accent: var(--color-saffron-spark);
+  --sence-success: #10b981;
+  --sence-warning: #ffb829;
+  --sence-danger: #ef4444;
+  --sence-bg-main: #f1f4f8;
+  --sence-bg-card: #ffffff;
+  --sence-text-main: var(--color-ink);
+  --sence-text-muted: var(--color-ink-muted);
+  --sence-border-color: #e2e8f0;
+  --sence-border-radius: 20px;
+  --sence-border-radius-lg: 24px;
+  --sence-border-radius-sm: 14px;
+  --sence-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --sence-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
+  --sence-shadow-lg: 0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+  --sence-shadow-hover: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 10px 10px -5px rgba(15, 23, 42, 0.04);
+  --sence-font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sence-container-max: 1280px;
+}
+
+// 2. FUNDAMENTOS
+body {
+    background-color: var(--sence-bg-main) !important;
+    color: var(--sence-text-main) !important;
+    font-family: var(--sence-font-family) !important;
+    font-weight: 300 !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    font-weight: 600 !important;
+    letter-spacing: -0.03em !important;
+    color: var(--color-ink) !important;
+}
+
+// Los dropdowns y modales de Bootstrap siguen con fondo claro por defecto
+// sin importar el tema oscuro del body; sin este override heredan el
+// "color: var(--color-bone-white) !important" de más arriba y el texto
+// queda invisible sobre su propio fondo blanco (visto en el selector de
+// idioma y en el modal de aviso de cookies del login).
+.dropdown-menu {
+    color: #1e293b !important;
+
+    .dropdown-item, a, span {
+        color: #1e293b !important;
+
+        &:hover, &:focus {
+            background-color: #f1f5f9;
+            color: #1e293b !important;
+        }
+    }
+}
+
+.modal-content {
+    color: #1e293b !important;
+
+    .modal-title, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, p, span, div, label {
+        color: #1e293b !important;
+    }
+}
+
+// Alertas y badges de Bootstrap (mensajes de "cambios guardados", errores de
+// formulario, "oculto para estudiantes", etc.) aparecen en TODO el sitio sin
+// que el tema los toque: por defecto son cajas claras con texto oscuro,
+// pensadas para fondo blanco, y quedan rotas/ilegibles sobre negro. Se
+// reusan los 4 acentos semánticos ya definidos en :root (nunca colores
+// nuevos) para que cualquier aviso del sitio hable el mismo idioma visual
+// que el resto del tema.
+.alert {
+    border: none !important;
+    border-left: 3px solid transparent;
+    border-radius: var(--sence-border-radius-sm);
+    font-weight: 400;
+    padding: 1rem 1.25rem;
+
+    &.alert-success {
+        background-color: rgba(16, 185, 129, 0.12);
+        color: var(--sence-success);
+        border-left-color: var(--sence-success);
+    }
+    &.alert-danger, &.alert-error {
+        background-color: rgba(239, 68, 68, 0.12);
+        color: var(--sence-danger);
+        border-left-color: var(--sence-danger);
+    }
+    &.alert-warning {
+        background-color: rgba(255, 184, 41, 0.12);
+        color: var(--sence-warning);
+        border-left-color: var(--sence-warning);
+    }
+    &.alert-info {
+        background-color: rgba(11, 69, 130, 0.12);
+        color: var(--sence-primary);
+        border-left-color: var(--sence-primary);
+    }
+
+    .close, .btn-close {
+        color: inherit !important;
+        opacity: 0.6;
+
+        &:hover { opacity: 1; }
+    }
+}
+
+.badge {
+    &.bg-success { background-color: var(--sence-success) !important; }
+    &.bg-danger { background-color: var(--sence-danger) !important; }
+    &.bg-warning { background-color: var(--sence-warning) !important; color: #000 !important; }
+    &.bg-info { background-color: var(--sence-primary) !important; }
+}
+
+// Aprovechar más el espacio ensanchando el contenedor principal
+#page {
+    max-width: var(--sence-container-max);
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+// 3. BARRA DE NAVEGACIÓN
+.navbar.fixed-top, .navbar {
+    background-color: var(--sence-bg-card) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-bottom: 1px solid var(--sence-border-color) !important;
+    box-shadow: var(--sence-shadow-sm) !important;
+    padding: 1rem 2rem;
+    transition: all 0.3s ease;
+
+    .navbar-brand {
+        font-weight: 700;
+        color: var(--color-ink);
+        font-size: 1.5rem;
+        letter-spacing: -0.04em;
+
+        .logo {
+            max-height: 40px;
+        }
+    }
+
+    .nav-link {
+        color: var(--color-ink-muted) !important;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        font-size: 14px;
+        border-radius: 0;
+        padding: 0.5rem 1rem !important;
+        margin: 0 0.5rem;
+        transition: color 0.2s;
+
+        &:hover, &:focus {
+            color: var(--color-ink) !important;
+            background-color: transparent !important;
+        }
+        &.active {
+            color: var(--sence-primary) !important;
+            background-color: transparent !important;
+        }
+    }
+}
+
+// 4. ESTRUCTURA Y BLOQUES (Aprovechamiento del Espacio)
+//
+// El fondo de página ahora es gris claro (--sence-bg-main), así que una
+// tarjeta blanca (#region-main-box, .block, .card, el header de la página)
+// se lee como una superficie real, no como un bug — se dejó de perseguir
+// cada elemento para forzarlo a transparente; en su lugar se les da la
+// tarjeta blanca real que ya intentaban ser por defecto.
+#region-main-box {
+    padding-top: 1.5rem;
+}
+
+// Drawers (Barras laterales)
+.drawer {
+    background-color: var(--sence-bg-card) !important;
+    border-right: 1px solid var(--sence-border-color) !important;
+    box-shadow: var(--sence-shadow-lg) !important;
+
+    .list-group-item {
+        border: none;
+        background-color: transparent;
+        border-radius: var(--sence-border-radius-sm);
+        margin: 0.2rem 0.8rem;
+        padding: 0.6rem 1rem;
+        color: var(--color-ink-muted);
+        font-weight: 500;
+
+        &:hover {
+            background-color: var(--sence-bg-main);
+            color: var(--color-ink);
+        }
+        &.active {
+            background-color: rgba(128, 82, 255, 0.1);
+            color: var(--sence-primary);
+            font-weight: 600;
+        }
+    }
+}
+
+// Bloques estandarizados: tarjetas blancas reales con borde suave y sombra,
+// en vez de completamente transparentes.
+.block, .card {
+    background-color: var(--sence-bg-card) !important;
+    border: 1px solid var(--sence-border-color) !important;
+    border-radius: var(--sence-border-radius) !important;
+    box-shadow: var(--sence-shadow-sm) !important;
+    margin-bottom: 1.5rem;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+    &:hover {
+        box-shadow: var(--sence-shadow) !important;
+    }
+
+    .card-header, .block-header {
+        background-color: transparent !important;
+        border-bottom: 1px solid var(--sence-border-color) !important;
+        padding: 1.25rem 1.5rem !important;
+
+        .card-title, h5 {
+            font-weight: 600 !important;
+            color: var(--color-ink) !important;
+            margin: 0;
+            font-size: 1.1rem !important;
+            letter-spacing: -0.02em !important;
+        }
+    }
+    .card-body {
+        padding: 1.5rem !important;
+        color: var(--color-ink-muted) !important;
+    }
+}
+
+// El body usa font-weight: 200 globalmente (bien para párrafos largos), pero
+// eso deja los controles de filtro del Área Personal (TODOS / ORDENAR POR /
+// TARJETA / buscador) leyéndose débiles para ser elementos interactivos,
+// distinto del peso 600 que ya usan .btn y .nav-link. Los igualamos aquí,
+// acotado a la página del Dashboard para no afectar otras pantallas.
+#page-my-index {
+    .dropdown-toggle,
+    select,
+    .form-control {
+        font-weight: 500 !important;
+    }
+}
+
+// 5. (histórico) Este bloque apuntaba a .dashboard-card-deck/.dashboard-card,
+// clases de una iteración anterior del grid de cursos que ningún template usa
+// hoy — el mustache real (core_course/coursecard.mustache) renderiza
+// .course-card-modern (ver sección 11 más abajo, donde se aplican estos
+// mismos valores: transparente, bone-white 24px/400, silver-mist, barra de
+// progreso índigo). Se elimina para no tener dos sistemas de tarjeta compitiendo.
+
+// 6. BOTONES E INTERACCIONES
+.btn {
+    border-radius: 24px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    letter-spacing: 0.025em !important;
+    text-transform: uppercase !important;
+    padding: 14.4px 16px !important;
+    transition: all 0.2s ease !important;
+    background-color: transparent !important;
+    color: var(--color-ink-muted) !important;
+    border: none !important;
+
+    &:hover {
+        color: var(--color-ink) !important;
+    }
+
+    &.btn-primary {
+        background-color: var(--sence-primary) !important;
+        color: var(--color-bone-white) !important;
+        box-shadow: var(--sence-shadow-sm) !important;
+
+        &:hover, &:focus {
+            background-color: var(--sence-primary-hover) !important;
+            transform: translateY(-1px);
+            box-shadow: var(--sence-shadow) !important;
+        }
+        &:active {
+            transform: none !important;
+        }
+    }
+
+    &.btn-outline-secondary {
+        border: 1px solid var(--sence-border-color) !important;
+        color: var(--color-ink-muted) !important;
+
+        &:hover {
+            background-color: var(--sence-bg-main) !important;
+            color: var(--color-ink) !important;
+            text-decoration: none !important;
+        }
+    }
+
+    &.btn-ai {
+        background-color: var(--sence-primary) !important;
+        background: var(--sence-primary) !important;
+        color: var(--color-bone-white) !important;
+        border: none !important;
+        box-shadow: var(--sence-shadow-sm) !important;
+
+        &::before {
+            display: none !important;
+        }
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--sence-shadow) !important;
+            background-color: var(--sence-primary-hover) !important;
+        }
+
+        i.icon {
+            margin-right: 0.5rem;
+            color: var(--color-bone-white) !important;
+        }
+    }
+}
+
+// 7. INPUTS Y FORMULARIOS
+.form-control, .custom-select {
+    border-radius: var(--sence-border-radius-sm);
+    border: 1px solid var(--sence-border-color);
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    background-color: #f8fafc;
+    transition: all 0.2s ease;
+
+    &:focus {
+        background-color: #ffffff;
+        border-color: var(--sence-primary);
+        box-shadow: 0 0 0 3px rgba(11, 69, 130, 0.15);
+    }
+}
+
+// 8. SCROLLBAR INVISIBLE/ESTILIZADO PARA LIMPIEZA
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    // Antes usaba grises de Tailwind (#cbd5e1/#94a3b8) que no pertenecen a la
+    // paleta de la marca, y además el hover quedaba MÁS oscuro que el reposo
+    // (al revés de lo esperado: el hover debería destacar, no apagarse).
+    background: var(--color-ash-gray);
+    border-radius: 10px;
+
+    &:hover {
+        background: var(--color-silver-mist);
+    }
+}
+
+// 9. RESPONSIVIDAD EXTREMA (MEDIA QUERIES)
+@media (max-width: 768px) {
+    .navbar.fixed-top {
+        padding: 0.5rem;
+    }
+
+    #page {
+        padding: 0; // Bordes a borde en móvil
+    }
+
+    .block, .card {
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+    }
+}
+
+// ==========================================
+// 10. HERO BANNER DE CURSO (COURSE.PHP / MUSTACHE)
+// ==========================================
+.sence-course-hero {
+    position: relative;
+    border-radius: var(--sence-border-radius-lg);
+    overflow: hidden;
+    margin-bottom: 2rem;
+    // Antes usaba var(--sence-text-main), que es blanco-hueso — el respaldo
+    // de un hero oscuro terminaba siendo blanco si la imagen no cargaba.
+    background-color: var(--color-void);
+    color: white;
+    box-shadow: var(--sence-shadow-lg);
+
+    .hero-bg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.4;
+        transition: opacity 0.5s ease;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        padding: 4rem 2rem;
+        // Antes rgba(15,23,42,...) — slate-900, un negro distinto al void
+        // real (#000000) de la marca. Incluso al 95%/60% de opacidad sobre
+        // negro puro la diferencia de tono se nota en el degradado.
+        background: linear-gradient(90deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 100%);
+        color: white;
+
+        .badge {
+            background-color: var(--sence-accent);
+            color: white !important;
+            font-size: 0.85rem;
+            padding: 0.4em 0.8em;
+            border-radius: 20px;
+            margin-bottom: 1rem;
+        }
+
+        #page & h1, & > h1, .h1 {
+            color: white !important;
+            font-size: 2.5rem !important;
+            font-weight: 800 !important;
+            line-height: 1.2 !important;
+            margin-bottom: 0.5rem !important;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.8) !important;
+        }
+
+        .teacher-info {
+            display: flex;
+            align-items: center;
+            margin-top: 1.5rem;
+            color: rgba(255, 255, 255, 0.95) !important;
+
+            span {
+                color: white !important;
+            }
+
+            .avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background-color: var(--sence-primary);
+                color: white !important;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                margin-right: 1rem;
+            }
+        }
+    }
+}
+
+@media (max-width: 768px) {
+    .sence-course-hero {
+        border-radius: 0;
+
+        .hero-content {
+            padding: 2.5rem 1.5rem;
+
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    }
+}
+
+/*
+ * ----------------------------------------------------
+ * TARJETAS DE CURSO (Área Personal / catálogo)
+ * Tarjeta blanca real (igual que .block/.card más arriba): imagen arriba con
+ * esquinas redondeadas solo en las puntas superiores, cuerpo con texto
+ * oscuro abajo, sombra suave. El acento violeta aparece en el hover del
+ * nombre y como resplandor de la imagen.
+ * ----------------------------------------------------
+ */
+.course-card-modern {
+    border: 1px solid var(--sence-border-color);
+    border-radius: var(--sence-border-radius);
+    box-shadow: var(--sence-shadow-sm);
+    background: var(--sence-bg-card);
+    overflow: hidden;
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
+    height: 100%;
+
+    &:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--sence-shadow-hover);
+
+        .card-img-modern {
+            transform: scale(1.05);
+        }
+    }
+
+    .card-img-wrapper {
+        position: relative;
+        width: 100%;
+        padding-top: 56.25%; /* 16:9 Aspect Ratio */
+        overflow: hidden;
+        background-color: #eef0f4; // evita destello blanco mientras la imagen carga (lazy)
+        transition: box-shadow 0.3s ease;
+
+        .card-img-modern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .img-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            // Los banners de curso autogenerados por Moodle vienen en colores
+            // aleatorios (azul, verde, gris, naranja, rosa) sin relación con la
+            // marca. Este degradado con tinte azul institucional (--color-inst-blue)
+            // se aplica sobre cualquier imagen para que el grid de cursos se
+            // sienta parte del mismo sistema visual, y de paso sigue dando
+            // contraste para el badge y el degradado oscuro inferior.
+            background: linear-gradient(to bottom, rgba(11, 69, 130, 0.35) 0%, rgba(0, 0, 0, 0.1) 45%, rgba(0, 0, 0, 0.55) 100%);
+            z-index: 1;
+        }
+
+        .category-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 2;
+            // Chip sólido (no translúcido): el color del banner de atrás nunca
+            // se filtra, así que el badge se ve igual en todas las tarjetas
+            // sin importar el color autogenerado detrás. Blanco + texto ink
+            // para que combine con el resto del rediseño claro (cards, navbar)
+            // en vez de ser el único elemento oscuro flotando en la página.
+            background: var(--color-bone-white);
+            color: var(--color-ink);
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.06);
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+    }
+
+    .card-body-modern {
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+
+        .coursename {
+            font-size: 1.25rem;
+            font-weight: 600 !important;
+            color: var(--color-ink);
+            letter-spacing: -0.02em;
+            line-height: 1.3;
+            margin-bottom: 0.5rem;
+            text-decoration: none;
+
+            &:hover {
+                color: var(--sence-primary);
+                text-decoration: none;
+            }
+        }
+
+        .course-summary-modern {
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: var(--color-ink-muted);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+    }
+
+    .card-footer-modern {
+        margin-top: auto;
+        padding: 1rem 1.25rem;
+        border-top: 1px solid var(--sence-border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        // El menú de acciones del curso (los "⋮") es un botón/dropdown de
+        // Bootstrap sin clase .btn, así que hereda su fondo blanco por
+        // defecto en vez del tratamiento fantasma del resto del tema.
+        a, button {
+            background-color: transparent !important;
+            border: none !important;
+            color: var(--color-ink-muted) !important;
+
+            &:hover, &:focus {
+                background-color: var(--sence-bg-main) !important;
+                color: var(--color-ink) !important;
+            }
+        }
+
+        .progress {
+            height: 4px;
+            border-radius: 2px;
+            background-color: var(--sence-bg-main);
+
+            .progress-bar {
+                background-color: var(--sence-primary);
+                border-radius: 2px;
+            }
+        }
+    }
+}
+
+// ==========================================
+// 12. PÁGINA DE LOGIN — reskin completo con la referencia de estilo "Dala"
+// (escenario negro-vacío con un único acento violeta saturado y chispas de
+// ámbar; tipografía monolítica sin peso —400 en headings grandes, 200
+// ultra-light en body—; CERO contenedores: nada de cajas, bordes ni sombras,
+// todo flota sobre el negro solo con whitespace). Sustituto de PPNeueMontreal
+// (fuente custom no disponible): Inter. Radios: 9999px en botones/tags
+// únicamente —no hay "cards" a las que darles radio—. Se mantiene el split de
+// 2 columnas nativo de theme_boost (panel izquierdo oculto en mobile vía
+// d-none/d-lg-flex).
+// ==========================================
+// Alias cortos de los mismos tokens de :root (sección 1) — antes esta sección
+// redefinía sus propios valores hex duplicados; si la marca cambiaba un
+// color, había que actualizarlo en dos lugares y podían desincronizarse.
+$login-void: var(--color-void);       // canvas: todo el fondo de la página
+$login-white: var(--color-bone-white); // headings, texto activo, botón primario
+$login-ash: var(--color-ash-gray);     // texto muted, ghost links en reposo
+$login-silver: var(--color-silver-mist); // texto terciario/soporte
+$login-violet: var(--color-electric-iris); // único color de acción saturado
+$login-violet-hover: #6f3fe0; // hover propio del login, ya no ligado a --sence-primary-hover (ahora azul institucional)
+$login-amber: var(--color-saffron-spark); // acento de énfasis (labels, no botones)
+$login-verdant: var(--color-deep-verdant); // trazo secundario muy puntual (partículas)
+
+body.pagelayout-login {
+    // El tema fija sitewide "body { background: var(--sence-bg-main) }" (claro)
+    // y "#page { max-width: 1440px; margin: 0 auto }" (sección 2, línea ~33) —
+    // ninguna de las dos está pensada para el login. Sin este override, fuera
+    // de los 1440px centrales queda expuesto el fondo claro original: por eso
+    // se veía una franja gris/blanca a los costados en vez de negro completo.
+    background-color: $login-void !important;
+
+    #page {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background-color: $login-void;
+    }
+
+    .login-layout-left {
+        // Como la referencia (dala.craftedbygc.com): todo el panel cabe en
+        // un viewport, sin scroll hacia abajo. Con "height:auto;
+        // min-height:100vh" el panel podía crecer más alto que la pantalla
+        // si el spacer de la figura (ver additionalhtmlfooter) sumado al
+        // texto superaba 100vh, forzando scroll en toda la página. Ahora es
+        // altura fija + overflow oculto, y el JS calcula el radio de la
+        // figura en función de esa altura disponible (no solo del ancho)
+        // para que title+párrafo+chip+figura siempre quepan sin recortarse.
+        position: relative;
+        height: 100vh;
+        overflow: hidden;
+        background: $login-void !important;
+
+        // theme_boost centra "login-layout-left-content" en el panel
+        // (align-items+justify-content: center). Anclar el texto arriba
+        // (flex-start) evitaba que la figura lo tapara, pero dejaba un
+        // vacío grande entre el texto y la figura en viewports altos,
+        // porque el padding superior es fijo mientras la figura se ubica
+        // a una fracción de la altura del panel. Se vuelve a centrar
+        // verticalmente el bloque de texto (align-items: center) — la
+        // posición de la figura ya no se calcula como fracción fija de la
+        // altura, sino leyendo en JS dónde termina realmente el texto
+        // (ver additionalhtmlfooter), así ambos quedan bien repartidos sin
+        // importar la altura del panel ni el largo del texto.
+        align-items: center;
+        justify-content: flex-start;
+        padding: 3rem 3.5rem;
+
+        &::after {
+            // theme_boost inyecta el watermark "imagen generada por IA" con el
+            // selector "#page .login-layout-left::after" (con #page), que
+            // tiene más especificidad que la nuestra sin !important; forzamos
+            // con !important para que gane sin importar el orden de compilación.
+            content: none !important;
+        }
+
+        // Scrim de legibilidad: el campo de partículas es denso y brillante
+        // justo donde vive el texto, así que oscurecemos ese lado (izquierda)
+        // y dejamos que las partículas se vean con más fuerza hacia la
+        // derecha, donde no compiten con ninguna letra. Se apoya entre el
+        // canvas (z-index 0) y el contenido de texto (z-index 2).
+        &::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.32) 42%, rgba(0, 0, 0, 0.05) 68%, transparent 85%);
+            pointer-events: none;
+        }
+
+        // Dala usa una nube de miles de partículas triangulares formando un
+        // cerebro/esfera como imagen de marca (ver referencia real en
+        // dala.ai). Un campo de puntos estático vía box-shadow no se acerca:
+        // esto necesita rotación real. Se inyecta un <canvas> con partículas
+        // en 3D real vía JS (ver additionalhtmlfooter / sence-particles.js),
+        // que se inserta como primer hijo de este elemento en tiempo de
+        // ejecución. Este bloque solo reserva el espacio/z-index para él.
+        // Copia 2D del canvas WebGL, desenfocada y compuesta en "screen":
+        // bloom barato para que las partículas brillantes irradien luz en
+        // vez de verse planas. Va detrás del canvas nítido (z-index menor).
+        #sence-particle-glow {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            filter: blur(12px) saturate(1.4);
+            opacity: 0;
+            // El texto entra con fade+stagger (sence-login-text-in/card-in);
+            // la figura aparecía de golpe al 100%, como si no perteneciera a
+            // la misma entrada. Se suma al mismo lenguaje de movimiento.
+            animation: sence-particle-fade-in 900ms var(--ease-out-strong) 200ms both;
+        }
+
+        #sence-particle-canvas {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            animation: sence-particle-fade-in 900ms var(--ease-out-strong) 200ms both;
+            // Suaviza el grano/pixelado de los puntos individuales sin
+            // perder la silueta de la figura (blur muy sutil, no un efecto
+            // de desenfoque visible).
+            filter: blur(0.4px);
+        }
+    }
+
+    .login-layout-left-content {
+        position: relative;
+        z-index: 2;
+        max-width: 560px;
+        text-align: left;
+        background-color: transparent !important;
+        // Respaldo de nitidez además del scrim: un halo oscuro ajustado a
+        // cada letra para que el texto no se pierda si una partícula
+        // brillante pasa justo detrás mientras rota.
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 18px rgba(0, 0, 0, 0.75);
+
+        // Escala tomada directamente de dala.craftedbygc.com (t-56 a t-150
+        // según breakpoint, weight 400, line-height ~0.9-1.1, letter-spacing
+        // -0.03em): su titular domina el hero. El nuestro era 2.1-2.625rem
+        // (~34-42px), demasiado chico para transmitir esa sensación premium.
+        h1 {
+            font-family: 'Inter', var(--sence-font-family);
+            font-weight: 500;
+            letter-spacing: -0.045em;
+            font-size: clamp(3rem, 4.6vw, 4.5rem);
+            line-height: 0.98;
+            color: $login-white !important;
+            // El bug real: algo (no viene de este archivo, confirmado por
+            // grep) deja este h1 con "-webkit-text-fill-color: transparent"
+            // + "background-clip: text", así que el glyph se pinta con lo
+            // que sea que quede detrás en vez del blanco de "color" — por
+            // eso se veía gris oscuro/azulado pese a que color sí era
+            // blanco. Se fuerza de vuelta al relleno normal.
+            -webkit-text-fill-color: $login-white !important;
+            background-clip: initial !important;
+            -webkit-background-clip: initial !important;
+            background-image: none !important;
+
+            .login-accent {
+                color: $login-amber;
+            }
+        }
+
+        p, div {
+            color: $login-white;
+            font-weight: 200;
+            font-size: 1.3rem;
+            line-height: 1.5;
+        }
+
+        // "Small uppercase label above body" del Section Headline Block de
+        // Dala: en ámbar, sin fondo ni píldora, solo tracking ancho.
+        .login-ai-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            padding: 0;
+            background: none;
+            border: none;
+            border-radius: 0;
+            font-family: 'Inter', var(--sence-font-family);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: $login-amber;
+            transition: color 180ms ease;
+
+            @media (hover: hover) and (pointer: fine) {
+                &:hover {
+                    color: $login-white;
+                }
+            }
+
+            &::before {
+                content: '';
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: $login-violet;
+                box-shadow: 0 0 8px 1px rgba(128, 82, 255, 0.6);
+                flex-shrink: 0;
+                // Pulso continuo: indica estado ("asistente activo"), no es un
+                // one-shot que termine antes de que se note. Ambient, sutil.
+                animation: sence-chip-pulse 2.2s ease-in-out infinite;
+            }
+        }
+
+        // Reserva el espacio real de la figura de partículas debajo del
+        // texto (ver additionalhtmlfooter, que le fija su altura real en
+        // px según el radio calculado). Al formar parte del mismo bloque
+        // que title/párrafo/chip, "align-items: center" en .login-layout-left
+        // centra texto+figura como una sola composición, en vez de centrar
+        // solo el texto (que en paneles muy altos dejaba un hueco enorme
+        // arriba y empujaba la figura fuera de pantalla por abajo). Altura
+        // 0 por defecto: si WebGL no está disponible el JS nunca la agranda
+        // y no queda un hueco vacío sin figura que lo llene.
+        .login-figure-spacer {
+            display: block;
+            width: 100%;
+            height: 0;
+            margin-top: 48px;
+            pointer-events: none;
+        }
+    }
+
+    .login-layout-right {
+        background-color: $login-void !important;
+    }
+
+    // El formulario también flota sin caja: sin fondo, sin borde, sin
+    // sombra —"elements float on black with whitespace alone".
+    .login-container {
+        background: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 2.5rem 2rem;
+        color: $login-silver;
+
+        a {
+            color: $login-white;
+        }
+    }
+
+    .loginform {
+        .login-heading {
+            font-family: 'Inter', var(--sence-font-family);
+            font-weight: 500;
+            font-size: 1.6875rem;
+            letter-spacing: normal;
+            color: $login-white !important;
+            margin-bottom: 0.6rem;
+            // Mismo bug que el h1 del panel izquierdo (ver comentario ahí):
+            // fill transparente + background-clip:text dejando el glyph
+            // gris oscuro en vez de blanco.
+            -webkit-text-fill-color: $login-white !important;
+            background-clip: initial !important;
+            -webkit-background-clip: initial !important;
+            background-image: none !important;
+        }
+
+        // El global ".text-muted" (sección 2) vive fuera de
+        // "body.pagelayout-login" y nunca llega hasta acá; sin este
+        // override el subtítulo hereda el gris casi negro de Bootstrap
+        // (pensado para fondo blanco) y queda invisible sobre el canvas
+        // negro de Dala.
+        .text-muted {
+            color: $login-silver !important;
+        }
+
+        // Inputs "ghost": sin caja, solo una línea inferior —el mínimo
+        // affordance posible dentro del "no boxes, no borders" de Dala.
+        .login-form-username,
+        .login-form-password {
+            // !important porque la sección 7 (".form-control, .custom-select")
+            // ya trae fondo/borde propios sin !important, y aunque este
+            // selector es más específico, dejarlo sin !important dejó pasar
+            // el fondo claro por defecto en vivo (input blanco sólido en vez
+            // del ghost-underline esperado) — se fuerza para que nunca dependa
+            // de la guerra de especificidad con Bootstrap.
+            .form-control {
+                border-radius: 0 !important;
+                padding: 0.65rem 0;
+                font-size: 1rem;
+                font-weight: 200;
+                border: none !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+                background-color: transparent !important;
+                color: $login-white !important;
+
+                // El placeholder no hereda "color" del input; sin esto usa
+                // el gris por defecto del navegador (pensado para fondo
+                // blanco) y también queda casi invisible sobre negro.
+                &::placeholder {
+                    color: $login-ash !important;
+                    opacity: 1;
+                }
+            }
+        }
+
+        .form-control:focus {
+            outline: none;
+            box-shadow: none !important;
+            background-color: transparent !important;
+            border-bottom-color: $login-violet !important;
+        }
+
+        // Primary Action Button de Dala: la única píldora violeta saturada
+        // de la página —"Do not place multiple filled buttons in proximity".
+        #loginbtn {
+            width: 100%;
+            padding: 0.9rem 1.2rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+            text-transform: uppercase;
+            border-radius: 9999px;
+            background-color: $login-violet;
+            border: none;
+            color: #ffffff;
+
+            &:hover {
+                background-color: $login-violet-hover;
+            }
+
+            &:focus-visible {
+                outline: 2px solid $login-white;
+                outline-offset: 2px;
+            }
+        }
+
+        // La clase va directo en el <a> (loginform.mustache), no en un
+        // contenedor —el selector anterior ".login-form-forgotpassword a"
+        // nunca hacía match y el link quedaba sin estilo propio.
+        a.login-form-forgotpassword {
+            color: $login-silver;
+            font-weight: 400;
+            font-size: 0.8rem;
+            letter-spacing: 0.02em;
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+
+            &:hover {
+                color: $login-white;
+                border-bottom-color: rgba(255, 255, 255, 0.4);
+            }
+        }
+
+        .login-divider {
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            margin: 1.5rem 0;
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+            -webkit-text-fill-color: $login-white;
+            -webkit-box-shadow: 0 0 0 1000px $login-void inset;
+            box-shadow: 0 0 0 1000px $login-void inset;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+    }
+}
+
+// ==========================================
+// 13. ANIMACIONES DEL LOGIN (filosofía de Emil Kowalski)
+// Curvas custom (ease-out reforzado, no el ease-in/ease-out planos de CSS),
+// duraciones cortas (<300ms para UI, algo más para la entrada de página, que
+// es "ocasional"), nada arranca desde scale(0), y todo respeta
+// prefers-reduced-motion.
+// ==========================================
+body.pagelayout-login {
+    --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+
+    // --- Entrada de página: título y tarjeta aparecen con fade + desplazamiento
+    // corto, no con un scale. La tarjeta entra un poco después del título
+    // (stagger), para que se lea como una secuencia, no como un flash.
+    .login-layout-left-content {
+        animation: sence-login-text-in 550ms var(--ease-out-strong) both;
+    }
+
+    .login-container {
+        animation: sence-login-card-in 550ms var(--ease-out-strong) 90ms both;
+        transition: transform 220ms var(--ease-out-strong);
+
+        // Dala no usa sombras ni contenedores para jerarquía; el hover se
+        // siente solo con un leve levantamiento del texto/bloque.
+        // Gated a dispositivos con hover real para no disparar falsos
+        // positivos en touch.
+        @media (hover: hover) and (pointer: fine) {
+            &:hover {
+                transform: translateY(-3px);
+            }
+        }
+    }
+
+    // --- Feedback de los controles dentro de la tarjeta ---
+    .loginform {
+        .form-control {
+            // El tema ya trae "transition: all 0.2s ease" (sección 7); aquí lo
+            // acotamos a las propiedades reales que cambian, más rápido.
+            transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+        }
+
+        #loginbtn {
+            transition: transform 160ms ease-out, background-color 180ms ease, box-shadow 180ms ease;
+
+            &:active {
+                transform: scale(0.97);
+            }
+        }
+
+        a.login-form-forgotpassword {
+            transition: color 150ms ease;
+        }
+    }
+
+    // --- Modal de aviso de cookies: Bootstrap por defecto anima con un
+    // translateY plano; lo cambiamos por scale + opacity (los modales se
+    // quedan centrados, no origin-aware como un popover) con nuestra curva.
+    .modal.fade .modal-dialog {
+        transition: transform 220ms var(--ease-out-strong), opacity 220ms var(--ease-out-strong);
+        transform: scale(0.95);
+        opacity: 0;
+    }
+
+    .modal.show .modal-dialog {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes sence-particle-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes sence-login-text-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes sence-login-card-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes sence-chip-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        // Es el único elemento que se mueve todo el tiempo mientras el
+        // usuario escribe sus credenciales; un pulso del 35% de escala es
+        // demasiado enérgico para algo siempre visible en la periferia.
+        transform: scale(1.15);
+        opacity: 0.75;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.pagelayout-login {
+        .login-layout-left-content,
+        .login-container {
+            animation: none;
+        }
+
+        .login-container:hover {
+            transform: none;
+        }
+
+        .login-ai-chip {
+            &:hover {
+                transform: none;
+            }
+
+            &::before {
+                animation: none;
+            }
+        }
+
+        .loginform #loginbtn:active {
+            transform: none;
+        }
+
+        .modal.fade .modal-dialog {
+            transition: opacity 150ms ease;
+            transform: none;
+        }
+    }
+}

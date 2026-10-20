@@ -1,0 +1,35 @@
+<?php  // Moodle configuration file (desarrollo local) — PLANTILLA: copiar como config.php.
+// config.php está en .gitignore: lleva la clave de tu base local.
+
+unset($CFG);
+global $CFG;
+$CFG = new stdClass();
+
+$CFG->dbtype    = 'mariadb';
+$CFG->dblibrary = 'native';
+$CFG->dbhost    = '127.0.0.1';
+$CFG->dbname    = 'moodle';
+$CFG->dbuser    = 'root';
+$CFG->dbpass    = '';  // la del MariaDB portable local (env/)
+$CFG->prefix    = 'mdl_';
+$CFG->dboptions = array (
+  'dbpersist' => 0,
+  'dbport' => 3307,
+  'dbsocket' => '',
+  'dbcollation' => 'utf8mb4_unicode_ci',
+);
+
+$CFG->wwwroot   = 'http://localhost:8000';
+$CFG->dataroot = __DIR__ . '/../env/moodledata';
+$CFG->admin     = 'admin';
+$CFG->themedesignermode = true; // Habilitado para forzar la actualización de JS y CSS
+$CFG->cachejs = false; // Deshabilitado para desarrollo
+$CFG->debug = 0; // Disable debugging to save resources
+$CFG->debugdisplay = 0;
+
+$CFG->directorypermissions = 02777;
+
+require_once(__DIR__ . '/lib/setup.php');
+
+// There is no php closing tag in this file,
+// it is intentional because it prevents trailing whitespace problems!

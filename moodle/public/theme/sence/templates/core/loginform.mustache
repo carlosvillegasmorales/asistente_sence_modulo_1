@@ -1,0 +1,168 @@
+{{!
+    @template core/loginform
+    Moodle template for the login page, customized for Refero/Sence theme.
+}}
+<div class="loginform">
+    {{! We removed the logo from here because it's in the left panel now }}
+    <h1 class="h2 login-heading">{{#str}}loginwelcomeback{{/str}}</h1>
+    <p class="text-muted mb-4">{{#str}} loginto, core, {{sitename}} {{/str}}</p>
+    {{#maintenance}}
+        <div class="alert alert-danger login-maintenance">
+            {{{maintenance}}}
+        </div>
+    {{/maintenance}}
+    {{#error}}
+        <div class="alert alert-danger" id="loginerrormessage" role="alert">
+            {{#errortitle}}<strong class="d-block mb-1">{{errortitle}}</strong>{{/errortitle}}
+            {{error}}
+        </div>
+    {{/error}}
+    {{#info}}
+        <div class="alert alert-info" id="logininfomessage" role="status">{{info}}</div>
+    {{/info}}
+    {{#showloginform}}
+        <form class="login-form" action="{{loginurl}}" method="post" id="login">
+            <input id="anchor" type="hidden" name="anchor" value="">
+            <script>document.getElementById('anchor').value = location.hash;</script>
+            <input type="hidden" name="logintoken" value="{{logintoken}}">
+            <div class="login-form-username mb-3">
+                <label for="username" class="form-label">
+                    {{^canloginbyemail}}{{#str}} username {{/str}}{{/canloginbyemail}}
+                    {{#canloginbyemail}}{{#str}} usernameemail {{/str}}{{/canloginbyemail}}
+                </label>
+                <input type="text" name="username" id="username" class="form-control" value="{{username}}" placeholder="{{^canloginbyemail}}{{#str}}enterusername{{/str}}{{/canloginbyemail}}{{#canloginbyemail}}{{#str}}loginenterusernameoremail{{/str}}{{/canloginbyemail}}" autocomplete="username">
+            </div>
+            <div class="login-form-password mb-3">
+                <label for="password" class="form-label">{{#str}} password {{/str}}</label>
+                <input type="password" name="password" id="password" value="" class="form-control" placeholder="{{#str}}loginenterpassword{{/str}}" autocomplete="current-password">
+            </div>
+            <div class="text-end mb-3">
+                <a href="{{forgotpasswordurl}}" class="login-form-forgotpassword">{{#str}}loginforgotpassword{{/str}}</a>
+            </div>
+            {{#recaptcha}}
+                <div class="login-form-recaptcha mb-3">
+                    {{{recaptcha}}}
+                </div>
+            {{/recaptcha}}
+            <div class="login-form-submit mb-3">
+                <button class="btn btn-primary w-100" type="submit" id="loginbtn">{{#str}}login{{/str}}</button>
+            </div>
+        </form>
+    {{/showloginform}}
+    {{#hasauthinstructions}}
+        <div class="d-lg-none small mb-3">
+            {{{instructions}}}
+        </div>
+    {{/hasauthinstructions}}
+    {{^hasauthinstructions}}
+        {{#cansignup}}
+            <div class="text-center small mb-3">
+                {{#instructions}}
+                    <span class="text-muted me-1">{{{instructions}}}</span>
+                {{/instructions}}
+                <a href="{{signupurl}}">{{#str}}loginstartsignup{{/str}}</a>
+            </div>
+        {{/cansignup}}
+        {{^cansignup}}
+            {{#instructions}}
+                <p class="small mb-3">{{{instructions}}}</p>
+            {{/instructions}}
+        {{/cansignup}}
+    {{/hasauthinstructions}}
+    {{#hasauthinstructions}}
+        {{#cansignup}}
+            <div class="text-center small mb-3">
+                <a href="{{signupurl}}">{{#str}}loginstartsignup{{/str}}</a>
+            </div>
+        {{/cansignup}}
+    {{/hasauthinstructions}}
+    {{#hasidentityproviders}}
+        <div class="login-separator login-divider my-5">{{#str}}loginseparatoror{{/str}}</div>
+    {{/hasidentityproviders}}
+    {{^hasidentityproviders}}
+        {{#canloginasguest}}
+            <div class="login-separator login-divider my-5">{{#str}}loginseparatoror{{/str}}</div>
+        {{/canloginasguest}}
+    {{/hasidentityproviders}}
+    {{#hasidentityproviders}}
+        <div class="login-identityproviders">
+            {{#identityproviders}}
+                <a class="btn login-identityprovider-btn btn-outline-secondary mb-3 w-100 text-start" href="{{url}}">
+                    {{#iconurl}}
+                        <img src="{{iconurl}}" alt="" width="24" height="24" class="me-2"/>
+                    {{/iconurl}}
+                    {{#str}}loginwith, core, {{name}}{{/str}}
+                </a>
+            {{/identityproviders}}
+        </div>
+    {{/hasidentityproviders}}
+    {{#canloginasguest}}
+        <form action="{{loginurl}}" method="post" id="guestlogin" class="mb-4">
+            <input type="hidden" name="logintoken" value="{{logintoken}}">
+            <input type="hidden" name="username" value="guest" />
+            <input type="hidden" name="password" value="guest" />
+            <button class="btn btn-outline-secondary login-identityprovider-btn w-100 text-start" type="submit" id="loginguestbtn"><i class="fa fa-user me-2" aria-hidden="true"></i>{{#str}}loginasguest{{/str}}</button>
+        </form>
+    {{/canloginasguest}}
+    {{#languagemenu}}
+        <div class="login-languagemenu d-flex justify-content-center my-5">
+            {{>core/action_menu}}
+        </div>
+    {{/languagemenu}}
+    <div class="login-cookiesnotice text-center mt-4">
+        <button type="button" class="btn btn-link p-0 text-muted" data-modal="alert" data-modal-title-str='["cookiesenabled", "core"]' data-modal-content-str='["cookiesenabled_help_html", "core"]'>{{#str}}cookiesnotice{{/str}}</button>
+    </div>
+</div>
+
+{{#js}}
+    {{^error}}
+        {{#autofocusform}}
+            require(['core_form/events'], function(FormEvent) {
+                function autoFocus() {
+                    const userNameField = document.getElementById('username');
+                    const passwordField = document.getElementById('password');
+                    if (userNameField && userNameField.value.length == 0) {
+                        userNameField.focus();
+                    } else if (passwordField) {
+                        passwordField.focus();
+                    }
+                }
+                autoFocus();
+                window.addEventListener(FormEvent.eventTypes.fieldStructureChanged, autoFocus);
+            });
+        {{/autofocusform}}
+    {{/error}}
+    require(['core/pending'], function(Pending) {
+        const errorMessageDiv = document.getElementById('loginerrormessage');
+        const infoMessageDiv = document.getElementById('logininfomessage');
+        const errorMessage = errorMessageDiv?.textContent.trim();
+        const infoMessage = infoMessageDiv?.textContent.trim();
+        if (errorMessage || infoMessage) {
+            const pendingJS = new Pending('login-move-focus');
+            const usernameField = document.getElementById('username');
+            setTimeout(function() {
+                if (errorMessage && usernameField) {
+                    usernameField.focus();
+                }
+                if (errorMessage) {
+                    errorMessageDiv.innerHTML += "&nbsp;";
+                }
+                if (infoMessage) {
+                    infoMessageDiv.innerHTML += "&nbsp;";
+                }
+                pendingJS.resolve();
+            }, 500);
+        }
+    });
+    {{#togglepassword}}
+        require(['core/togglesensitive'], function(ToggleSensitive) {
+            ToggleSensitive.init("password", {{smallscreensonly}});
+        });
+    {{/togglepassword}}
+    require(['core_form/submit'], function(Submit) {
+        Submit.init("loginbtn");
+        {{#canloginasguest}}
+            Submit.init("loginguestbtn");
+        {{/canloginasguest}}
+    });
+{{/js}}

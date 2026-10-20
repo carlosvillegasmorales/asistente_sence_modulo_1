@@ -1,0 +1,295 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template theme_boost/drawers
+
+    Boost drawer template.
+
+    Context variables required for this template:
+    * sitename - The name of the site
+    * output - The core renderer for the page
+    * bodyattributes - attributes for the body tag as a string of html attributes
+    * sidepreblocks - HTML for the blocks
+    * hasblocks - true if there are blocks on this page
+    * courseindexopen - true if the nav drawer should be open on page load
+    * regionmainsettingsmenu - HTML for the region main settings menu
+    * hasregionmainsettingsmenu - There is a region main settings menu on this page.
+
+    Example context (json):
+    {
+        "sitename": "Moodle",
+        "output": {
+            "doctype": "<!DOCTYPE html>",
+            "page_title": "Test page",
+            "favicon": "favicon.ico",
+            "main_content": "<h1>Headings make html validators happier</h1>"
+         },
+        "bodyattributes":"",
+        "sidepreblocks": "<h2>Blocks html goes here</h2>",
+        "hasblocks":true,
+        "courseindexopen": true,
+        "navdraweropen": false,
+        "blockdraweropen": true,
+        "regionmainsettingsmenu": "",
+        "hasregionmainsettingsmenu": false,
+        "addblockbutton": ""
+    }
+}}
+{{> theme_boost/head }}
+
+<body {{{ bodyattributes }}}>
+{{> core/local/toast/wrapper}}
+<div id="page-wrapper" class="d-print-block">
+
+    {{{ output.standard_top_of_body_html }}}
+
+    {{> theme_boost/navbar }}
+    {{#courseindex}}
+        {{< theme_boost/drawer }}
+            {{$id}}theme_boost-drawers-courseindex{{/id}}
+            {{$drawerheadercontent}}
+                {{> theme_boost/courseindexdrawercontrols}}
+            {{/drawerheadercontent}}
+            {{$drawerheading}}{{> theme_boost/courseindexdrawerheading}}{{/drawerheading}}
+            {{$drawerclasses}}drawer drawer-left {{#courseindexopen}}show{{/courseindexopen}}{{/drawerclasses}}
+            {{$drawercontent}}
+                {{{courseindex}}}
+            {{/drawercontent}}
+            {{$drawerpreferencename}}drawer-open-index{{/drawerpreferencename}}
+            {{$drawerstate}}show-drawer-left{{/drawerstate}}
+            {{$tooltipplacement}}right{{/tooltipplacement}}
+            {{$closebuttontext}}{{#str}}closecourseindex, core{{/str}}{{/closebuttontext}}
+            {{$closebuttonicon}}
+                <span class="dir-rtl-hide">{{#pix}} e/sidebar_left, core {{/pix}}</span>
+                <span class="dir-ltr-hide">{{#pix}} e/sidebar_right, core {{/pix}}</span>
+            {{/closebuttonicon}}
+        {{/ theme_boost/drawer}}
+    {{/courseindex}}
+    {{#hasblocks}}
+        {{< theme_boost/drawer }}
+            {{$id}}theme_boost-drawers-blocks{{/id}}
+            {{$drawerclasses}}drawer drawer-right{{#blockdraweropen}} show{{/blockdraweropen}}{{/drawerclasses}}
+            {{$drawercontent}}
+                <div class="d-print-none">
+                    {{{ addblockbutton }}}
+                    {{{ sidepreblocks }}}
+                </div>
+            {{/drawercontent}}
+            {{$drawerpreferencename}}drawer-open-block{{/drawerpreferencename}}
+            {{$forceopen}}{{#forceblockdraweropen}}1{{/forceblockdraweropen}}{{/forceopen}}
+            {{$drawerstate}}show-drawer-right{{/drawerstate}}
+            {{$tooltipplacement}}left{{/tooltipplacement}}
+            {{$drawercloseonresize}}1{{/drawercloseonresize}}
+            {{$closebuttontext}}{{#str}}closeblockdrawer, core{{/str}}{{/closebuttontext}}
+            {{$closebuttonicon}}
+                <span class="dir-rtl-hide">{{#pix}} e/sidebar_right, core {{/pix}}</span>
+                <span class="dir-ltr-hide">{{#pix}} e/sidebar_left, core {{/pix}}</span>
+            {{/closebuttonicon}}
+        {{/ theme_boost/drawer}}
+    {{/hasblocks}}
+    <div id="page" data-region="mainpage" data-usertour="scroller" class="drawers {{#courseindexopen}}show-drawer-left{{/courseindexopen}} {{#blockdraweropen}}show-drawer-right{{/blockdraweropen}} drag-container">
+        <div id="topofscroll" class="main-inner">
+            <div class="drawer-toggles d-flex">
+                {{#courseindex}}
+                    <div class="drawer-toggler drawer-left-toggle open-nav d-print-none">
+                        <button
+                            class="btn btn-icon icon-size-3"
+                            data-toggler="drawers"
+                            data-action="toggle"
+                            data-target="theme_boost-drawers-courseindex"
+                            data-bs-toggle="tooltip"
+                            data-bs-placement="right"
+                            title="{{#str}}opendrawerindex, core{{/str}}"
+                        >
+                            <span class="visually-hidden">{{#str}}opendrawerindex, core{{/str}}</span>
+                            <span class="dir-rtl-hide">{{#pix}} e/sidebar_left, core {{/pix}}</span>
+                            <span class="dir-ltr-hide">{{#pix}} e/sidebar_right, core {{/pix}}</span>
+                        </button>
+                    </div>
+                {{/courseindex}}
+                {{#hasblocks}}
+                    <div class="drawer-toggler drawer-right-toggle ms-auto d-print-none">
+                        <button
+                            class="btn btn-icon icon-size-3"
+                            data-toggler="drawers"
+                            data-action="toggle"
+                            data-target="theme_boost-drawers-blocks"
+                            data-bs-toggle="tooltip"
+                            data-bs-placement="right"
+                            title="{{#str}}opendrawerblocks, core{{/str}}"
+                        >
+                            <span class="visually-hidden">{{#str}}opendrawerblocks, core{{/str}}</span>
+                            <span class="dir-rtl-hide">{{#pix}} e/sidebar_right, core {{/pix}}</span>
+                            <span class="dir-ltr-hide">{{#pix}} e/sidebar_left, core {{/pix}}</span>
+                        </button>
+                    </div>
+                {{/hasblocks}}
+            </div>
+            
+            {{! --- SENCE COURSE HERO BANNER --- }}
+            <div class="sence-course-hero" style="position: relative; border-radius: 20px; overflow: hidden; margin-bottom: 2rem; background-color: #0f172a; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08);">
+                <img class="hero-bg" src="{{#sence_courseimage}}{{sence_courseimage}}{{/sence_courseimage}}{{^sence_courseimage}}/theme/sence/pix/hero_bg.jpg{{/sence_courseimage}}" alt="Course Background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.5;">
+                <div class="hero-content" style="position: relative; z-index: 2; padding: 4rem 2rem; background: linear-gradient(90deg, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.4) 100%);">
+                    {{#sence_categoryname}}
+                        <div style="background-color: #0ea5e9; color: #ffffff !important; font-size: 0.9rem; padding: 0.5em 1em; border-radius: 20px; margin-bottom: 1rem; display: inline-block; font-weight: bold; border: 1px solid rgba(255,255,255,0.3);">
+                            {{sence_categoryname}}
+                        </div>
+                    {{/sence_categoryname}}
+                    
+                    <div class="course-title-bulletproof" style="color: #ffffff !important; font-size: 3.5rem !important; font-weight: 900 !important; letter-spacing: -1px; text-shadow: 0 4px 15px rgba(0,0,0,1) !important; margin-bottom: 1.5rem; line-height: 1.1;">
+                        {{coursefullname}}
+                    </div>
+                    
+                    <div class="d-flex flex-wrap align-items-center mt-3">
+                        {{#sence_courseteacher}}
+                            <div class="teacher-info me-4" style="display: flex; align-items: center; margin-top: 1.5rem;">
+                                <div class="avatar" style="width: 40px; height: 40px; border-radius: 50%; background-color: #4338ca; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem;">
+                                    <i class="fa fa-user"></i>
+                                </div>
+                                <span style="font-weight: bold; color: #ffffff !important;">{{sence_courseteacher}}</span>
+                            </div>
+                        {{/sence_courseteacher}}
+                        
+                        <div class="progress-section d-flex align-items-center mt-3 mt-md-0">
+                            {{#sence_courseprogress}}
+                                <div class="progress me-3" style="width: 150px; height: 8px;">
+                                    <div class="progress-bar bg-success" style="width: {{sence_courseprogress}}%;"></div>
+                                </div>
+                                <span class="me-4" style="font-weight: bold; color: #ffffff !important;">{{sence_courseprogress}}%</span>
+                            {{/sence_courseprogress}}
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-primary px-4 py-2">Continuar Curso</button>
+                                <button class="btn btn-ai px-4 py-2" data-bs-toggle="modal" data-bs-target="#aiSummaryModal">
+                                    <i class="fa fa-magic"></i> Resumen IA
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{! --- END COURSE HERO BANNER --- }}
+            
+            {{#secondarymoremenu}}
+                <div class="secondary-navigation d-print-none">
+                    {{> core/moremenu}}
+                </div>
+            {{/secondarymoremenu}}
+            <div id="page-content" class="pb-3 d-print-block">
+                <div id="region-main-box">
+                    {{#hasregionmainsettingsmenu}}
+                    <div id="region-main-settings-menu" class="d-print-none">
+                        <div> {{{ regionmainsettingsmenu }}} </div>
+                    </div>
+                    {{/hasregionmainsettingsmenu}}
+                    <div id="region-main">
+
+                        {{#hasregionmainsettingsmenu}}
+                            <div class="region_main_settings_menu_proxy"></div>
+                        {{/hasregionmainsettingsmenu}}
+                        {{{ output.course_content_header }}}
+                        {{#headercontent}}
+                            {{> core/activity_header }}
+                        {{/headercontent}}
+                        {{#overflow}}
+                            <div class="container-fluid tertiary-navigation">
+                                <div class="navitem">
+                                    {{> core/tertiary_navigation_selector}}
+                                </div>
+                            </div>
+                        {{/overflow}}
+                        {{{ output.main_content }}}
+                        {{{ output.activity_navigation }}}
+                        {{{ output.course_content_footer }}}
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{> theme_boost/footer }}
+    </div>
+    {{{ output.standard_after_main_region_html }}}
+</div>
+
+{{! --- AI SUMMARY MODAL --- }}
+<div class="modal fade" id="aiSummaryModal" tabindex="-1" aria-labelledby="aiSummaryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%); color: white; border-bottom: none;">
+        <h5 class="modal-title fw-bold" id="aiSummaryModalLabel"><i class="fa fa-magic me-2"></i> Resumen Inteligente del Curso</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="aiSummaryContent" class="text-center py-4">
+            <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="text-muted fw-bold">La Inteligencia Artificial está analizando el contenido del curso...</p>
+        </div>
+      </div>
+      <div class="modal-footer border-top-0 bg-light">
+        <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{{! --- END AI SUMMARY MODAL --- }}
+
+</body>
+</html>
+{{#js}}
+M.util.js_pending('theme_boost/loader');
+require(['theme_boost/loader', 'theme_boost/drawer'], function(Loader, Drawer) {
+    Drawer.init();
+    M.util.js_complete('theme_boost/loader');
+});
+
+    document.addEventListener("DOMContentLoaded", function() {
+        var aiModal = document.getElementById('aiSummaryModal');
+        var contentDiv = document.getElementById('aiSummaryContent');
+        if (!aiModal || !contentDiv) return;
+
+        aiModal.addEventListener('show.bs.modal', function (event) {
+            // Solo generar el resumen la primera vez
+            if (contentDiv.dataset.loaded === 'true') return;
+            
+            // Mostrar estado de carga (ya está en el HTML por defecto)
+            
+            var url = M.cfg.wwwroot + '/theme/sence/ajax_summary.php?courseid={{courseid}}&t=' + Date.now();
+            
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error de red al conectar con el servidor.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        contentDiv.innerHTML = '<div class="text-start" style="font-size: 1.05rem; line-height: 1.6;">' + data.summary + '</div>';
+                        contentDiv.dataset.loaded = 'true';
+                    } else {
+                        contentDiv.innerHTML = '<div class="alert alert-danger">Error: ' + (data.error || 'No se pudo generar el resumen.') + '</div>';
+                        contentDiv.dataset.loaded = 'true';
+                    }
+                })
+                .catch(error => {
+                    contentDiv.innerHTML = '<div class="alert alert-danger">Error al solicitar el resumen o respuesta inválida del servidor.</div>';
+                    contentDiv.dataset.loaded = 'true';
+                });
+        });
+    });
+{{/js}}

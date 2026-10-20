@@ -1,0 +1,669 @@
+<?php
+namespace local_chatbot;
+
+defined('MOODLE_INTERNAL') || die();
+
+/**
+ * Indicadores iniciales del Modulo 1.
+ *
+ * El documento es explicito en dos cosas que condicionan esta clase. Primero,
+ * que los indicadores "deben medir uso y valor pedagogico, no solo cantidad de
+ * clics". Segundo, que lo que llega a gestion institucional son "datos
+ * agregados y anonimizados por perfil, dimension y uso".
+ *
+ * Por eso ningun metodo de aqui devuelve identidades: todo sale contado,
+ * promediado o distribuido. Quien necesite mirar el caso individual de una
+ * persona lo hace acompanandola, no desde un tablero.
+ */
+class analytics {
+
+    /** @var int Semanas que cubre la linea de tiempo, incluida la semana en curso. */
+    const TIMELINE_WEEKS = 12;
+
+    /**
+     * Semanas de la linea de tiempo, de la mas antigua a la actual.
+     *
+     * Cada semana se identifica por el lunes que la abre. La ventana termina
+     * en la semana en curso: lo que interesa de estos indicadores es si el
+     * modulo se esta usando ahora, no solo cuanto se uso en total.
+     *
+     * @param int $weeks
+     * @return array Marcas de tiempo del lunes de cada semana.
+     */
+    public static function timeline_weeks(int $weeks = self::TIMELINE_WEEKS): array {
+        $thisweek = strtotime('monday this week', time());
+        $result = [];
+        for ($i = $weeks - 1; $i >= 0; $i--) {
+            $result[] = $thisweek - ($i * WEEKSECS);
+        }
+        return $result;
+    }
+
+    /**
+     * Interacciones con el asistente por semana y por modo funcional.
+     *
+     * @param int $courseid
+     * @param int $weeks
+     * @return array ['weeks' => marcas de tiempo, 'series' => [modo => conteos por semana]]
+     */
+    public static function usage_timeline(int $courseid, int $weeks = self::TIMELINE_WEEKS): array {
+        global $DB;
+
+        $weekstarts = self::timeline_weeks($weeks);
+        $origin = $weekstarts[0];
+
+        $series = [];
+        foreach ([assistant::MODE_TUTOR, assistant::MODE_COACH, assistant::MODE_EVALUADOR] as $mode) {
+            $series[$mode] = array_fill(0, $weeks, 0);
+        }
+
+        $rows = $DB->get_recordset_select('local_chatbot_interaction',
+            'courseid = :courseid AND timecreated >= :origin',
+            ['courseid' => $courseid, 'origin' => $origin],
+            '', 'id, mode, timecreated');
+        foreach ($rows as $row) {
+            $bucket = (int) floor(($row->timecreated - $origin) / WEEKSECS);
+            if ($bucket >= 0 && $bucket < $weeks && isset($series[$row->mode])) {
+                $series[$row->mode][$bucket]++;
+            }
+        }
+        $rows->close();
+
+        return ['weeks' => $weekstarts, 'series' => $series];
+    }
+
+    /**
+     * Personas acumuladas en cada etapa del recorrido, semana a semana.
+     *
+     * Acumulado y no conteo semanal: la pregunta de gestion es cuanta gente
+     * lleva hecho cada hito, no cuanta lo hizo justo esa semana. Quien alcanzo
+     * el hito antes de la ventana entra en el punto de partida, para que el
+     * ultimo valor de cada linea coincida con el embudo.
+     *
+     * @param int $courseid
+     * @param int $weeks
+     * @return array ['weeks' => marcas de tiempo, 'series' => [etapa => acumulados]]
+     */
+    public static function route_timeline(int $courseid, int $weeks = self::TIMELINE_WEEKS): array {
+        global $DB;
+
+        $weekstarts = self::timeline_weeks($weeks);
+        $origin = $weekstarts[0];
+        $params = ['courseid' => $courseid];
+
+        // Primera vez que cada persona alcanza cada hito. El proyecto no guarda
+        // fecha de entrega propia, asi que se usa su ultima modificacion: es la
+        // mejor aproximacion disponible y solo desplaza el punto, no el total.
+        $milestones = [
+            'perfilamiento' => $DB->get_records_sql(
+                "SELECT userid, consenttime AS t
+                   FROM {local_chatbot_profile}
+                  WHERE courseid = :courseid AND consentaccepted = 1", $params),
+            'diagnostico' => $DB->get_records_sql(
+                "SELECT userid, MIN(timecreated) AS t
+                   FROM {local_chatbot_diag_response}
+                  WHERE courseid = :courseid AND stage = 'entrada'
+               GROUP BY userid", $params),
+            'pdp' => $DB->get_records_sql(
+                "SELECT p.userid, MIN(g.timemodified) AS t
+                   FROM {local_chatbot_pdp} p
+                   JOIN {local_chatbot_pdp_goal} g ON g.pdpid = p.id
+                  WHERE p.courseid = :courseid
+                        AND g.status IN ('aceptado', 'modificado', 'completado')
+                        AND (g.ronda IS NULL OR g.ronda = p.ronda)
+               GROUP BY p.userid", $params),
+            'proyecto' => $DB->get_records_sql(
+                "SELECT userid, timemodified AS t
+                   FROM {local_chatbot_project}
+                  WHERE courseid = :courseid AND status IN (:entregado, :evaluado)",
+                $params + ['entregado' => project::STATUS_ENTREGADO, 'evaluado' => project::STATUS_EVALUADO]),
+            'cierre' => $DB->get_records_sql(
+                "SELECT userid, MIN(timecreated) AS t
+                   FROM {local_chatbot_diag_response}
+                  WHERE courseid = :courseid AND stage = 'salida'
+               GROUP BY userid", $params),
+        ];
+
+        $series = [];
+        foreach ($milestones as $stage => $rows) {
+            $perweek = array_fill(0, $weeks, 0);
+            $before = 0;
+            foreach ($rows as $row) {
+                $time = (int) $row->t;
+                $bucket = $time > 0 ? (int) floor(($time - $origin) / WEEKSECS) : -1;
+                if ($bucket < 0) {
+                    $before++;
+                } else if ($bucket < $weeks) {
+                    $perweek[$bucket]++;
+                }
+            }
+
+            $running = $before;
+            $series[$stage] = [];
+            foreach ($perweek as $count) {
+                $running += $count;
+                $series[$stage][] = $running;
+            }
+        }
+
+        return ['weeks' => $weekstarts, 'series' => $series];
+    }
+
+    /**
+     * Embudo de avance por componente del modulo.
+     *
+     * @param int $courseid
+     * @return array Mapa etapa => cantidad de personas.
+     */
+    public static function completion_funnel(int $courseid): array {
+        global $DB;
+
+        $params = ['courseid' => $courseid];
+
+        return [
+            'perfilamiento' => $DB->count_records('local_chatbot_profile',
+                ['courseid' => $courseid, 'consentaccepted' => 1]),
+            'diagnostico' => $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT userid) FROM {local_chatbot_diag_response}
+                  WHERE courseid = :courseid AND stage = 'entrada'", $params),
+            'pdp' => $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT p.userid)
+                   FROM {local_chatbot_pdp} p
+                   JOIN {local_chatbot_pdp_goal} g ON g.pdpid = p.id
+                  WHERE p.courseid = :courseid AND g.status IN ('aceptado', 'modificado', 'completado')
+                        AND (g.ronda IS NULL OR g.ronda = p.ronda)",
+                $params),
+            'proyecto' => $DB->count_records_select('local_chatbot_project',
+                'courseid = :courseid AND status IN (:entregado, :evaluado)',
+                ['courseid' => $courseid, 'entregado' => project::STATUS_ENTREGADO,
+                 'evaluado' => project::STATUS_EVALUADO]),
+            'cierre' => $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT userid) FROM {local_chatbot_diag_response}
+                  WHERE courseid = :courseid AND stage = 'salida'", $params),
+        ];
+    }
+
+    /**
+     * Distribucion de brechas por dimension diagnostica: cuantas personas
+     * quedan en cada nivel, sin decir quienes.
+     *
+     * @param int $courseid
+     * @param string $stage
+     * @return array Filas con name, una columna por nivel de orientacion (RU-COA-NIVEL-001) y promedio del grupo.
+     */
+    public static function gap_distribution(int $courseid, string $stage = diagnostic::STAGE_ENTRADA): array {
+        global $DB;
+
+        // El nivel de cada persona se calcula con el mismo puntaje compuesto que
+        // ve ella en su matriz de brechas (RU-CALC-001). Promediar todas las
+        // respuestas juntas daria otro numero: los items situacionales guardan
+        // acierto, no puntaje de escala, y entrarian al promedio como ceros.
+        // Que el indicador agregado y la pantalla individual clasifiquen
+        // distinto a la misma persona seria peor que no tener el indicador.
+        $sql = "SELECT d.id, d.name, d.sortorder, r.userid,
+                       AVG(CASE WHEN r.kind = :kinddecl THEN r.score END) AS declarada,
+                       SUM(CASE WHEN r.kind = :kindsit AND r.iscorrect = 1 THEN 1 ELSE 0 END) AS aciertos,
+                       SUM(CASE WHEN r.kind = :kindsit2 AND r.iscorrect >= 0 THEN 1 ELSE 0 END) AS situacionales
+                  FROM {local_chatbot_diag_response} r
+                  JOIN {local_chatbot_dimension} d ON d.id = r.dimensionid
+                 WHERE r.courseid = :courseid AND r.stage = :stage
+              GROUP BY d.id, d.name, d.sortorder, r.userid
+              ORDER BY d.sortorder ASC";
+
+        $rows = $DB->get_recordset_sql($sql, [
+            'courseid' => $courseid,
+            'stage' => $stage,
+            'kinddecl' => diagnostic::KIND_DECLARATIVA,
+            'kindsit' => diagnostic::KIND_SITUACIONAL,
+            'kindsit2' => diagnostic::KIND_SITUACIONAL,
+        ]);
+
+        $bydimension = [];
+        foreach ($rows as $row) {
+            if ($row->declarada === null) {
+                // La persona solo respondio situacionales en esta dimension: sin
+                // practica declarada no hay compuesto que calcular.
+                continue;
+            }
+            if (!isset($bydimension[$row->id])) {
+                $bydimension[$row->id] = [
+                    'name' => $row->name,
+                    diagnostic::LEVEL_PRIORIDAD_ALTA => 0,
+                    diagnostic::LEVEL_EN_DESARROLLO => 0,
+                    diagnostic::LEVEL_FUNCIONAL => 0,
+                    diagnostic::LEVEL_CONSOLIDADO => 0,
+                    'suma' => 0.0,
+                    'personas' => 0,
+                ];
+            }
+
+            $situacionales = (int) $row->situacionales;
+            $proporcion = $situacionales > 0 ? ((int) $row->aciertos / $situacionales) : null;
+            $compuesto = diagnostic::composite_score((float) $row->declarada, $proporcion)['pc'];
+
+            $bydimension[$row->id][diagnostic::level_for_score($compuesto)]++;
+            $bydimension[$row->id]['suma'] += $compuesto;
+            $bydimension[$row->id]['personas']++;
+        }
+        $rows->close();
+
+        $result = [];
+        foreach ($bydimension as $entry) {
+            $entry['promedio'] = $entry['personas'] > 0
+                ? round($entry['suma'] / $entry['personas'], 2) : 0;
+            unset($entry['suma']);
+            $result[] = $entry;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Variacion entre el diagnostico de entrada y el contraste de salida, a
+     * nivel de grupo.
+     *
+     * @param int $courseid
+     * @return array Filas con name, entrada, salida y variacion.
+     */
+    public static function progress_variation(int $courseid): array {
+        $entrada = self::gap_distribution($courseid, diagnostic::STAGE_ENTRADA);
+        $salida = self::gap_distribution($courseid, diagnostic::STAGE_SALIDA);
+
+        if (empty($entrada) || empty($salida)) {
+            return [];
+        }
+
+        $salidabyname = [];
+        foreach ($salida as $row) {
+            $salidabyname[$row['name']] = $row['promedio'];
+        }
+
+        $result = [];
+        foreach ($entrada as $row) {
+            if (!isset($salidabyname[$row['name']])) {
+                continue;
+            }
+            $result[] = [
+                'name' => $row['name'],
+                'entrada' => $row['promedio'],
+                'salida' => $salidabyname[$row['name']],
+                'variacion' => round($salidabyname[$row['name']] - $row['promedio'], 2),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Que pasa con las metas que propone el asistente: cuantas se aceptan,
+     * cuantas se modifican y cuantas se descartan. Es el indicador que mide si
+     * las recomendaciones son utiles o solo abundantes.
+     *
+     * @param int $courseid
+     * @return array Mapa estado => cantidad.
+     */
+    public static function pdp_goal_outcomes(int $courseid): array {
+        global $DB;
+
+        $sql = "SELECT g.status, COUNT(g.id) AS total
+                  FROM {local_chatbot_pdp_goal} g
+                  JOIN {local_chatbot_pdp} p ON p.id = g.pdpid
+                 WHERE p.courseid = :courseid AND g.origin = :origin
+                       AND (g.ronda IS NULL OR g.ronda = p.ronda)
+              GROUP BY g.status";
+
+        $rows = $DB->get_records_sql($sql, ['courseid' => $courseid, 'origin' => pdp::ORIGIN_IA]);
+
+        // Postergado va al final para no alterar el orden de las claves que ya
+        // consume suite_export; sin el, las metas postergadas desaparecian del
+        // indicador y los totales no cuadraban con los PDP.
+        $outcomes = [
+            pdp::GOAL_PROPUESTO => 0,
+            pdp::GOAL_ACEPTADO => 0,
+            pdp::GOAL_MODIFICADO => 0,
+            pdp::GOAL_RECHAZADO => 0,
+            pdp::GOAL_COMPLETADO => 0,
+            pdp::GOAL_POSTERGADO => 0,
+        ];
+
+        foreach ($rows as $row) {
+            if (isset($outcomes[$row->status])) {
+                $outcomes[$row->status] = (int) $row->total;
+            }
+        }
+
+        return $outcomes;
+    }
+
+    /**
+     * Interacciones con el asistente por modo funcional.
+     *
+     * @param int $courseid
+     * @return array Filas con mode, total, aceptadas, rechazadas y el resto de
+     *     decisiones (modificadas, postergadas, pendientes), para que los
+     *     totales cuadren.
+     */
+    public static function interactions_by_mode(int $courseid): array {
+        global $DB;
+
+        $sql = "SELECT mode,
+                       COUNT(id) AS total,
+                       SUM(CASE WHEN useraccepted = 1 THEN 1 ELSE 0 END) AS aceptadas,
+                       SUM(CASE WHEN useraccepted = 0 THEN 1 ELSE 0 END) AS rechazadas,
+                       SUM(CASE WHEN useraccepted = 2 THEN 1 ELSE 0 END) AS modificadas,
+                       SUM(CASE WHEN useraccepted = 3 THEN 1 ELSE 0 END) AS postergadas,
+                       SUM(CASE WHEN useraccepted = -1 THEN 1 ELSE 0 END) AS pendientes
+                  FROM {local_chatbot_interaction}
+                 WHERE courseid = :courseid
+              GROUP BY mode";
+
+        $rows = $DB->get_records_sql($sql, ['courseid' => $courseid]);
+
+        $result = [];
+        foreach ($rows as $row) {
+            $result[] = [
+                'mode' => $row->mode,
+                'total' => (int) $row->total,
+                'aceptadas' => (int) $row->aceptadas,
+                'rechazadas' => (int) $row->rechazadas,
+                'modificadas' => (int) $row->modificadas,
+                'postergadas' => (int) $row->postergadas,
+                'pendientes' => (int) $row->pendientes,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Brechas persistentes tras la retroalimentacion del proyecto: en que
+     * criterios de rubrica se concentran las observaciones de mejora y cuantas
+     * veces la IA declaro que hacia falta revision humana.
+     *
+     * @param int $courseid
+     * @return array Filas con criterio, observaciones y revisionhumana.
+     */
+    public static function rubric_hotspots(int $courseid): array {
+        global $DB;
+
+        $sql = "SELECT c.id, c.code, c.name,
+                       COUNT(f.id) AS observaciones,
+                       SUM(f.needshuman) AS revisionhumana
+                  FROM {local_chatbot_project_fb} f
+                  JOIN {local_chatbot_criterion} c ON c.id = f.criterionid
+                  JOIN {local_chatbot_project} p ON p.id = f.projectid
+                 WHERE p.courseid = :courseid AND f.mejora <> :vacio
+              GROUP BY c.id, c.code, c.name
+              ORDER BY observaciones DESC";
+
+        $rows = $DB->get_records_sql($sql, ['courseid' => $courseid, 'vacio' => '']);
+
+        $result = [];
+        foreach ($rows as $row) {
+            $result[] = [
+                'criterio' => $row->code . ' · ' . $row->name,
+                'observaciones' => (int) $row->observaciones,
+                'revisionhumana' => (int) $row->revisionhumana,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Indicadores del Anexo G §11.2 (tutoria), §11.3 (desarrollo adaptativo y PDP) y §11.4
+     * (coherencia y calidad del asistente). Los nombres son los del anexo.
+     *
+     * @param int $courseid 0 = todos los cursos.
+     * @return array Con claves tutoria, desarrollo y calidad (filas [nombre, valor, definicion])
+     *     y conceptos (etiqueta => consultas).
+     */
+    public static function annex_g_indicators(int $courseid): array {
+        global $DB;
+
+        $c = $courseid > 0 ? 'courseid = :courseid' : '1 = 1';
+        $pc = $courseid > 0 ? 'p.courseid = :courseid' : '1 = 1';
+        $ac = $courseid > 0 ? 'a.courseid = :courseid' : '1 = 1';
+        $params = $courseid > 0 ? ['courseid' => $courseid] : [];
+        $pct = function(int $part, int $whole): string {
+            return $whole > 0 ? round(100 * $part / $whole) . ' % (' . $part . '/' . $whole . ')' : 'sin datos';
+        };
+        $trace = function(string $pattern) use ($DB, $c, $params): int {
+            return (int) $DB->count_records_select('local_chatbot_trace', "$c AND " . $DB->sql_like('eventcode', ':ev'),
+                $params + ['ev' => $pattern]);
+        };
+
+        // Tutoria (§11.2).
+        $activos = (int) $DB->count_records_select('local_chatbot_profile', "$c AND consentaccepted = 1", $params);
+        $contutor = (int) $DB->get_field_sql("SELECT COUNT(DISTINCT userid) FROM {local_chatbot_interaction}
+            WHERE $c AND mode = 'tutor'", $params);
+        $tutorturnos = (int) $DB->count_records_select('local_chatbot_interaction', "$c AND mode = 'tutor'", $params);
+        $conref = (int) $DB->count_records_select('local_chatbot_interaction',
+            "$c AND mode = 'tutor' AND sourcesreferred IS NOT NULL AND sourcesreferred <> ''", $params);
+        $conceptos = [];
+        foreach ($DB->get_fieldset_select('local_chatbot_interaction', 'concepttags',
+                "$c AND mode = 'tutor' AND concepttags IS NOT NULL AND concepttags <> ''", $params) as $tags) {
+            foreach (explode(',', (string) $tags) as $tag) {
+                $conceptos[$tag] = ($conceptos[$tag] ?? 0) + 1;
+            }
+        }
+        arsort($conceptos);
+        $tutoria = [
+            ['Tasa de uso de Tutor IA', $pct($contutor, $activos),
+                'Personas con al menos una interacción Tutor / personas activas'],
+            ['Solicitudes de quiz protegido', (string) $trace('EVT-IA-T-%-QUIZ-GUARD'),
+                'Eventos QUIZ-GUARD: se aplicó la regla de integridad del quiz'],
+            ['Transferencias sectoriales', (string) $trace('EVT-IA-T-%-TRANSFER'),
+                'Consultas de transferencia de la lógica de diseño a otro sector'],
+            ['Orientaciones hacia el Coach', (string) $trace('EVT-IA-T-%-COACH-REF'),
+                'Respuestas del Tutor que orientan el trabajo de metas hacia el Coach'],
+            ['Referencia a recursos', $pct($conref, $tutorturnos),
+                'Interacciones del Tutor que remiten a lectura, caso o ejemplo'],
+        ];
+
+        // Desarrollo adaptativo y PDP (§11.3).
+        $apoyos = (int) $DB->count_records_select('local_chatbot_adapt', $c, $params);
+        $iniciados = (int) $DB->count_records_select('local_chatbot_adapt', "$c AND timestarted > 0", $params);
+        $activas = (int) $DB->get_field_sql("SELECT COUNT(g.id) FROM {local_chatbot_pdp_goal} g
+            JOIN {local_chatbot_pdp} p ON p.id = g.pdpid
+            WHERE $pc AND p.status = 'validado' AND g.status IN ('aceptado', 'modificado', 'completado')
+            AND (g.ronda IS NULL OR g.ronda = p.ronda)", $params);
+        $conevidencia = (int) $DB->get_field_sql("SELECT COUNT(DISTINCT a.goalid) FROM {local_chatbot_adapt} a
+            JOIN {local_chatbot_adapt_review} r ON r.adaptid = a.id WHERE $ac", $params);
+        $revisiones = $DB->get_records_sql("SELECT r.id, r.rejected, r.reviewstatus, r.proposal, r.personconfirmed,
+            r.criteriareviewed, r.timedelivered, a.goalid, a.timegenerated
+            FROM {local_chatbot_adapt_review} r JOIN {local_chatbot_adapt} a ON a.id = r.adaptid WHERE $ac", $params);
+        $validas = array_filter($revisiones, fn($r) => !(int) $r->rejected);
+        $avance = count(array_unique(array_map(fn($r) => $r->goalid,
+            array_filter($validas, fn($r) => $r->reviewstatus === 'avance_registrado'))));
+        $profundiza = count(array_filter($validas, fn($r) => $r->reviewstatus === 'requiere_profundizacion'));
+        $cierres = array_filter($validas, fn($r) => $r->proposal === 'cerrar_meta');
+        $confirmados = count(array_filter($cierres, fn($r) => (int) $r->personconfirmed === 1));
+        $primeras = [];
+        foreach ($validas as $r) {
+            $gap = (int) $r->timedelivered - (int) $r->timegenerated;
+            if ($gap >= 0 && (!isset($primeras[$r->goalid]) || $gap < $primeras[$r->goalid])) {
+                $primeras[$r->goalid] = $gap;
+            }
+        }
+        $primeras = array_values($primeras);
+        sort($primeras);
+        $mediana = empty($primeras) ? 'sin datos'
+            : round($primeras[intdiv(count($primeras), 2)] / 3600, 1) . ' h (mediana)';
+        $desarrollo = [
+            ['Aceptación de apoyo IA', $pct($iniciados, $apoyos), 'Apoyos iniciados / apoyos propuestos'],
+            ['Tasa de evidencia conversacional', $pct($conevidencia, $activas),
+                'Metas con evidencia presentada / metas activas'],
+            ['Tasa de evidencia revisada', $pct(count($validas), count($revisiones)),
+                'Evidencias revisadas / evidencias presentadas (las bloqueadas por datos no permitidos no se revisan)'],
+            ['Tasa de avance registrado', $pct($avance, $activas), 'Metas con avance registrado / metas activas'],
+            ['Tasa de profundización', $pct($profundiza, count($validas)),
+                'Revisiones que piden profundizar / evidencias revisadas'],
+            ['Propuesta de cierre', $pct(count($cierres), count($validas)),
+                'Revisiones que proponen cierre / evidencias revisadas'],
+            ['Cierre confirmado', $pct($confirmados, count($cierres)),
+                'Cierres confirmados por la persona / propuestas de cierre'],
+            ['Tiempo a primera evidencia', $mediana, 'Desde la propuesta del apoyo hasta la primera evidencia'],
+        ];
+
+        // Coherencia y calidad IA (§11.4).
+        $sinconfirmar = (int) $DB->get_field_sql("SELECT COUNT(h.id) FROM {local_chatbot_pdp_history} h
+            JOIN {local_chatbot_pdp} p ON p.id = h.pdpid
+            WHERE $pc AND h.changetype IN ('aceptado', 'modificado', 'postergado', 'rechazado', 'completado')
+              AND h.userid <> p.userid", $params);
+        $inventados = 0;
+        foreach ($DB->get_fieldset_select('local_chatbot_trace', 'data',
+                "$c AND eventcode = 'EVT-CALIDAD-RECURSO-INVENTADO'", $params) as $json) {
+            $d = json_decode((string) $json, true);
+            $inventados += (int) ($d['cantidad'] ?? 1);
+        }
+        $coherentes = (int) $DB->count_records_select('local_chatbot_adapt',
+            "$c AND goalid > 0 AND dimensionid IS NOT NULL AND criterios IS NOT NULL AND criterios <> ''", $params);
+        $concriterio = count(array_filter($validas, fn($r) => trim((string) $r->criteriareviewed) !== ''));
+        $votos = $DB->get_records_sql_menu("SELECT f.vote, COUNT(f.id) FROM {local_chatbot_feedback} f
+            JOIN {local_chatbot_interaction} i ON i.id = f.interactionid WHERE "
+            . ($courseid > 0 ? 'i.courseid = :courseid' : '1 = 1') . " GROUP BY f.vote", $params);
+        $calidad = [
+            ['Respuestas valoradas como útiles', \local_chatbot\feedback::summary((int) ($votos[1] ?? 0), (int) ($votos[-1] ?? 0)),
+                'Votos 👍 sobre el total de valoraciones de las respuestas del asistente'],
+            ['Recursos inventados por IA', (string) $inventados,
+                'Recursos nombrados por el modelo sin código activo en el catálogo (se descartan antes de mostrarse)'],
+            ['Cambios sin confirmación', (string) $sinconfirmar,
+                'Decisiones sobre metas registradas por alguien distinto de la persona. Debe ser 0'],
+            ['Interacciones con datos no permitidos', (string) $trace('EVT-CALIDAD-DATOS-NO-PERMITIDOS'),
+                'Evidencias con datos personales de terceros, bloqueadas antes de llegar al modelo'],
+            ['Coherencia meta–actividad', $pct($coherentes, $apoyos),
+                'Apoyos con meta, dimensión y criterios de verificación registrados'],
+            ['Coherencia evidencia–meta', $pct($concriterio, count($validas)),
+                'Evidencias revisadas con criterios aplicados registrados'],
+        ];
+
+        return ['tutoria' => $tutoria, 'desarrollo' => $desarrollo, 'calidad' => $calidad,
+            'conceptos' => array_slice($conceptos, 0, 8, true)];
+    }
+
+    /**
+     * Catalogo de eventos de trazabilidad registrados, por codigo y familia.
+     *
+     * El §11 del Anexo G define indicadores derivados; esto es la capa de
+     * abajo: que se registro y cuantas veces. Es lo que permite auditar el
+     * registro sin abrir la base de datos.
+     *
+     * @param int $courseid 0 para el recorrido hecho fuera de un curso.
+     * @return array Familias en orden fijo, cada una con sus codigos y total.
+     */
+    public static function event_catalog(int $courseid): array {
+        global $DB;
+
+        $rows = $DB->get_records_sql(
+            "SELECT eventcode, COUNT(*) AS total
+               FROM {local_chatbot_trace}
+              WHERE courseid = :courseid
+           GROUP BY eventcode
+           ORDER BY total DESC, eventcode ASC", ['courseid' => $courseid]);
+
+        // La familia sale del propio codigo: IA-T son del Tutor, IA-C del
+        // Coach, PDP del plan, y el resto queda como registro del sistema.
+        $familias = [
+            'tutor' => ['label' => get_string('catalog_fam_tutor', 'local_chatbot'), 'codes' => [], 'total' => 0],
+            'coach' => ['label' => get_string('catalog_fam_coach', 'local_chatbot'), 'codes' => [], 'total' => 0],
+            'pdp' => ['label' => get_string('catalog_fam_pdp', 'local_chatbot'), 'codes' => [], 'total' => 0],
+            'sistema' => ['label' => get_string('catalog_fam_system', 'local_chatbot'), 'codes' => [], 'total' => 0],
+        ];
+        foreach ($rows as $row) {
+            $code = (string) $row->eventcode;
+            if (strpos($code, 'EVT-IA-T-') === 0) {
+                $key = 'tutor';
+            } else if (strpos($code, 'EVT-IA-C-') === 0) {
+                $key = 'coach';
+            } else if (strpos($code, 'EVT-PDP-') === 0) {
+                $key = 'pdp';
+            } else {
+                $key = 'sistema';
+            }
+            $familias[$key]['codes'][] = ['code' => $code, 'total' => (int) $row->total];
+            $familias[$key]['total'] += (int) $row->total;
+        }
+
+        return array_filter($familias, fn($f) => $f['total'] > 0);
+    }
+
+    /**
+     * Respuestas del quiz formativo por subdimension, segun el patron registrado.
+     *
+     * La tabla se llena con el observador de intentos calificados; aqui se
+     * agrega para ver donde se concentran los errores, sin exponer que
+     * respondio cada persona.
+     *
+     * @param int $courseid
+     * @return array Filas con subdimension, correctas, incorrectas y total.
+     */
+    public static function quiz_patterns(int $courseid): array {
+        global $DB;
+
+        $rows = $DB->get_records_sql(
+            "SELECT subdimension, responsestatus, COUNT(*) AS total
+               FROM {local_chatbot_quiz_pattern}
+              WHERE courseid = :courseid
+           GROUP BY subdimension, responsestatus
+           ORDER BY subdimension ASC", ['courseid' => $courseid]);
+
+        $porsub = [];
+        foreach ($rows as $row) {
+            $sub = (string) $row->subdimension;
+            if (!isset($porsub[$sub])) {
+                $porsub[$sub] = ['subdimension' => $sub, 'correctas' => 0, 'incorrectas' => 0, 'total' => 0];
+            }
+            $campo = ($row->responsestatus === 'correcta') ? 'correctas' : 'incorrectas';
+            $porsub[$sub][$campo] += (int) $row->total;
+            $porsub[$sub]['total'] += (int) $row->total;
+        }
+
+        return array_values($porsub);
+    }
+
+    /**
+     * Salud del servicio de IA: como respondio el proveedor.
+     *
+     * Sin esto, una degradacion del proveedor solo se nota porque alguien se
+     * queja. El consumo va en miles de tokens porque la cifra exacta no
+     * aporta a la decision y si estorba la lectura.
+     *
+     * @param int $courseid
+     * @return array Con claves 'estados', 'latencia' y 'tokens'.
+     */
+    public static function service_health(int $courseid): array {
+        global $DB;
+
+        $estados = [];
+        foreach ($DB->get_records_sql(
+                "SELECT status, COUNT(*) AS total
+                   FROM {local_chatbot_interaction}
+                  WHERE courseid = :courseid
+               GROUP BY status", ['courseid' => $courseid]) as $row) {
+            $estados[(string) $row->status] = (int) $row->total;
+        }
+
+        $latencia = [];
+        foreach ($DB->get_records_sql(
+                "SELECT mode, AVG(latency_ms) AS media, MAX(latency_ms) AS peor, COUNT(*) AS total
+                   FROM {local_chatbot_interaction}
+                  WHERE courseid = :courseid AND latency_ms > 0
+               GROUP BY mode
+               ORDER BY media DESC", ['courseid' => $courseid]) as $row) {
+            $latencia[] = ['mode' => (string) $row->mode, 'media' => round($row->media / 1000, 1),
+                'peor' => round($row->peor / 1000, 1), 'total' => (int) $row->total];
+        }
+
+        $tokens = $DB->get_record_sql(
+            "SELECT COALESCE(SUM(input_tokens), 0) AS entrada, COALESCE(SUM(output_tokens), 0) AS salida
+               FROM {local_chatbot_interaction}
+              WHERE courseid = :courseid", ['courseid' => $courseid]);
+
+        return [
+            'estados' => $estados,
+            'latencia' => $latencia,
+            'tokens' => ['entrada' => (int) $tokens->entrada, 'salida' => (int) $tokens->salida],
+        ];
+    }
+}

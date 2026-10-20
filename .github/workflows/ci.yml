@@ -1,0 +1,62 @@
+name: Verificación
+
+# Corre en cada push y pull request: higiene del repositorio (sin secretos) y, del plugin,
+# la sintaxis de todo el PHP y los verificadores que no necesitan base de datos.
+# verificar_puente.php y verificar_versionado.php requieren un Moodle real: se saltan solos
+# y hay que correrlos a mano contra un servidor.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  higiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sin secretos ni archivos prohibidos en el árbol
+        run: sh tools/hooks/escanear_arbol.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Los scripts de tools/ compilan
+        run: python -m compileall -q tools
+      - name: Sintaxis de los scripts de shell
+        run: |
+          for f in tools/hooks/*.sh tools/hooks/pre-commit deploy/entrypoint.sh; do sh -n "$f" || exit 1; done
+
+  plugin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: moodle/public/local/chatbot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, curl, json, xml, gd, zip, intl
+          coverage: none
+      - name: Sintaxis de todos los archivos PHP del plugin
+        run: |
+          fallo=0
+          while IFS= read -r -d '' archivo; do
+            if ! php -l "$archivo" > /tmp/lint_out 2>&1; then
+              echo "::error file=$archivo::error de sintaxis"; cat /tmp/lint_out; fallo=1
+            fi
+          done < <(find . -name "*.php" -print0)
+          exit $fallo
+        shell: bash
+      - name: Verificadores puros (sin base de datos)
+        run: |
+          fallo=0
+          for f in cli/verificar_*.php; do
+            if grep -q "config.php" "$f"; then
+              echo "::notice file=$f::se salta $(basename "$f"): necesita un Moodle con base de datos"
+              continue
+            fi
+            echo "== $(basename "$f") =="
+            php "$f" || { echo "::error file=$f::reportó fallos"; fallo=1; }
+          done
+          exit $fallo
+        shell: bash

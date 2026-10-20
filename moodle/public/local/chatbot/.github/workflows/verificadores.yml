@@ -1,0 +1,59 @@
+name: Verificadores
+
+# Corre en cada push y pull request: sintaxis PHP de todo el plugin, más los
+# verificadores que son funciones puras (no tocan base de datos, ver
+# cli/verificar_*.php). No instala Moodle en el runner, así que los dos
+# verificadores que sí requieren un Moodle real con base de datos
+# (verificar_puente.php, verificar_versionado.php) se detectan solos y se
+# saltan con un aviso — hay que seguir corriéndolos a mano contra un VPS o un
+# Moodle local antes de dar un cambio por probado si tocaste `course_bridge`,
+# `profile` o `kb_store`.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-version: ["8.3"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: mbstring, curl, json, xml, gd, zip, intl
+          coverage: none
+
+      - name: Sintaxis de todos los archivos PHP
+        run: |
+          fallo=0
+          while IFS= read -r -d '' archivo; do
+            if ! php -l "$archivo" > /tmp/lint_out 2>&1; then
+              echo "::error file=$archivo::error de sintaxis"
+              cat /tmp/lint_out
+              fallo=1
+            fi
+          done < <(find . -name "*.php" -print0)
+          exit $fallo
+
+      - name: Verificadores puros (sin base de datos)
+        run: |
+          fallo=0
+          for f in cli/verificar_*.php; do
+            nombre=$(basename "$f")
+            if grep -q "config.php" "$f"; then
+              echo "::notice file=$f::se salta $nombre, necesita un Moodle con base de datos real — correrlo a mano contra un VPS o un Moodle local"
+              continue
+            fi
+            echo "== $nombre =="
+            if ! php "$f"; then
+              echo "::error file=$f::$nombre reportó fallos"
+              fallo=1
+            fi
+          done
+          exit $fallo

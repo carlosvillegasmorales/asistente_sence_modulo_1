@@ -1,0 +1,444 @@
+{
+ "courseid": 16,
+ "users": {
+  "prueba.nueva": "1018",
+  "prueba.a": "1019",
+  "prueba.b": "1020",
+  "prueba.c": "1021",
+  "prueba.incompleta": "1022"
+ },
+ "eventos": {
+  "EVT-CALIDAD-DATOS-NO-PERMITIDOS": "1",
+  "EVT-IA-C-U1-DECISION": "2",
+  "EVT-IA-C-U1-EVIDENCE": "4",
+  "EVT-IA-C-U1-GOAL-CLOSE-PROPOSE": "1",
+  "EVT-IA-C-U1-OPEN": "3",
+  "EVT-IA-C-U1-PROPOSE": "2",
+  "EVT-IA-C-U1-UPDATE-DECISION": "1",
+  "EVT-IA-C-U1-VERIFY": "3",
+  "EVT-IA-T-U1-COACH-REF": "2",
+  "EVT-IA-T-U1-CONSULT": "20",
+  "EVT-IA-T-U1-OPEN": "2",
+  "EVT-IA-T-U1-QUIZ-GUARD": "6",
+  "EVT-IA-T-U1-TRANSFER": "1",
+  "EVT-PDP-DECISION": "6",
+  "EVT-PDP-HISTORIAL-VIEW": "20",
+  "EVT-U1-QF-SUBMIT": "1"
+ },
+ "objetos_ejemplo": [
+  "PDP-UPD-000038",
+  "PDP-UPD-000041",
+  "U1-D1-AA-000005",
+  "PDP-UPD-000046",
+  "PDP-UPD-000047",
+  "PDP-UPD-000048",
+  "PDP-UPD-000050",
+  "IA-T-U1-000135",
+  "IA-T-U1-000136",
+  "IA-T-U1-000137",
+  "IA-T-U1-000138",
+  "IA-T-U1-000139",
+  "IA-T-U1-000140",
+  "IA-T-U1-000141",
+  "IA-T-U1-000142",
+  "IA-T-U1-000143",
+  "IA-T-U1-000144",
+  "IA-T-U1-000145",
+  "IA-T-U1-000146",
+  "IA-T-U1-000147",
+  "IA-T-U1-000148",
+  "IA-T-U1-000149",
+  "IA-T-U1-000150",
+  "IA-T-U1-000151",
+  "IA-T-U1-000152",
+  "IA-T-U1-000153",
+  "IA-T-U1-000154",
+  "IA-C-U1-000155",
+  "U1-D1-AA-000006",
+  "EV-U1-000011",
+  "VI-U1-000011",
+  "EV-U1-000012",
+  "VI-U1-000012",
+  "EV-U1-000013",
+  "IA-C-U1-000161",
+  "EV-U1-000014",
+  "VI-U1-000014",
+  "IA-C-U1-000164"
+ ],
+ "quiz_patrones": [
+  {
+   "id": "1",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P01",
+   "subdimension": "D1.1",
+   "responsestatus": "incorrecta"
+  },
+  {
+   "id": "2",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P05",
+   "subdimension": "D1.1",
+   "responsestatus": "incorrecta"
+  },
+  {
+   "id": "3",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P08",
+   "subdimension": "D1.2",
+   "responsestatus": "incorrecta"
+  },
+  {
+   "id": "4",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P09",
+   "subdimension": "D1.2",
+   "responsestatus": "incorrecta"
+  },
+  {
+   "id": "5",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P03",
+   "subdimension": "D1.2",
+   "responsestatus": "correcta"
+  },
+  {
+   "id": "6",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P06",
+   "subdimension": "D1.2",
+   "responsestatus": "correcta"
+  },
+  {
+   "id": "7",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P10",
+   "subdimension": "D1.1",
+   "responsestatus": "correcta"
+  },
+  {
+   "id": "8",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P02",
+   "subdimension": "D1.1",
+   "responsestatus": "correcta"
+  },
+  {
+   "id": "9",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P04",
+   "subdimension": "D1.2",
+   "responsestatus": "correcta"
+  },
+  {
+   "id": "10",
+   "userid": "1018",
+   "attemptnumber": "1",
+   "questioncode": "U1-QF-01-P07",
+   "subdimension": "D1.1",
+   "responsestatus": "correcta"
+  }
+ ],
+ "registro_tutor": [
+  {
+   "id": "135",
+   "interactioncode": "IA-T-U1-000135",
+   "sourceresource": null,
+   "intent": "evaluacion",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF,U?-ER",
+   "quizguard": "1"
+  },
+  {
+   "id": "136",
+   "interactioncode": "IA-T-U1-000136",
+   "sourceresource": null,
+   "intent": "evaluacion",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF,U?-ER",
+   "quizguard": "1"
+  },
+  {
+   "id": "137",
+   "interactioncode": "IA-T-U1-000137",
+   "sourceresource": null,
+   "intent": "evaluacion",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "1"
+  },
+  {
+   "id": "138",
+   "interactioncode": "IA-T-U1-000138",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "evidencia,instrumento",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "0"
+  },
+  {
+   "id": "139",
+   "interactioncode": "IA-T-U1-000139",
+   "sourceresource": null,
+   "intent": "evaluacion",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "1"
+  },
+  {
+   "id": "140",
+   "interactioncode": "IA-T-U1-000140",
+   "sourceresource": null,
+   "intent": "evaluacion",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF,U?-ER",
+   "quizguard": "1"
+  },
+  {
+   "id": "141",
+   "interactioncode": "IA-T-U1-000141",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "",
+   "sourcesreferred": "",
+   "quizguard": "0"
+  },
+  {
+   "id": "142",
+   "interactioncode": "IA-T-U1-000142",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "",
+   "sourcesreferred": "",
+   "quizguard": "0"
+  },
+  {
+   "id": "143",
+   "interactioncode": "IA-T-U1-000143",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "",
+   "sourcesreferred": "",
+   "quizguard": "0"
+  },
+  {
+   "id": "144",
+   "interactioncode": "IA-T-U1-000144",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "",
+   "sourcesreferred": "",
+   "quizguard": "0"
+  },
+  {
+   "id": "145",
+   "interactioncode": "IA-T-U1-000145",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "evidencia,instrumento",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "0"
+  },
+  {
+   "id": "146",
+   "interactioncode": "IA-T-U1-000146",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "",
+   "sourcesreferred": "U1-ER-01",
+   "quizguard": "0"
+  },
+  {
+   "id": "147",
+   "interactioncode": "IA-T-U1-000147",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF,U?-CA",
+   "quizguard": "0"
+  },
+  {
+   "id": "148",
+   "interactioncode": "IA-T-U1-000148",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "competencia",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "0"
+  },
+  {
+   "id": "149",
+   "interactioncode": "IA-T-U1-000149",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "actividad_situada",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "0"
+  },
+  {
+   "id": "150",
+   "interactioncode": "IA-T-U1-000150",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "traduccion_formativa",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "0"
+  },
+  {
+   "id": "151",
+   "interactioncode": "IA-T-U1-000151",
+   "sourceresource": null,
+   "intent": "retroalimentacion",
+   "concepttags": "condiciones_realizacion",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "0"
+  },
+  {
+   "id": "152",
+   "interactioncode": "IA-T-U1-000152",
+   "sourceresource": null,
+   "intent": "otro",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "0"
+  },
+  {
+   "id": "153",
+   "interactioncode": "IA-T-U1-000153",
+   "sourceresource": null,
+   "intent": "pdp",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF",
+   "quizguard": "0"
+  },
+  {
+   "id": "154",
+   "interactioncode": "IA-T-U1-000154",
+   "sourceresource": null,
+   "intent": "evaluacion",
+   "concepttags": "",
+   "sourcesreferred": "U?-LF,U?-ER",
+   "quizguard": "1"
+  }
+ ],
+ "indicadores": {
+  "tutoria": [
+   [
+    "Tasa de uso de Tutor IA",
+    "40 % (2/5)",
+    "Personas con al menos una interacción Tutor / personas activas"
+   ],
+   [
+    "Solicitudes de quiz protegido",
+    "6",
+    "Eventos QUIZ-GUARD: se aplicó la regla de integridad del quiz"
+   ],
+   [
+    "Transferencias sectoriales",
+    "1",
+    "Consultas de transferencia de la lógica de diseño a otro sector"
+   ],
+   [
+    "Orientaciones hacia el Coach",
+    "2",
+    "Respuestas del Tutor que orientan el trabajo de metas hacia el Coach"
+   ],
+   [
+    "Referencia a recursos",
+    "80 % (16/20)",
+    "Interacciones del Tutor que remiten a lectura, caso o ejemplo"
+   ]
+  ],
+  "desarrollo": [
+   [
+    "Aceptación de apoyo IA",
+    "100 % (2/2)",
+    "Apoyos iniciados / apoyos propuestos"
+   ],
+   [
+    "Tasa de evidencia conversacional",
+    "50 % (2/4)",
+    "Metas con evidencia presentada / metas activas"
+   ],
+   [
+    "Tasa de evidencia revisada",
+    "75 % (3/4)",
+    "Evidencias revisadas / evidencias presentadas (las bloqueadas por datos no permitidos no se revisan)"
+   ],
+   [
+    "Tasa de avance registrado",
+    "0 % (0/4)",
+    "Metas con avance registrado / metas activas"
+   ],
+   [
+    "Tasa de profundización",
+    "67 % (2/3)",
+    "Revisiones que piden profundizar / evidencias revisadas"
+   ],
+   [
+    "Propuesta de cierre",
+    "33 % (1/3)",
+    "Revisiones que proponen cierre / evidencias revisadas"
+   ],
+   [
+    "Cierre confirmado",
+    "0 % (0/1)",
+    "Cierres confirmados por la persona / propuestas de cierre"
+   ],
+   [
+    "Tiempo a primera evidencia",
+    "0.1 h (mediana)",
+    "Desde la propuesta del apoyo hasta la primera evidencia"
+   ]
+  ],
+  "calidad": [
+   [
+    "Recursos inventados por IA",
+    "0",
+    "Recursos nombrados por el modelo sin código activo en el catálogo (se descartan antes de mostrarse)"
+   ],
+   [
+    "Cambios sin confirmación",
+    "0",
+    "Decisiones sobre metas registradas por alguien distinto de la persona. Debe ser 0"
+   ],
+   [
+    "Interacciones con datos no permitidos",
+    "1",
+    "Evidencias con datos personales de terceros, bloqueadas antes de llegar al modelo"
+   ],
+   [
+    "Coherencia meta–actividad",
+    "100 % (2/2)",
+    "Apoyos con meta, dimensión y criterios de verificación registrados"
+   ],
+   [
+    "Coherencia evidencia–meta",
+    "100 % (3/3)",
+    "Evidencias revisadas con criterios aplicados registrados"
+   ]
+  ],
+  "conceptos": {
+   "evidencia": 2,
+   "instrumento": 2,
+   "competencia": 1,
+   "actividad_situada": 1,
+   "traduccion_formativa": 1,
+   "condiciones_realizacion": 1
+  }
+ },
+ "evidencias": [
+  "EV-U1-000011",
+  "EV-U1-000012",
+  "EV-U1-000013",
+  "EV-U1-000014"
+ ]
+}
