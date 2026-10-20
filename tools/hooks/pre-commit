@@ -53,7 +53,8 @@ fi
 # grep -E es POSIX: no soporta lookahead; se excluyen las plantillas *.example aparte.
 prohibidos=$(echo "$archivos" \
   | grep -iE '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|dmp|bak|sql)$|\.(zip|tar\.gz|tgz|7z|rar)$|(^|/)config\.php(\.prod)?$|(^|/)deploy_vps\.py$|(^|/)servidores\.json$' \
-  | grep -viE '\.(example|ejemplo)$|(^|/)\.env\.(example|ejemplo)$')
+  | grep -viE '\.(example|ejemplo)$|(^|/)\.env\.(example|ejemplo)$' \
+  | grep -vE '^moodle/public/config\.php$')   # arranque del núcleo de Moodle, sin credenciales
 if [ -n "$prohibidos" ]; then
   echo "BLOQUEADO: archivos que no deben versionarse (credenciales, volcados o binarios):"
   echo "$prohibidos"
