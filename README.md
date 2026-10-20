@@ -40,7 +40,11 @@ aquí no hace falta.)
 └── env/                      # base de datos, PHP y moodledata locales (ignorado)
 ```
 
-## Instalación
+## Instalar el Módulo 1 en otro Moodle
+
+Plugin + curso base + configuración en tres pasos: ver [docs/GUIA_INSTALAR_MODULO1.md](docs/GUIA_INSTALAR_MODULO1.md). El curso base está en `deploy/curso/` y la configuración se aplica con `cli/configurar_modulo1.php`.
+
+## Instalación del entorno local
 
 ### 1. Clonar
 

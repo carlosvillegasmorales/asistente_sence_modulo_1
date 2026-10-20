@@ -1,5 +1,20 @@
 # Changelog
 
+## M1-v1.16.15 (2026-10-20)
+
+**Configuración del Módulo 1 reproducible**
+
+- Guion `cli/configurar_modulo1.php --curso=ID [--siguientes=A,B] [--sin-sitio] [--simular]`: aplica en otro Moodle la
+  configuración que el plugin no trae en su código: ajustes (asistente solo en el curso, PDP automático, sin
+  barras de ruta, módulos siguientes), `allowstealth`, el HTML adicional del sitio (texto justificado, manito en las
+  pestañas, subsecciones abiertas, salto directo de las URL del recorrido, sin botón manual de consentimiento y sin
+  las tarjetas que el cliente pidió ocultar), curso sin «Avisos» y enlaces del asistente reescritos al sitio y curso
+  de destino. Idempotente; reemplaza los bloques que se habían puesto a mano sin tocar los ajenos.
+- Activa la finalización de las actividades del recorrido (`M1-PASO-*`) y del consentimiento, sin la cual el puente no
+  registra ningún avance, y sincroniza a quien ya avanzó.
+- `cli/exportar_curso.php`: copia del curso (.mbz) sin datos de personas, para regenerar la copia base.
+- `classes/site_setup.php` con la parte pura y `cli/verificar_configuracion.php` con sus casos.
+
 ## M1-v1.16.14 (2026-10-20)
 
 - «Asistente solo en estos cursos» ahora también oculta el asistente fuera de los cursos (Área personal,

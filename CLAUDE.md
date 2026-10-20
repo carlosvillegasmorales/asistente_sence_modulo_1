@@ -65,12 +65,18 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ```bash
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
-  Deben pasar sin fallos. Al 20-10-2026 (M1-v1.16.14): **758 casos, 44 celdas
-  de la matriz de acceso y 921 claves de idioma** en 16 scripts.
+  Deben pasar sin fallos. Al 20-10-2026 (M1-v1.16.15): **782 casos, 44 celdas
+  de la matriz de acceso y 921 claves de idioma** en 17 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:
   solo corren en el servidor. `verificar_idiomas.php` compara `lang/en` con `lang/es`:
   toda cadena nueva va en **los dos**, porque Moodle arma las claves desde el
   inglés y una cadena solo en español se muestra como `[[clave]]`.
+- `cli/configurar_modulo1.php` + `classes/site_setup.php` — configuración del Módulo 1 que el plugin no trae en su código
+  (ajustes, HTML adicional del sitio, `allowstealth`, curso sin «Avisos», enlaces reescritos al sitio/curso de destino y
+  finalización de las actividades del recorrido). Idempotente, con `--simular`. Va junto con la copia base del curso
+  (`deploy/curso/Modulo1_curso_base.mbz`, sin datos de personas; se regenera con `cli/exportar_curso.php`). Guía:
+  `docs/GUIA_INSTALAR_MODULO1.md`. **Todo cambio de configuración manual en un servidor debe pasar también por este
+  guion**, o el siguiente servidor no lo tendrá.
 - `classes/ux.php` — **interruptores de las mejoras de experiencia** (v1.11 en
   adelante): ruta, guía del PDP, orden de metas, próximo paso, ruta en el curso,
   respuestas en vivo, etc. Se apagan en la administración del plugin sin
