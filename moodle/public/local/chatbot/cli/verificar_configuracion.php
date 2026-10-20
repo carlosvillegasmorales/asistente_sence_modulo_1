@@ -42,6 +42,17 @@ foreach ($bloques as $clave => $bloque) {
     local_chatbot_verificar(site_setup::is_own_block($bloque), "el bloque «$clave» se reconoce como propio");
 }
 
+// Franja de navegacion del curso: solo con el curso indicado y solo para quien no edita el curso.
+$conurso = site_setup::head_blocks(69, 6);
+local_chatbot_verificar(count($conurso) === 6 && isset($conurso['navsecundaria']), 'con el curso hay seis bloques, uno es la franja');
+local_chatbot_verificar(strpos($conurso['navsecundaria'], 'body.course-6 ') !== false
+    && strpos($conurso['navsecundaria'], ':not(:has(li[data-key="editsettings"]))') !== false
+    && strpos($conurso['navsecundaria'], 'display: none') !== false, 'la franja se oculta solo en ese curso y si falta «Configuracion»');
+local_chatbot_verificar(!isset(site_setup::head_blocks(69)['navsecundaria']) && !isset(site_setup::head_blocks(69, 1)['navsecundaria']),
+    'sin curso, o con el curso del sitio, no se toca la franja');
+local_chatbot_verificar(site_setup::is_own_block($conurso['navsecundaria']) && site_setup::merge_head(site_setup::merge_head('', $conurso), $conurso)
+    === site_setup::merge_head('', $conurso), 'el bloque de la franja se reconoce y la fusion sigue siendo idempotente');
+
 // --- Fusion ---
 $ajeno = "<style>/* tema del cliente */ .logo { color: red; }</style>";
 $vacio = site_setup::merge_head('', $bloques);

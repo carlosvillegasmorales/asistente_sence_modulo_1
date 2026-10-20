@@ -96,7 +96,7 @@ if (!$options['sin-sitio']) {
     echo "\n-- Sitio\n";
     chatbot_cfg('', 'allowstealth', '1', $simular);
     $actual = (string) get_config('core', 'additionalhtmlhead');
-    $nuevo = site_setup::merge_head($actual, site_setup::head_blocks($consentcm));
+    $nuevo = site_setup::merge_head($actual, site_setup::head_blocks($consentcm, $cursoid));
     if (str_replace("\r\n", "\n", $actual) === $nuevo) {
         echo "  = HTML adicional ya esta al dia\n";
     } else {

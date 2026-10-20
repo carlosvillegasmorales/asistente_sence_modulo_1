@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.16.16 (2026-10-20)
+
+- `cli/configurar_modulo1.php` oculta la franja de navegación del curso (Curso, Participantes, Calificaciones,
+  Actividades…) en el Módulo 1 para quien no puede editar el curso; quien administra conserva la franja. Es solo
+  visual: no cambia permisos.
+
 ## M1-v1.16.15 (2026-10-20)
 
 **Configuración del Módulo 1 reproducible**

@@ -40,7 +40,7 @@ class site_setup {
      *     su boton manual de finalizacion se oculta porque la marca el asistente.
      * @return string[] Clave => bloque completo (<style> o <script>).
      */
-    public static function head_blocks(int $consentcmid): array {
+    public static function head_blocks(int $consentcmid, int $courseid = 0): array {
         $m = fn(string $id): string => '/* ' . self::MARK . $id . ' */';
         $bloques = [];
 
@@ -63,7 +63,16 @@ class site_setup {
             . "body.format-multitopic .course-content ul.nav-tabs li a.draggable,\n"
             . "body.format-multitopic .course-content ul.nav-tabs li a { cursor: pointer !important; }</style>";
 
-        $bloques['expandido'] = '<script>' . $m('expandido') . "\n"
+        if ($courseid > 1) {
+            // Sin la franja Curso / Participantes / Calificaciones / Actividades para quien no puede editar el curso:
+            // solo quien administra el curso trae la pestana «Configuracion» (data-key editsettings) y conserva la
+            // franja. Es solo visual: las paginas siguen abriendose por su direccion; lo que se debe impedir va por permisos.
+            $bloques['navsecundaria'] = '<style>' . $m('navsecundaria') . "\n"
+                . 'body.course-' . $courseid . " .secondary-navigation:not(:has(li[data-key=\"editsettings\"]))"
+                . " { display: none !important; }</style>";
+        }
+
+        $bloques['expandido'] ='<script>' . $m('expandido') . "\n"
             . "document.addEventListener('DOMContentLoaded', function() {\n"
             . "  // Subsecciones de la pestana abiertas por defecto.\n"
             . "  if (document.body.classList.contains('path-course-view')) {\n"
