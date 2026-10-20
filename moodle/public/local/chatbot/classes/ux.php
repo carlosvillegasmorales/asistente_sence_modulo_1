@@ -79,8 +79,10 @@ class ux {
      * Si el asistente se oculta en un curso, dadas las dos listas del ajuste. Funcion pura.
      *
      * «Solo en estos cursos» (`chatonlycourses`) manda cuando tiene algo: el asistente aparece unicamente
-     * en esos cursos y un curso nuevo nace sin asistente. «Cursos sin asistente» (`nochatcourses`) oculta
-     * ademas los que se listen. Fuera de los cursos (Area personal, id 0 o 1) nunca se oculta.
+     * en esos cursos (y en las paginas del asistente abiertas desde ellos), para todos los roles; fuera de
+     * los cursos (Area personal, id 0 o 1) y en cualquier otro curso, tambien los nuevos, se oculta.
+     * «Cursos sin asistente» (`nochatcourses`) oculta ademas los que se listen; sola, nunca oculta el
+     * asistente fuera de los cursos.
      *
      * @param int $courseid
      * @param string $nochat Lista de cursos sin asistente.
@@ -88,9 +90,6 @@ class ux {
      * @return bool
      */
     public static function is_hidden(int $courseid, string $nochat, string $only): bool {
-        if ($courseid <= 1) {
-            return false;
-        }
         if (self::is_listed($courseid, $nochat)) {
             return true;
         }

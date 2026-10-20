@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.16.14 (2026-10-20)
+
+- «Asistente solo en estos cursos» ahora también oculta el asistente fuera de los cursos (Área personal,
+  portada y páginas generales): con la lista escrita, solo se ve dentro de los cursos listados y en las
+  páginas del asistente abiertas desde ellos, para todos los roles. Sin la lista, nada cambia.
+
 ## M1-v1.16.13 (2026-10-20)
 
 - Ajuste nuevo «Asistente solo en estos cursos» (`chatonlycourses`): con ids escritos, el asistente y el

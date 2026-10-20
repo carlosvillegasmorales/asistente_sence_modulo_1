@@ -245,8 +245,10 @@ local_chatbot_verificar(!\local_chatbot\ux::is_hidden(6, '', '6') && \local_chat
 local_chatbot_verificar(!\local_chatbot\ux::is_hidden(4, '', '') && !\local_chatbot\ux::is_hidden(4, '', '  '),
     'sin lista unica no se restringe nada');
 local_chatbot_verificar(\local_chatbot\ux::is_hidden(6, '6', '6'), 'una exclusion expresa gana sobre la lista unica');
-local_chatbot_verificar(!\local_chatbot\ux::is_hidden(0, '', '6') && !\local_chatbot\ux::is_hidden(1, '', '6'),
-    'fuera de los cursos (Area personal, sitio) nunca se oculta');
+local_chatbot_verificar(\local_chatbot\ux::is_hidden(0, '', '6') && \local_chatbot\ux::is_hidden(1, '', '6'),
+    'con lista unica, fuera de los cursos (Area personal, sitio) tambien se oculta');
+local_chatbot_verificar(!\local_chatbot\ux::is_hidden(0, '18,19', '') && !\local_chatbot\ux::is_hidden(1, '18', ''),
+    'sin lista unica, fuera de los cursos nunca se oculta');
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
