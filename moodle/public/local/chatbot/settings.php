@@ -65,6 +65,15 @@ if ($hassiteconfig) {
         PARAM_TEXT
     ));
 
+    // Cursos donde el asistente SI aparece, y solo en ellos (por ejemplo, el Modulo 1), por id.
+    $settings->add(new admin_setting_configtext(
+        'local_chatbot/chatonlycourses',
+        get_string('chatonlycourses_setting', 'local_chatbot'),
+        get_string('chatonlycourses_setting_desc', 'local_chatbot'),
+        '',
+        PARAM_TEXT
+    ));
+
     // Ruta de derivacion a soporte humano. La gobernanza del modulo la exige
     // para cuando hay falla tecnica, incertidumbre metodologica relevante o una
     // solicitud que excede el alcance del modulo: el asistente debe poder

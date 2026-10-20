@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.16.13 (2026-10-20)
+
+- Ajuste nuevo «Asistente solo en estos cursos» (`chatonlycourses`): con ids escritos, el asistente y el
+  botón de indicadores aparecen únicamente en esos cursos (el Módulo 1) y se ocultan en todos los demás,
+  incluidos los que se creen después. Se combina con «Cursos sin asistente». Vacío: sin restricción.
+
 ## M1-v1.16.12 (2026-10-20)
 
 **Cursos sin asistente**

@@ -239,6 +239,14 @@ local_chatbot_verificar(\local_chatbot\ux::is_listed(4, ' 4 ; 5 ,6') && \local_c
 local_chatbot_verificar(!\local_chatbot\ux::is_listed(1, '1,18') && !\local_chatbot\ux::is_listed(0, '0,18'),
     'el curso del sitio y el id 0 nunca se ocultan');
 local_chatbot_verificar(!\local_chatbot\ux::is_listed(18, '180,118,x18'), 'solo cuenta el id exacto');
+// «Solo en estos cursos» (chatonlycourses): manda cuando tiene algo y deja fuera lo que no este en la lista.
+local_chatbot_verificar(!\local_chatbot\ux::is_hidden(6, '', '6') && \local_chatbot\ux::is_hidden(4, '', '6')
+    && \local_chatbot\ux::is_hidden(99, '', '6'), 'con lista unica, solo ese curso muestra el asistente');
+local_chatbot_verificar(!\local_chatbot\ux::is_hidden(4, '', '') && !\local_chatbot\ux::is_hidden(4, '', '  '),
+    'sin lista unica no se restringe nada');
+local_chatbot_verificar(\local_chatbot\ux::is_hidden(6, '6', '6'), 'una exclusion expresa gana sobre la lista unica');
+local_chatbot_verificar(!\local_chatbot\ux::is_hidden(0, '', '6') && !\local_chatbot\ux::is_hidden(1, '', '6'),
+    'fuera de los cursos (Area personal, sitio) nunca se oculta');
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
