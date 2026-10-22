@@ -2351,8 +2351,101 @@ body.local-chatbot-dash-page #page-header {
 .m1-export:hover {
     filter: brightness(1.1);
 }
+/* Lo mas importante hoy: conclusiones con su accion, de lo mas urgente a lo mejor. */
+.m1-insights {
+    margin: 0 0 20px;
+    padding: 16px 20px;
+    border: 1px solid var(--m1-border);
+    border-radius: 14px;
+    background: var(--m1-surface);
+    box-shadow: var(--m1-shadow);
+}
+.m1-dash .m1-insights-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0 0 10px;
+}
+.m1-insights-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+.m1-insight {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    border-left: 4px solid var(--m1-border);
+    border-radius: 0 10px 10px 0;
+    background: #f7f9fc;
+}
+.m1-insight-alerta { border-left-color: #d9480f; background: #fff3ec; }
+.m1-insight-aviso { border-left-color: #e8a317; background: #fff9e8; }
+.m1-insight-info { border-left-color: var(--m1-accent); background: #eef4fb; }
+.m1-insight-ok { border-left-color: #1c8a5a; background: #eaf7f0; }
+.m1-insight-text {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--m1-ink);
+}
+.m1-insight-act {
+    font-size: 13px;
+    color: var(--m1-muted);
+}
+.m1-kpi-delta {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1c8a5a;
+}
+.m1-drop {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: #fde8e0;
+    color: #b4400f;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+/* «¿Que significa?»: plegado, para no recargar. */
+.m1-what {
+    margin: 0 0 10px;
+    font-size: 13px;
+}
+.m1-what summary {
+    cursor: pointer;
+    color: var(--m1-accent);
+    font-weight: 600;
+    width: fit-content;
+}
+.m1-what p {
+    margin: 6px 0 0;
+    padding: 8px 12px;
+    background: #f1f5fa;
+    border-radius: 8px;
+    color: var(--m1-ink);
+}
+.m1-plain {
+    display: block;
+    margin-top: 3px;
+    color: var(--m1-ink);
+}
+.m1-people .m1-msg {
+    font-weight: 600;
+    font-size: 13px;
+}
+.m1-export-pdf {
+    background: #fff;
+    color: var(--m1-accent) !important;
+    border: 1px solid var(--m1-accent);
+}
 /* Donde se detienen: se resalta la etapa con personas inactivas. */
-.m1-stuck .m1-stuck-alert td:last-child {
+.m1-stuck .m1-stuck-alert td:last-child,
+.m1-people .m1-stuck-alert td:nth-child(3) {
     color: #b4400f;
     font-weight: 700;
 }

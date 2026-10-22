@@ -284,6 +284,72 @@ $fallas = \local_chatbot\analytics::top_failing([
     ['c1_1' => 'cumple', 'c2_1' => 'parcial', 'c2_2' => 'cumple'],
 ], 2);
 local_chatbot_verificar($fallas === ['c2_1' => 3, 'c1_1' => 1], 'los items que mas fallan, de mas a menos y en orden del checklist al empatar');
+// Mayor caida del avance: solo entre etapas obligatorias, con al menos 2 personas y 30 % o mas.
+$caida = \local_chatbot\analytics::biggest_drop(['perfil' => 4, 'diagnostico' => 4, 'ruta' => 2, 'proyecto' => 2, 'pdp' => 1, 'cierre' => 1],
+    $ruta6, ['pdp']);
+local_chatbot_verificar($caida !== null && $caida['from'] === 'diagnostico' && $caida['to'] === 'ruta' && $caida['pct'] === 50
+    && $caida['prev'] === 4 && $caida['next'] === 2, 'la mayor caida es de 4 a 2 entre diagnostico y ruta formativa (50 %)');
+local_chatbot_verificar(\local_chatbot\analytics::biggest_drop(['perfil' => 1, 'diagnostico' => 0, 'ruta' => 0, 'proyecto' => 0, 'pdp' => 0,
+    'cierre' => 0], $ruta6, ['pdp']) === null, 'con una sola persona no se inventa una caida');
+local_chatbot_verificar(\local_chatbot\analytics::biggest_drop(['perfil' => 10, 'diagnostico' => 9, 'ruta' => 9, 'proyecto' => 8, 'pdp' => 1,
+    'cierre' => 8], $ruta6, ['pdp']) === null, 'una caida menor a 30 % no se marca');
+local_chatbot_verificar(\local_chatbot\analytics::biggest_drop(['perfil' => 4, 'diagnostico' => 4, 'ruta' => 4, 'proyecto' => 4, 'pdp' => 0,
+    'cierre' => 4], $ruta6, ['pdp']) === null, 'el PDP opcional en cero no cuenta como caida');
+// Conclusiones: datos del cliente del 22-10 (7 iniciaron, 4 detenidas en la Ruta, 21 de 28 metas sin decidir).
+$datosins = [
+    'started' => 7, 'finished' => 0, 'keys' => $ruta6, 'optional' => ['pdp'],
+    'etapas' => ['perfil' => 7, 'diagnostico' => 4, 'ruta' => 0, 'proyecto' => 0, 'pdp' => 2, 'cierre' => 0],
+    'stuck' => ['dias' => 7, 'terminaron' => 0, 'etapas' => ['perfil' => ['total' => 0, 'inactivas' => 0],
+        'diagnostico' => ['total' => 3, 'inactivas' => 1], 'ruta' => ['total' => 4, 'inactivas' => 1],
+        'proyecto' => ['total' => 0, 'inactivas' => 0], 'cierre' => ['total' => 0, 'inactivas' => 0]]],
+    'goals' => ['total' => 28, 'pending' => 21],
+    'gaps' => [['name' => 'D1. A', 'promedio' => 2.7, 'personas' => 4], ['name' => 'D3. Evaluación', 'promedio' => 2.1, 'personas' => 4]],
+];
+$ins = \local_chatbot\analytics::insights($datosins);
+$ids = array_column($ins, 'id');
+local_chatbot_verificar($ids[0] === 'idle' && $ins[0]['params']['n'] === 2, 'lo primero son las personas sin actividad (2)');
+local_chatbot_verificar(in_array('stage', $ids, true) && $ins[array_search('stage', $ids, true)]['params']['etapa'] === 'ruta'
+    && $ins[array_search('stage', $ids, true)]['params']['n'] === 4, 'la etapa con mas detenidas es la Ruta Formativa Base (4)');
+local_chatbot_verificar(in_array('goals', $ids, true) && $ins[array_search('goals', $ids, true)]['params']['pct'] === 75,
+    'metas sin decidir: 21 de 28 = 75 %');
+local_chatbot_verificar(in_array('dim', $ids, true) && $ins[array_search('dim', $ids, true)]['params']['dim'] === 'D3. Evaluación',
+    'la dimension mas debil es la de menor promedio');
+local_chatbot_verificar(count($ins) <= 5 && !in_array('done', $ids, true), 'maximo 5 conclusiones y nada «ok» si nadie termino');
+$niveles = array_column($ins, 'level');
+local_chatbot_verificar($niveles === array_values(array_filter(['alerta', 'aviso', 'info', 'ok'],
+    fn($n) => in_array($n, $niveles, true)) ? $niveles : []) || $niveles[0] === 'alerta', 'las alertas van antes que los avisos y las buenas noticias');
+local_chatbot_verificar(\local_chatbot\analytics::insights(['started' => 0]) === [['id' => 'none', 'level' => 'info', 'params' => []]],
+    'sin nadie iniciado la unica conclusion es que falta empezar');
+$datosins['finished'] = 3;
+local_chatbot_verificar(in_array('done', array_column(\local_chatbot\analytics::insights($datosins, 9), 'id'), true),
+    'si alguien termino, se dice (es una buena noticia)');
+local_chatbot_verificar(!in_array('goals', array_column(\local_chatbot\analytics::insights(['started' => 4, 'goals' => ['total' => 2, 'pending' => 2],
+    'stuck' => ['etapas' => [], 'dias' => 7]]), 'id'), true), 'con menos de 3 metas no se opina sobre las metas');
+// Graficos semanales desde la primera actividad, y cambio de la ultima semana.
+local_chatbot_verificar(\local_chatbot\analytics::first_active_week([[0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 4, 4]]) === 5,
+    'el grafico empieza una semana antes de la primera actividad');
+local_chatbot_verificar(\local_chatbot\analytics::first_active_week([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]]) === 8,
+    'siempre quedan al menos 4 semanas para que la linea tenga forma');
+local_chatbot_verificar(\local_chatbot\analytics::first_active_week([[1, 2, 3, 4], [0, 0, 0, 1]]) === 0 && \local_chatbot\analytics::first_active_week([]) === 0,
+    'con actividad desde el inicio, o sin series, se muestra todo');
+local_chatbot_verificar(\local_chatbot\analytics::week_delta([1, 3, 6], true) === 3 && \local_chatbot\analytics::week_delta([4, 4], true) === 0
+    && \local_chatbot\analytics::week_delta([2, 0, 5], false) === 5 && \local_chatbot\analytics::week_delta([], true) === 0,
+    'cambio de la ultima semana: acumulado y por semana');
+// Lenguaje simple: todos los indicadores del Anexo G tienen explicacion, y los eventos conocidos se nombran.
+$nombresg = ['Tasa de uso de Tutor IA', 'Solicitudes de quiz protegido', 'Transferencias sectoriales', 'Orientaciones hacia el Coach',
+    'Referencia a recursos', 'Aceptación de apoyo IA', 'Tasa de evidencia conversacional', 'Tasa de evidencia revisada',
+    'Tasa de avance registrado', 'Tasa de profundización', 'Propuesta de cierre', 'Cierre confirmado', 'Tiempo a primera evidencia',
+    'Respuestas valoradas como útiles', 'Recursos inventados por IA', 'Cambios sin confirmación',
+    'Interacciones con datos no permitidos', 'Coherencia meta–actividad', 'Coherencia evidencia–meta'];
+$sinexplicar = array_filter($nombresg, fn($n) => \local_chatbot\analytics::plain_indicator($n) === '');
+local_chatbot_verificar($sinexplicar === [], 'los 19 indicadores del Anexo G tienen explicacion en palabras simples');
+local_chatbot_verificar(\local_chatbot\analytics::plain_indicator('Indicador que no existe') === '', 'un indicador desconocido no inventa explicacion');
+local_chatbot_verificar(\local_chatbot\analytics::event_label('EVT-IA-T-U1-CONSULT') === 'Consulta al tutor (Unidad 1)'
+    && \local_chatbot\analytics::event_label('IA-T-UX-OPEN') === 'Abrieron el chat del tutor'
+    && \local_chatbot\analytics::event_label('EVT-U1-QF-START') === 'Empezaron el quiz (Unidad 1)'
+    && \local_chatbot\analytics::event_label('U1-LF-VIEW') === 'Abrieron la lectura (Unidad 1)'
+    && \local_chatbot\analytics::event_label('PDP-DECISION') !== '', 'los codigos de eventos se nombran en lenguaje simple');
+local_chatbot_verificar(\local_chatbot\analytics::event_label('EVT-CODIGO-RARO') === '', 'un evento desconocido muestra solo su codigo');
 // «Solo en estos cursos» (chatonlycourses): manda cuando tiene algo y deja fuera lo que no este en la lista.
 local_chatbot_verificar(!\local_chatbot\ux::is_hidden(6, '', '6') && \local_chatbot\ux::is_hidden(4, '', '6')
     && \local_chatbot\ux::is_hidden(99, '', '6'), 'con lista unica, solo ese curso muestra el asistente');

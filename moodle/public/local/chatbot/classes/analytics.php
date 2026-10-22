@@ -150,6 +150,221 @@ class analytics {
     }
 
     /**
+     * Curso que muestran los indicadores: con «Asistente solo en estos cursos» escrito, solo esos; un curso ajeno
+     * vuelve al primero de la lista. Sin la lista, el curso pedido tal cual.
+     *
+     * @param int $pedido Curso de la direccion.
+     * @return int
+     */
+    public static function dashboard_course(int $pedido): int {
+        $ids = closure::parse_course_ids((string) get_config('local_chatbot', 'chatonlycourses'));
+        return ($ids && !in_array($pedido, $ids, true)) ? $ids[0] : $pedido;
+    }
+
+    /**
+     * La mayor caida entre dos etapas obligatorias consecutivas del embudo. Funcion pura.
+     *
+     * Solo cuenta si la etapa anterior tiene al menos 2 personas y la caida es de 30 % o mas, para no inventar
+     * un problema donde hay una o dos personas. Las etapas opcionales no se comparan.
+     *
+     * @param array $etapas clave => personas con la etapa hecha.
+     * @param string[] $keys Ruta vigente.
+     * @param string[] $opcionales Claves opcionales.
+     * @return array|null ['from' => clave, 'to' => clave, 'prev' => int, 'next' => int, 'pct' => int]
+     */
+    public static function biggest_drop(array $etapas, array $keys, array $opcionales): ?array {
+        $obligatorias = array_values(array_filter($keys, fn($k) => !in_array($k, $opcionales, true)));
+        $mejor = null;
+        for ($i = 1; $i < count($obligatorias); $i++) {
+            $antes = (int) ($etapas[$obligatorias[$i - 1]] ?? 0);
+            $ahora = (int) ($etapas[$obligatorias[$i]] ?? 0);
+            if ($antes < 2 || $ahora >= $antes) {
+                continue;
+            }
+            $pct = (int) round(100 * ($antes - $ahora) / $antes);
+            if ($pct >= 30 && ($mejor === null || $pct > $mejor['pct'])) {
+                $mejor = ['from' => $obligatorias[$i - 1], 'to' => $obligatorias[$i], 'prev' => $antes, 'next' => $ahora, 'pct' => $pct];
+            }
+        }
+        return $mejor;
+    }
+
+    /**
+     * Conclusiones automaticas para quien mira el panel. Funcion pura, con reglas fijas y sin IA: cada frase se puede
+     * comprobar contra los datos que se muestran debajo.
+     *
+     * Devuelve datos y no texto: la pagina arma cada frase con las cadenas de idioma `insight_<id>` y `insight_<id>_act`.
+     *
+     * @param array $d Con: started, finished, etapas (clave => int), keys, optional, stuck (stuck_counts()),
+     *     goals (['total', 'pending']), gaps (filas con name, promedio, personas).
+     * @param int $max Cuantas conclusiones devolver como maximo.
+     * @return array Lista de ['id' => string, 'level' => alerta|aviso|ok|info, 'params' => array].
+     */
+    public static function insights(array $d, int $max = 5): array {
+        $started = (int) ($d['started'] ?? 0);
+        if ($started === 0) {
+            return [['id' => 'none', 'level' => 'info', 'params' => []]];
+        }
+        $lista = [];
+
+        $stuck = $d['stuck'] ?? ['etapas' => [], 'dias' => 7];
+        $inactivas = array_sum(array_column($stuck['etapas'], 'inactivas'));
+        if ($inactivas > 0) {
+            $lista[] = ['id' => 'idle', 'level' => 'alerta', 'params' => ['n' => $inactivas, 'dias' => (int) $stuck['dias']]];
+        }
+
+        $top = null;
+        foreach ($stuck['etapas'] as $clave => $fila) {
+            if ($fila['total'] > 0 && ($top === null || $fila['total'] > $stuck['etapas'][$top]['total'])) {
+                $top = $clave;
+            }
+        }
+        if ($top !== null) {
+            $lista[] = ['id' => 'stage', 'level' => 'aviso',
+                'params' => ['etapa' => $top, 'n' => $stuck['etapas'][$top]['total'], 'started' => $started]];
+        }
+
+        $caida = self::biggest_drop($d['etapas'] ?? [], $d['keys'] ?? [], $d['optional'] ?? []);
+        if ($caida !== null) {
+            $lista[] = ['id' => 'drop', 'level' => 'aviso', 'params' => $caida];
+        }
+
+        $metas = $d['goals'] ?? ['total' => 0, 'pending' => 0];
+        if ((int) $metas['total'] >= 3 && 2 * (int) $metas['pending'] >= (int) $metas['total']) {
+            $lista[] = ['id' => 'goals', 'level' => 'aviso', 'params' => ['n' => (int) $metas['pending'],
+                'total' => (int) $metas['total'], 'pct' => (int) round(100 * $metas['pending'] / $metas['total'])]];
+        }
+
+        $dims = array_values(array_filter($d['gaps'] ?? [], fn($g) => (int) ($g['personas'] ?? 0) > 0));
+        if (count($dims) >= 2) {
+            usort($dims, fn($a, $b) => $a['promedio'] <=> $b['promedio']);
+            if ($dims[0]['promedio'] < $dims[count($dims) - 1]['promedio']) {
+                $lista[] = ['id' => 'dim', 'level' => 'info', 'params' => ['dim' => $dims[0]['name'], 'prom' => $dims[0]['promedio']]];
+            }
+        }
+
+        $terminaron = (int) ($d['finished'] ?? 0);
+        if ($terminaron > 0) {
+            $lista[] = ['id' => 'done', 'level' => 'ok', 'params' => ['n' => $terminaron,
+                'pct' => (int) round(100 * $terminaron / $started)]];
+        }
+
+        $orden = ['alerta' => 0, 'aviso' => 1, 'info' => 2, 'ok' => 3];
+        usort($lista, fn($a, $b) => $orden[$a['level']] <=> $orden[$b['level']]);
+        return array_slice($lista, 0, $max);
+    }
+
+    /**
+     * Primera semana desde la que mostrar un grafico semanal: la primera con actividad en cualquier serie, pero siempre
+     * quedan al menos `$minimo` semanas para que la linea tenga forma. Funcion pura.
+     *
+     * @param array[] $series Lista de listas de valores semanales.
+     * @param int $minimo
+     * @return int Indice de la primera semana a mostrar.
+     */
+    public static function first_active_week(array $series, int $minimo = 4): int {
+        $semanas = $series ? count(reset($series)) : 0;
+        $primera = $semanas;
+        foreach ($series as $valores) {
+            foreach (array_values($valores) as $i => $v) {
+                if ($v > 0) {
+                    $primera = min($primera, $i);
+                    break;
+                }
+            }
+        }
+        return max(0, min($primera - 1, $semanas - $minimo));
+    }
+
+    /**
+     * Lo que cambio en la ultima semana. Funcion pura.
+     *
+     * @param int[] $valores Un valor por semana.
+     * @param bool $acumulado Si la serie es acumulada (cada punto incluye los anteriores) o por semana.
+     * @return int
+     */
+    public static function week_delta(array $valores, bool $acumulado): int {
+        $v = array_values($valores);
+        $n = count($v);
+        if ($n === 0) {
+            return 0;
+        }
+        return $acumulado ? max(0, $v[$n - 1] - ($v[$n - 2] ?? 0)) : (int) $v[$n - 1];
+    }
+
+    /**
+     * Explicacion en palabras simples de un indicador del Anexo G, por su nombre. Funcion pura.
+     *
+     * @param string $nombre Nombre tal como lo entrega annex_g_indicators().
+     * @return string Cadena vacia si el indicador no tiene explicacion.
+     */
+    public static function plain_indicator(string $nombre): string {
+        $texto = [
+            'Tasa de uso de Tutor IA' => 'De las personas que empezaron, cuántas le han hecho al menos una pregunta al tutor.',
+            'Solicitudes de quiz protegido' => 'Veces que alguien pidió las respuestas del quiz y el asistente no las dio, para cuidar la evaluación.',
+            'Transferencias sectoriales' => 'Veces que alguien pidió aplicar lo aprendido a otro sector u oficio.',
+            'Orientaciones hacia el Coach' => 'Veces que el tutor sugirió pasar a trabajar las metas del plan.',
+            'Referencia a recursos' => 'Cuántas respuestas del tutor mandaron a leer la lectura, el caso o el ejemplo.',
+            'Aceptación de apoyo IA' => 'De las actividades de apoyo que se propusieron, cuántas la persona realmente empezó.',
+            'Tasa de evidencia conversacional' => 'De las metas activas, cuántas ya tienen una evidencia entregada.',
+            'Tasa de evidencia revisada' => 'De las evidencias entregadas, cuántas revisó el asistente.',
+            'Tasa de avance registrado' => 'De las metas activas, cuántas muestran avance después de una revisión.',
+            'Tasa de profundización' => 'De las evidencias revisadas, cuántas necesitaron mejorar o profundizar.',
+            'Propuesta de cierre' => 'De las evidencias revisadas, cuántas llegaron a un nivel para dar la meta por lograda.',
+            'Cierre confirmado' => 'De las metas que el asistente propuso cerrar, cuántas confirmó la persona.',
+            'Tiempo a primera evidencia' => 'Cuánto tarda una persona, desde que recibe la actividad, en entregar su primera evidencia.',
+            'Respuestas valoradas como útiles' => 'De las respuestas que las personas valoraron, cuántas marcaron 👍.',
+            'Recursos inventados por IA' => 'Veces que la IA mencionó un recurso que no existe. Debe ser 0 (se descartan antes de mostrarse).',
+            'Cambios sin confirmación' => 'Decisiones sobre las metas tomadas por alguien distinto de la persona. Debe ser 0.',
+            'Interacciones con datos no permitidos' => 'Veces que una evidencia traía datos personales de terceros y se bloqueó antes de llegar a la IA.',
+            'Coherencia meta–actividad' => 'Cuántas actividades de apoyo están bien ligadas a una meta y a sus criterios.',
+            'Coherencia evidencia–meta' => 'Cuántas revisiones se hicieron con los criterios de la meta.',
+        ];
+        return $texto[$nombre] ?? '';
+    }
+
+    /**
+     * Nombre en lenguaje simple de un evento de trazabilidad del Anexo G. Funcion pura.
+     *
+     * @param string $codigo Por ejemplo EVT-IA-T-U1-CONSULT o U1-QF-START (con o sin el prefijo EVT-).
+     * @return string Cadena vacia si no se reconoce (la pagina muestra solo el codigo).
+     */
+    public static function event_label(string $codigo): string {
+        $c = preg_replace('/^EVT-/', '', strtoupper(trim($codigo)));
+        $unidad = static function(string $u): string {
+            return preg_match('/^U(\d+)$/', $u, $m) ? ' (Unidad ' . $m[1] . ')' : '';
+        };
+        if (preg_match('/^IA-T-(U\d+|UX)-(\w+)$/', $c, $m)) {
+            $acciones = ['CONSULT' => 'Consulta al tutor', 'OPEN' => 'Abrieron el chat del tutor', 'CLOSE' => 'Cerraron el chat del tutor',
+                'QUIZ-GUARD' => 'Pidieron respuestas del quiz (el asistente no las dio)', 'TRANSFER' => 'Pidieron aplicarlo a otro sector',
+                'COACH-REF' => 'El tutor sugirió pasar al plan de metas'];
+            return isset($acciones[$m[2]]) ? $acciones[$m[2]] . $unidad($m[1]) : '';
+        }
+        if (preg_match('/^IA-C-(U\d+|UX)-(\w+)$/', $c, $m)) {
+            $acciones = ['DECISION' => 'Decisión sobre una meta propuesta', 'PROPOSE' => 'El asistente propuso una meta',
+                'SUPPORT' => 'El asistente propuso una actividad de apoyo', 'REVIEW' => 'El asistente revisó una evidencia'];
+            return isset($acciones[$m[2]]) ? $acciones[$m[2]] . $unidad($m[1]) : '';
+        }
+        $fijos = [
+            'PDP-HISTORIAL-VIEW' => 'Consultaron el historial de su plan',
+            'PDP-DECISION' => 'Decidieron sobre una meta (aceptar, modificar o rechazar)',
+        ];
+        if (isset($fijos[$c])) {
+            return $fijos[$c];
+        }
+        if (preg_match('/^(U\d+)-(LF|CA|ER)-(VIEW|COMPLETE)$/', $c, $m)) {
+            $recurso = ['LF' => 'la lectura', 'CA' => 'el caso', 'ER' => 'el ejemplo'][$m[2]];
+            return ($m[3] === 'VIEW' ? 'Abrieron ' : 'Terminaron ') . $recurso . $unidad($m[1]);
+        }
+        if (preg_match('/^(U\d+)-QF-(START|SUBMIT|REVIEW|COMPLETE)$/', $c, $m)) {
+            $acciones = ['START' => 'Empezaron el quiz', 'SUBMIT' => 'Enviaron el quiz', 'REVIEW' => 'Revisaron sus respuestas del quiz',
+                'COMPLETE' => 'Terminaron el quiz'];
+            return $acciones[$m[2]] . $unidad($m[1]);
+        }
+        return '';
+    }
+
+    /**
      * Personas con alguna actividad del recorrido en el curso (perfil, diagnostico, PDP o proyecto).
      *
      * @param int $courseid
@@ -347,7 +562,18 @@ class analytics {
         foreach (self::route_people($courseid) as $uid) {
             $estados[$uid] = course_bridge::step_states($uid, $courseid);
         }
-        // Ultima actividad: lo mas reciente entre trazas, mensajes al asistente y respuestas del diagnostico.
+        return self::stuck_counts($estados, $keys, $opcionales, self::last_activity($courseid), time(), $dias);
+    }
+
+    /**
+     * Ultima actividad de cada persona en el curso: lo mas reciente entre trazas, mensajes al asistente y respuestas
+     * del diagnostico.
+     *
+     * @param int $courseid
+     * @return int[] Persona => marca de tiempo.
+     */
+    public static function last_activity(int $courseid): array {
+        global $DB;
         $ultimas = [];
         foreach (['local_chatbot_trace', 'local_chatbot_messages', 'local_chatbot_diag_response'] as $tabla) {
             foreach ($DB->get_records_sql_menu("SELECT userid, MAX(timecreated) FROM {{$tabla}}
@@ -355,7 +581,54 @@ class analytics {
                 $ultimas[(int) $uid] = max($ultimas[(int) $uid] ?? 0, (int) $t);
             }
         }
-        return self::stuck_counts($estados, $keys, $opcionales, $ultimas, time(), $dias);
+        return $ultimas;
+    }
+
+    /**
+     * Quienes estan detenidos: nombre, etapa obligatoria pendiente y dias sin actividad. SOLO para quien gestiona el
+     * curso y solo si el ajuste «dashpeople» esta encendido: es la unica parte del panel que no es anonima, y nunca va
+     * a la exportacion ni al informe PDF.
+     *
+     * @param int $courseid
+     * @param int $limite
+     * @return array Lista de ['userid', 'nombre', 'etapa', 'dias' (null si nunca tuvo actividad)], de mas a menos dias.
+     */
+    public static function stuck_people(int $courseid, int $limite = 30): array {
+        global $DB;
+        if (!get_config('local_chatbot', 'dashpeople')) {
+            return [];
+        }
+        $keys = course_bridge::route_keys();
+        $opcionales = array_map(fn($pos) => $keys[$pos - 1], journey::optional_positions($keys));
+        $obligatorias = array_values(array_filter($keys, fn($k) => !in_array($k, $opcionales, true)));
+        $ultimas = self::last_activity($courseid);
+        $ahora = time();
+        $filas = [];
+        foreach (self::route_people($courseid) as $uid) {
+            $estado = course_bridge::step_states($uid, $courseid);
+            if (!array_filter($estado)) {
+                continue;
+            }
+            $pendiente = null;
+            foreach ($obligatorias as $clave) {
+                if (empty($estado[$clave])) {
+                    $pendiente = $clave;
+                    break;
+                }
+            }
+            if ($pendiente === null) {
+                continue;
+            }
+            $u = $DB->get_record('user', ['id' => $uid, 'deleted' => 0]);
+            if (!$u) {
+                continue;
+            }
+            $t = (int) ($ultimas[$uid] ?? 0);
+            $filas[] = ['userid' => $uid, 'nombre' => fullname($u), 'etapa' => $pendiente,
+                'dias' => $t > 0 ? (int) floor(($ahora - $t) / 86400) : null];
+        }
+        usort($filas, fn($a, $b) => ($b['dias'] ?? PHP_INT_MAX) <=> ($a['dias'] ?? PHP_INT_MAX));
+        return array_slice($filas, 0, $limite);
     }
 
     /**

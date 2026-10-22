@@ -1,5 +1,27 @@
 # Changelog
 
+## M1-v1.19.12 (2026-10-22)
+
+- Indicadores: el promedio de la conclusión «dimensión más débil» usa la coma decimal; el encabezado de la tabla de avance
+  del informe PDF dice «Etapa».
+
+## M1-v1.19.11 (2026-10-22)
+
+**Indicadores que se entienden y dicen qué hacer**
+
+- «Lo más importante hoy»: hasta 5 conclusiones con reglas fijas (sin IA) y la acción sugerida: personas sin actividad,
+  etapa donde más se detienen, mayor caída, metas sin decidir, dimensión más débil y logros. `analytics::insights()`.
+- Lenguaje simple: «¿Qué significa?» plegado en cada tarjeta, el Anexo G con su explicación en palabras simples, los
+  eventos con su nombre («Consulta al tutor (Unidad 1)»; el código queda como detalle), los modos por para qué sirven y el
+  promedio de brechas con el nombre del nivel.
+- Cambio de la última semana en las cifras grandes («+2 esta semana»), «Mayor caída» marcada en el avance y gráficos
+  semanales desde la primera semana con actividad.
+- Informe PDF (`indicadores_informe.php`, `classes/dashboard_report.php`): conclusiones, cifras, avance, dónde se detienen,
+  brechas y Módulo 2, solo datos agregados.
+- Lista de personas detenidas con enlace para escribirles, detrás del ajuste `dashpeople` (apagado por defecto; la
+  insignia de privacidad lo avisa). Nunca va al Excel ni al PDF.
+- 24 casos nuevos en `verificar_experiencia.php`.
+
 ## M1-v1.19.10 (2026-10-22)
 
 - Indicadores: se quita el aviso «Pocos datos», a pedido del usuario.

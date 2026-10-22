@@ -405,6 +405,32 @@ foreach ($hotspots as $row) {
 
 $scoremax = \local_chatbot\diagnostic::SCORE_MAX;
 
+// Lo que ayuda a leer el panel sin ser especialista: mayor caida del avance, conclusiones con reglas fijas y cambios de la
+// ultima semana. Todo se calcula con funciones puras de analytics (probadas en verificar_experiencia.php).
+$drop = \local_chatbot\analytics::biggest_drop($funnel['etapas'], $funnel['keys'], $optionalkeys);
+$insights = \local_chatbot\analytics::insights([
+    'started' => $started, 'finished' => $finished, 'etapas' => $funnel['etapas'], 'keys' => $funnel['keys'],
+    'optional' => $optionalkeys, 'stuck' => $stuck, 'goals' => ['total' => $goalstotal, 'pending' => $goalspending],
+    'gaps' => $gaps,
+]);
+$sumasemanal = [];
+foreach ($usage['series'] as $valores) {
+    foreach (array_values($valores) as $i => $v) {
+        $sumasemanal[$i] = ($sumasemanal[$i] ?? 0) + $v;
+    }
+}
+$cambios = [
+    0 => \local_chatbot\analytics::week_delta($route['series'][$funnel['keys'][0]] ?? [], true),
+    1 => \local_chatbot\analytics::week_delta($route['series']['cierre'] ?? [], true),
+    3 => \local_chatbot\analytics::week_delta($sumasemanal, false),
+];
+// Los modos con su nombre de uso («Tutor», «Coach»...) dicho en palabras simples.
+$modeplain = function(string $mode) use ($modelabels): string {
+    $clave = 'dash_mode_' . $mode;
+    return get_string_manager()->string_exists($clave, 'local_chatbot')
+        ? get_string($clave, 'local_chatbot') : ($modelabels[$mode] ?? $mode);
+};
+
 $kpis = [
     [
         'label' => get_string('kpi_started', 'local_chatbot'),
@@ -442,7 +468,24 @@ $kpis = [
     ],
 ];
 
+foreach ($cambios as $i => $n) {
+    if ($n > 0) {
+        $kpis[$i]['delta'] = get_string('kpi_delta', 'local_chatbot', $n);
+    }
+}
+
 $tablelabel = s(get_string('dash_table', 'local_chatbot'));
+
+/**
+ * «¿Que significa?»: explicacion de una tarjeta en una o dos lineas, plegada para no recargar el panel.
+ *
+ * @param string $clave Sufijo de la cadena what_<clave>.
+ * @return string
+ */
+function local_chatbot_dash_what(string $clave): string {
+    return '<details class="m1-what"><summary>' . s(get_string('what_label', 'local_chatbot')) . '</summary>'
+        . '<p>' . s(get_string('what_' . $clave, 'local_chatbot')) . '</p></details>';
+}
 
 // Exportar a Excel: CSV con separador «;» y BOM UTF-8, que Excel abre directo con tildes y columnas.
 if (optional_param('exportar', 0, PARAM_INT) === 1) {
@@ -525,7 +568,7 @@ echo $OUTPUT->header();
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
                          aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    <?php echo s(get_string('dash_privacy', 'local_chatbot')); ?>
+                    <?php echo s(get_string(get_config('local_chatbot', 'dashpeople') ? 'dash_privacy_names' : 'dash_privacy', 'local_chatbot')); ?>
                 </span>
                 <span class="m1-dash-updated"><?php echo s(get_string('dash_updated', 'local_chatbot',
                     userdate(time(), get_string('strftimedatetimeshort', 'langconfig')))); ?></span>
@@ -584,8 +627,25 @@ echo $OUTPUT->header();
             <a class="m1-export" href="<?php echo (new moodle_url('/local/chatbot/indicadores.php', ['courseid' => $courseid,
                 'semanas' => $semanas, 'exportar' => 1, 'sesskey' => sesskey()]))->out(); ?>"><?php
                 echo s(get_string('dash_export', 'local_chatbot')); ?></a>
+            <a class="m1-export m1-export-pdf" href="<?php echo (new moodle_url('/local/chatbot/indicadores_informe.php',
+                ['courseid' => $courseid, 'sesskey' => sesskey()]))->out(); ?>"><?php
+                echo s(get_string('dash_report', 'local_chatbot')); ?></a>
         </div>
     </div>
+
+    <?php // Conclusiones con reglas fijas, sin IA: cada frase se puede comprobar contra los datos de abajo. ?>
+    <section class="m1-insights" data-m1-tab="resumen" aria-label="<?php echo s(get_string('insights_title', 'local_chatbot')); ?>">
+        <h2 class="m1-insights-title"><?php echo s(get_string('insights_title', 'local_chatbot')); ?></h2>
+        <ul class="m1-insights-list">
+            <?php foreach ($insights as $ins):
+                [$frase, $accion] = \local_chatbot\dashboard_report::insight_lines($ins, $stagename); ?>
+                <li class="m1-insight m1-insight-<?php echo s($ins['level']); ?>">
+                    <span class="m1-insight-text"><?php echo s($frase); ?></span>
+                    <span class="m1-insight-act"><?php echo s($accion); ?></span>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </section>
 
     <section class="m1-kpis" data-m1-tab="resumen" aria-label="<?php echo s(get_string('analytics_heading', 'local_chatbot')); ?>">
         <?php foreach ($kpis as $kpi): ?>
@@ -600,6 +660,7 @@ echo $OUTPUT->header();
                 </div>
                 <div class="m1-kpi-value"><?php echo s($kpi['value']); ?></div>
                 <div class="m1-kpi-sub"><?php echo s($kpi['sub']); ?></div>
+                <?php if (!empty($kpi['delta'])): ?><div class="m1-kpi-delta">▲ <?php echo s($kpi['delta']); ?></div><?php endif; ?>
             </div>
         <?php endforeach; ?>
     </section>
@@ -607,6 +668,13 @@ echo $OUTPUT->header();
     <div class="m1-grid">
 
         <?php
+        // Los graficos empiezan en la primera semana con actividad (no en meses vacios).
+        $usagedesde = \local_chatbot\analytics::first_active_week(array_values($usage['series']));
+        $routedesde = \local_chatbot\analytics::first_active_week(array_values($route['series']));
+        $usage['weeks'] = array_slice($usage['weeks'], $usagedesde);
+        $usage['series'] = array_map(fn($v) => array_slice(array_values($v), $usagedesde), $usage['series']);
+        $route['weeks'] = array_slice($route['weeks'], $routedesde);
+        $route['series'] = array_map(fn($v) => array_slice(array_values($v), $routedesde), $route['series']);
         // Linea de tiempo del uso: tres series con identidad propia (los modos).
         $usageseries = [];
         $usagetotal = 0;
@@ -635,6 +703,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-12" data-m1-tab="asistente">
             <h2 class="m1-card-title"><?php echo s(get_string('timeline_usage', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('timeline_usage_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('usage'); ?>
             <?php if ($usagetotal === 0): ?>
                 <?php echo local_chatbot_dash_empty('timeline_usage_empty'); ?>
             <?php elseif (local_chatbot_dash_weeks_with_data($usageseries) < 2): ?>
@@ -654,6 +723,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-12" data-m1-tab="resumen">
             <h2 class="m1-card-title"><?php echo s(get_string('timeline_route', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('timeline_route_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('route'); ?>
             <?php if ($routetotal === 0): ?>
                 <?php echo local_chatbot_dash_empty('timeline_route_empty'); ?>
             <?php elseif (local_chatbot_dash_weeks_with_data($routeseries) < 2): ?>
@@ -672,6 +742,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-7" data-m1-tab="resumen">
             <h2 class="m1-card-title"><?php echo s(get_string('analytics_funnel', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('funnel_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('funnel'); ?>
             <?php if ($started === 0): ?>
                 <?php echo local_chatbot_dash_empty('funnel_empty'); ?>
             <?php else: ?>
@@ -679,7 +750,9 @@ echo $OUTPUT->header();
                     <?php foreach ($funnel['etapas'] as $key => $count):
                         $pct = local_chatbot_dash_pct((int) $count, $started); ?>
                         <li class="m1-funnel-row">
-                            <span class="m1-funnel-label"><?php echo s($stagename($key)); ?></span>
+                            <span class="m1-funnel-label"><?php echo s($stagename($key)); ?>
+                                <?php if ($drop && $drop['to'] === $key): ?><span class="m1-drop"><?php
+                                    echo s(get_string('funnel_drop', 'local_chatbot', $drop['pct'])); ?></span><?php endif; ?></span>
                             <span class="m1-track">
                                 <span class="m1-fill" style="width:<?php echo min(100, $pct); ?>%;background:<?php echo $c['series']; ?>"></span>
                             </span>
@@ -697,6 +770,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-5" data-m1-tab="resumen">
             <h2 class="m1-card-title"><?php echo s(get_string('analytics_goals', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('analytics_goals_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('goals'); ?>
             <?php if ($goalstotal === 0): ?>
                 <?php echo local_chatbot_dash_empty('goals_empty'); ?>
             <?php else:
@@ -744,6 +818,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-12" data-m1-tab="resumen">
             <h2 class="m1-card-title"><?php echo s(get_string('stuck_title', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('stuck_help', 'local_chatbot', $stuck['dias'])); ?></p>
+            <?php echo local_chatbot_dash_what('stuck'); ?>
             <?php if ($started === 0): ?>
                 <?php echo local_chatbot_dash_empty('stuck_empty'); ?>
             <?php else: ?>
@@ -764,12 +839,39 @@ echo $OUTPUT->header();
                     </tbody>
                 </table>
                 <p class="m1-muted m1-stuck-done"><?php echo s(get_string('stuck_finished', 'local_chatbot', $stuck['terminaron'])); ?></p>
+                <?php // Unica parte no anonima del panel: solo con el ajuste «dashpeople» y nunca en el Excel ni en el PDF. ?>
+                <?php $people = \local_chatbot\analytics::stuck_people($courseid); ?>
+                <?php if ($people): ?>
+                    <h3 class="m1-m2-sub"><?php echo s(get_string('people_title', 'local_chatbot')); ?></h3>
+                    <p class="m1-card-help"><?php echo s(get_string('people_help', 'local_chatbot')); ?></p>
+                    <table class="m1-table m1-people">
+                        <thead><tr>
+                            <th scope="col"><?php echo s(get_string('people_col_name', 'local_chatbot')); ?></th>
+                            <th scope="col"><?php echo s(get_string('stuck_col_stage', 'local_chatbot')); ?></th>
+                            <th scope="col"><?php echo s(get_string('people_col_idle', 'local_chatbot')); ?></th>
+                            <th scope="col"></th>
+                        </tr></thead>
+                        <tbody>
+                            <?php foreach ($people as $p): ?>
+                                <tr class="<?php echo ($p['dias'] === null || $p['dias'] > $stuck['dias']) ? 'm1-stuck-alert' : ''; ?>">
+                                    <th scope="row"><?php echo s($p['nombre']); ?></th>
+                                    <td><?php echo s($stagename($p['etapa'])); ?></td>
+                                    <td><?php echo $p['dias'] === null ? s(get_string('people_never', 'local_chatbot'))
+                                        : s(get_string('people_days', 'local_chatbot', $p['dias'])); ?></td>
+                                    <td><a class="m1-msg" href="<?php echo (new moodle_url('/message/index.php', ['id' => $p['userid']]))->out(); ?>"><?php
+                                        echo s(get_string('people_msg', 'local_chatbot')); ?></a></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
             <?php endif; ?>
         </section>
 
         <section class="m1-card m1-span-12" data-m1-tab="resumen">
             <h2 class="m1-card-title"><?php echo s(get_string('analytics_gaps', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('gaps_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('gaps'); ?>
             <?php if (empty($gaps)): ?>
                 <?php echo local_chatbot_dash_empty('gaps_empty'); ?>
             <?php else: ?>
@@ -788,6 +890,7 @@ echo $OUTPUT->header();
                             <div class="m1-gap-meta">
                                 <strong><?php echo s(get_string('gaps_avg', 'local_chatbot', format_float($row['promedio'], 2))); ?></strong>
                                 <span class="m1-muted">/ <?php echo $scoremax; ?> · <?php
+                                    echo s(get_string('level_' . \local_chatbot\diagnostic::level_for_score((float) $row['promedio']), 'local_chatbot')); ?> · <?php
                                     echo s(get_string('gaps_people', 'local_chatbot', (int) $row['personas'])); ?></span>
                             </div>
                         </div>
@@ -827,6 +930,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-12" data-m1-tab="resumen">
             <h2 class="m1-card-title"><?php echo s(get_string('analytics_variation', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('variation_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('variation'); ?>
             <?php if (empty($variation)): ?>
                 <?php echo local_chatbot_dash_empty('variation_empty'); ?>
             <?php else: ?>
@@ -899,6 +1003,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-6" data-m1-tab="asistente">
             <h2 class="m1-card-title"><?php echo s(get_string('analytics_interactions', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('interactions_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('interactions'); ?>
             <?php if (empty($interactions)): ?>
                 <?php echo local_chatbot_dash_empty('interactions_empty'); ?>
             <?php else: ?>
@@ -917,7 +1022,7 @@ echo $OUTPUT->header();
                             [get_string('interactions_other', 'local_chatbot'), $other, $c['neutral'], 'dark'],
                         ]; ?>
                         <div class="m1-bar-row">
-                            <span class="m1-bar-label"><?php echo s($modelabels[$row['mode']] ?? $row['mode']); ?></span>
+                            <span class="m1-bar-label"><?php echo s($modeplain($row['mode'])); ?></span>
                             <span class="m1-bar-lane">
                                 <?php echo local_chatbot_dash_stack($segments, $row['total'],
                                     local_chatbot_dash_pct($row['total'], $interactionsmax)); ?>
@@ -944,7 +1049,7 @@ echo $OUTPUT->header();
                             <tbody>
                             <?php foreach ($interactions as $row): ?>
                                 <tr>
-                                    <th scope="row"><?php echo s($modelabels[$row['mode']] ?? $row['mode']); ?></th>
+                                    <th scope="row"><?php echo s($modeplain($row['mode'])); ?></th>
                                     <td><?php echo $row['total']; ?></td>
                                     <td><?php echo $row['aceptadas']; ?></td>
                                     <td><?php echo $row['rechazadas']; ?></td>
@@ -964,6 +1069,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-6" data-m1-tab="asistente">
             <h2 class="m1-card-title"><?php echo s(get_string('analytics_hotspots', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('analytics_hotspots_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('hotspots'); ?>
             <?php if (empty($hotspots)): ?>
                 <?php echo local_chatbot_dash_empty('hotspots_empty'); ?>
             <?php else: ?>
@@ -1001,6 +1107,7 @@ echo $OUTPUT->header();
             <section class="m1-card m1-span-12" data-m1-tab="asistente">
                 <h2 class="m1-card-title"><?php echo s($title); ?></h2>
                 <p class="m1-card-help"><?php echo s(get_string('annexg_help', 'local_chatbot')); ?></p>
+                <?php echo local_chatbot_dash_what('annexg'); ?>
                 <table class="table table-sm mb-0">
                     <thead><tr>
                         <th scope="col"><?php echo s(get_string('annexg_col_indicator', 'local_chatbot')); ?></th>
@@ -1012,7 +1119,11 @@ echo $OUTPUT->header();
                             <tr>
                                 <td><?php echo s($name); ?></td>
                                 <td><strong><?php echo s($value); ?></strong></td>
-                                <td class="small text-muted"><?php echo s($definition); ?></td>
+                                <td class="small text-muted"><?php echo s($definition);
+                                    $simple = \local_chatbot\analytics::plain_indicator($name);
+                                    if ($simple !== ''): ?><br><span class="m1-plain"><strong><?php
+                                        echo s(get_string('plain_label', 'local_chatbot')); ?></strong> <?php
+                                        echo s($simple); ?></span><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                         <?php if ($key === 'tutoria' && !empty($annexg['conceptos'])): ?>
@@ -1089,6 +1200,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-12" data-m1-tab="tecnico">
             <h2 class="m1-card-title"><?php echo s(get_string('catalog_title', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('catalog_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('catalog'); ?>
             <?php if (empty($catalog)): ?>
                 <?php echo local_chatbot_dash_empty('catalog_empty'); ?>
             <?php else: ?>
@@ -1108,8 +1220,11 @@ echo $OUTPUT->header();
                     <div class="m1-bars">
                         <?php foreach ($familia['codes'] as $evento): ?>
                             <div class="m1-bar-row">
-                                <span class="m1-bar-label m1-code"><?php
-                                    echo s(str_replace('EVT-', '', $evento['code'])); ?></span>
+                                <span class="m1-bar-label"><?php
+                                    $etiqueta = \local_chatbot\analytics::event_label($evento['code']);
+                                    echo s($etiqueta !== '' ? $etiqueta : str_replace('EVT-', '', $evento['code'])); ?>
+                                    <?php if ($etiqueta !== ''): ?><span class="m1-code m1-muted"><?php
+                                        echo s(str_replace('EVT-', '', $evento['code'])); ?></span><?php endif; ?></span>
                                 <span class="m1-bar-lane">
                                     <?php echo local_chatbot_dash_stack(
                                         [[$evento['code'], $evento['total'], $c['series'], 'light']],
@@ -1149,6 +1264,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-12" data-m1-tab="asistente">
             <h2 class="m1-card-title"><?php echo s(get_string('quizpat_title', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('quizpat_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('quizpat'); ?>
             <?php if (empty($quizpat)): ?>
                 <?php echo local_chatbot_dash_empty('quizpat_empty'); ?>
             <?php else: ?>
@@ -1203,6 +1319,7 @@ echo $OUTPUT->header();
         <section class="m1-card m1-span-12" data-m1-tab="tecnico">
             <h2 class="m1-card-title"><?php echo s(get_string('health_title', 'local_chatbot')); ?></h2>
             <p class="m1-card-help"><?php echo s(get_string('health_help', 'local_chatbot')); ?></p>
+            <?php echo local_chatbot_dash_what('health'); ?>
             <?php if (empty($health['estados'])): ?>
                 <?php echo local_chatbot_dash_empty('health_empty'); ?>
             <?php else: ?>
@@ -1243,7 +1360,7 @@ echo $OUTPUT->header();
                             <tbody>
                             <?php foreach ($health['latencia'] as $fila): ?>
                                 <tr>
-                                    <td><?php echo s($modelabels[$fila['mode']] ?? $fila['mode']); ?></td>
+                                    <td><?php echo s($modeplain($fila['mode'])); ?></td>
                                     <td><?php echo s(get_string('health_seconds', 'local_chatbot',
                                         number_format($fila['media'], 1, ',', '.'))); ?></td>
                                     <td><?php echo s(get_string('health_seconds', 'local_chatbot',

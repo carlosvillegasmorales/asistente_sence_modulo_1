@@ -65,6 +65,14 @@ if ($hassiteconfig) {
         PARAM_TEXT
     ));
 
+    // Indicadores: nombres de las personas detenidas. Apagado por defecto: el panel es anonimo.
+    $settings->add(new admin_setting_configcheckbox(
+        'local_chatbot/dashpeople',
+        get_string('dashpeople_setting', 'local_chatbot'),
+        get_string('dashpeople_setting_desc', 'local_chatbot'),
+        0
+    ));
+
     // Cursos donde el asistente SI aparece, y solo en ellos (por ejemplo, el Modulo 1), por id.
     $settings->add(new admin_setting_configtext(
         'local_chatbot/chatonlycourses',
