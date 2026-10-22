@@ -3507,3 +3507,97 @@ body.local-chatbot-dash-page #page-header {
 .chatbot-coursebar-step .chatbot-routebar-here {
     font-size: 10px;
 }
+
+/* Modulo 2: paso a la Fase 2 desde la ficha ex-ante validada. Verde propio, con el mismo contraste del boton de regreso. */
+.chatbot-nextphase {
+    background: #047857;
+    border-color: #047857;
+}
+
+.chatbot-nextphase:hover,
+.chatbot-nextphase:focus {
+    background: #065F46;
+    border-color: #065F46;
+}
+
+/* Ficha ex-ante en celular: el informe del checklist se apila (item, evaluacion, observacion) en vez de una
+   tabla de tres columnas con desplazamiento lateral, donde el texto del item quedaba en una columna angosta. */
+@media (max-width: 576px) {
+    .chatbot-exante-checklist thead {
+        display: none;
+    }
+
+    .chatbot-exante-checklist tr,
+    .chatbot-exante-checklist td,
+    .chatbot-exante-checklist th {
+        display: block;
+        width: auto !important;
+    }
+
+    .chatbot-exante-checklist tbody td {
+        border-bottom: 0;
+        padding: 2px 4px;
+    }
+
+    .chatbot-exante-checklist tbody tr {
+        border-bottom: 1px solid #dee2e6;
+        padding: 6px 0;
+    }
+
+    .chatbot-exante-checklist tbody td:first-child {
+        font-weight: 600;
+    }
+}
+
+/* Modulo 2, Fase 2: etapas del diseno con su estado (hecha, actual, abierta, cerrada). */
+.chatbot-diseno-etapa > a,
+.chatbot-diseno-etapa > span {
+    display: inline-block;
+    border: 1px solid #c9d6e2;
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 13px;
+    line-height: 1.3;
+    text-decoration: none;
+}
+
+.chatbot-diseno-hecha > a {
+    background: #e7f5ec;
+    border-color: #9fd2b0;
+    color: #1e6b3a;
+}
+
+.chatbot-diseno-actual > span {
+    background: #173f5f;
+    border-color: #173f5f;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.chatbot-diseno-abierta > a {
+    background: #ffffff;
+    color: #20639b;
+}
+
+.chatbot-diseno-cerrada > span {
+    background: #f3f5f7;
+    color: #8a96a0;
+}
+
+/* Modulo 2, Fase 3: diseno consolidado (solo lectura) con las tablas de las etapas legibles. */
+.chatbot-diseno-doc table {
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    width: 100%;
+}
+
+.chatbot-diseno-doc th,
+.chatbot-diseno-doc td {
+    border: 1px solid #c9d6e2;
+    padding: 4px 8px;
+    vertical-align: top;
+}
+
+.chatbot-diseno-doc th {
+    background: #e8f0f7;
+}

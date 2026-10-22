@@ -559,5 +559,92 @@ function xmldb_local_chatbot_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101600, 'local', 'chatbot');
     }
 
+    if ($oldversion < 2026102100) {
+
+        // Modulo 2, Fase 1: ficha de diagnostico ex-ante y su validacion con el checklist (pedido de
+        // Interfases del 21-10-2026).
+        $table = new xmldb_table('local_chatbot_exante');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('data', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('userid_courseid', XMLDB_INDEX_UNIQUE, ['userid', 'courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        $table = new xmldb_table('local_chatbot_exante_val');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('fichaid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('estado', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('condicion', XMLDB_TYPE_CHAR, '20', null, null, null, null);
+        $table->add_field('huella', XMLDB_TYPE_CHAR, '40', null, null, null, null);
+        $table->add_field('snapshot', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('informe', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('modelo', XMLDB_TYPE_CHAR, '100', null, null, null, null);
+        $table->add_field('promptversion', XMLDB_TYPE_CHAR, '40', null, null, null, null);
+        $table->add_field('error', XMLDB_TYPE_CHAR, '20', null, null, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('fichaid', XMLDB_INDEX_NOTUNIQUE, ['fichaid']);
+        $table->add_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026102100, 'local', 'chatbot');
+    }
+
+    if ($oldversion < 2026102101) {
+
+        // Modulo 2, Fase 2: producto de cada etapa del diseno (Prompt Maestro, etapas 1 a 6).
+        $table = new xmldb_table('local_chatbot_diseno');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('etapa', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('contenido', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('estado', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'borrador');
+        $table->add_field('generacion', XMLDB_TYPE_CHAR, '20', null, null, null, null);
+        $table->add_field('ajustes', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('validacionid', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+        $table->add_field('modelo', XMLDB_TYPE_CHAR, '100', null, null, null, null);
+        $table->add_field('promptversion', XMLDB_TYPE_CHAR, '40', null, null, null, null);
+        $table->add_field('error', XMLDB_TYPE_CHAR, '20', null, null, null, null);
+        $table->add_field('timeaccepted', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('userid_courseid_etapa', XMLDB_INDEX_UNIQUE, ['userid', 'courseid', 'etapa']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026102101, 'local', 'chatbot');
+    }
+
+    if ($oldversion < 2026102102) {
+
+        // Modulo 2, Fase 3: la evaluacion con la rubrica (etapa 8) y la huella de lo consolidado (etapas 7 y 8).
+        $table = new xmldb_table('local_chatbot_diseno');
+        $campos = [
+            new xmldb_field('informe', XMLDB_TYPE_TEXT, null, null, null, null, null, 'error'),
+            new xmldb_field('huella', XMLDB_TYPE_CHAR, '40', null, null, null, null, 'informe'),
+        ];
+        foreach ($campos as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026102102, 'local', 'chatbot');
+    }
+
     return true;
 }

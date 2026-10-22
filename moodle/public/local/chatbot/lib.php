@@ -28,7 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 function local_chatbot_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options = []) {
     global $DB, $USER;
 
-    $allowedareas = ['chat_attachment', 'project_attachment', 'kb_document'];
+    $allowedareas = ['chat_attachment', 'project_attachment', 'kb_document', 'exante_plan', 'exante_perfil'];
     if ($context->contextlevel != CONTEXT_SYSTEM || !in_array($filearea, $allowedareas, true)) {
         return false;
     }
@@ -42,10 +42,11 @@ function local_chatbot_pluginfile($course, $cm, $context, $filearea, $args, $for
         // administrado, y solo quien puede gestionar el KB puede recuperarlos.
         require_capability('local/chatbot:managekb', $context);
     } else {
-        // En estas dos areas el itemid apunta a una fila con dueno, y solo esa
+        // En estas areas el itemid apunta a una fila con dueno, y solo esa
         // persona puede recuperar el archivo.
-        $ownertable = ($filearea === 'chat_attachment')
-            ? 'local_chatbot_messages' : 'local_chatbot_project';
+        $ownertables = ['chat_attachment' => 'local_chatbot_messages', 'project_attachment' => 'local_chatbot_project',
+            'exante_plan' => 'local_chatbot_exante', 'exante_perfil' => 'local_chatbot_exante'];
+        $ownertable = $ownertables[$filearea];
         $owner = $DB->get_record($ownertable, ['id' => $itemid], 'id, userid');
         if (!$owner || (int) $owner->userid !== (int) $USER->id) {
             return false;

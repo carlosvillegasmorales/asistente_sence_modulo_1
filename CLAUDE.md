@@ -57,6 +57,20 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   el requisito.
 - `classes/kb_store.php` — versión del recurso citado y de la base de
   conocimiento (`RU-PRIV-006`), se guarda en cada interacción.
+- `classes/exante.php` + `ficha_exante.php?courseid=ID` — **Módulo 2, Fase 1**: ficha de diagnóstico ex-ante
+  (textual del documento del cliente) validada por la IA con el checklist de 32 ítems. La condición final la
+  fija `decide()` (la más estricta entre modelo y regla); con Aprobado / Aprobado con observaciones aparece el
+  botón a la sección «Fase 2…» del curso. No es calificación. Interruptor `fichaexante`.
+  `cli/configurar_modulo2.php --curso=ID` deja la pestaña Fase 1 del curso como la pidió el cliente (enlaces a
+  los materiales y al checklist, recursos ocultos, condición centrada, botón a la ficha) y pone el botón de la
+  Fase 2 al final de esa pestaña; idempotente. **Correrlo de nuevo después de restaurar el curso** (una
+  restauración del 21-10 borró los ajustes).
+- `classes/diseno.php` + `diseno.php?courseid=ID&etapa=N` — **Módulo 2, Fase 2**: las 6 etapas del Prompt
+  Maestro como hojas de trabajo (propuesta de la IA, edición, ajustes, aceptación, Word). Requiere la ficha
+  validada y vigente (`exante::fase1_ok()`); no se salta una etapa sin aceptar la anterior. Interruptor `disenofase2`.
+  **Fase 3** en la misma página (`diseno_fase3.php`): etapa 7 consolida las 6 etapas sin editar (se ajusta en la
+  Fase 2) y etapa 8 evalúa con la rúbrica del cliente (`diseno::rubrica()`, textual); total y banda los calcula el
+  código, aprobado desde 25/36; con aprobación se descarga el documento final. Cambiar una etapa invalida 7 y 8.
 - `cli/preparar_curso.php` — crea las actividades del puente en un curso.
   El campo correcto para el código de actividad en `create_module()` es
   **`cmidnumber`**, no `idnumber` (ese se ignora en silencio).
@@ -65,8 +79,8 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ```bash
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
-  Deben pasar sin fallos. Al 20-10-2026 (M1-v1.16.16): **786 casos, 44 celdas
-  de la matriz de acceso y 921 claves de idioma** en 17 scripts.
+  Deben pasar sin fallos. Al 21-10-2026 (M1-v1.19.0): **984 casos, 44 celdas
+  de la matriz de acceso y 1036 claves de idioma** en 19 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:
   solo corren en el servidor. `verificar_idiomas.php` compara `lang/en` con `lang/es`:
   toda cadena nueva va en **los dos**, porque Moodle arma las claves desde el

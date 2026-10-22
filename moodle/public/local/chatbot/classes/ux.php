@@ -49,6 +49,9 @@ class ux {
         'perfilacta' => 1,      // Pagina de perfil segun el acta del 13-10-2026: titulo, sin «Comienza aqui», boton aceptar y guardar (v1.16.8).
         'diagacta' => 1,        // Autodiagnostico segun el acta del 13-10-2026: texto instructivo y «Tus prioridades» (v1.16.9).
         'perfilpopup' => 1,     // Ficha en ventana emergente: sin «Regresar al curso» y con «Cerrar» (v1.16.10).
+        // Pedido de Interfases del 21-10-2026 para el Modulo 2.
+        'fichaexante' => 1,     // Modulo 2, Fase 1: ficha de diagnostico ex-ante validada con el checklist (v1.17.0).
+        'disenofase2' => 1,     // Modulo 2, Fases 2 y 3: hojas de trabajo de las etapas 1 a 8 del diseno (v1.18.0, v1.19.0).
     ];
 
     /**

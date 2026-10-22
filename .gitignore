@@ -61,3 +61,6 @@ deploy/config.php.prod
 *.rar
 *.tgz
 *.tar
+
+# Permisos locales de Claude Code (no versionar)
+.claude/settings.local.json

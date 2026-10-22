@@ -481,5 +481,73 @@
         <INDEX NAME="interactionid_userid" UNIQUE="true" FIELDS="interactionid, userid"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_chatbot_exante" COMMENT="Modulo 2, Fase 1: ficha de diagnostico (evaluacion ex-ante) de la persona en el curso. Una por persona y curso">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="data" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Respuestas de la ficha en JSON (claves de exante::field_keys)"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="true" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_exante_val" COMMENT="Validacion de una ficha ex-ante con el checklist del cliente. Una fila por intento; no es una calificacion">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="fichaid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="estado" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="pendiente, procesando, listo o error"/>
+        <FIELD NAME="condicion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="aprobado, observaciones o no_aprobado"/>
+        <FIELD NAME="huella" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Huella de la ficha y sus adjuntos al validar"/>
+        <FIELD NAME="snapshot" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Ficha validada, en JSON"/>
+        <FIELD NAME="informe" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Resultado por item, debilidades y sugerencias, en JSON"/>
+        <FIELD NAME="modelo" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="promptversion" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="error" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Motivo cuando estado es error"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="fichaid" UNIQUE="false" FIELDS="fichaid"/>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_diseno" COMMENT="Modulo 2, Fase 2: producto de cada etapa del diseno de la experiencia de aprendizaje (Prompt Maestro, etapas 1 a 6). Una fila por persona, curso y etapa">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="etapa" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="contenido" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Producto de la etapa en HTML, editable por la persona"/>
+        <FIELD NAME="estado" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="borrador" SEQUENCE="false" COMMENT="borrador o aceptado"/>
+        <FIELD NAME="generacion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="pendiente, procesando, listo o error"/>
+        <FIELD NAME="ajustes" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Ajustes pedidos en la ultima generacion"/>
+        <FIELD NAME="validacionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Validacion de la Fase 1 en que se basa"/>
+        <FIELD NAME="modelo" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="promptversion" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="error" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="informe" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Etapa 8: evaluacion con la rubrica, en JSON"/>
+        <FIELD NAME="huella" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Etapas 7 y 8: huella de las etapas consolidadas"/>
+        <FIELD NAME="timeaccepted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid_etapa" UNIQUE="true" FIELDS="userid, courseid, etapa"/>
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>

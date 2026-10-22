@@ -1,5 +1,83 @@
 # Changelog
 
+## M1-v1.19.2 (2026-10-21)
+
+- Checklist de la Fase 1 aplicable en Moodle (`checklist_exante.php`): los 32 ítems con ✔ / ⚠ / ❌ para marcar y
+  guardar (preferencia de la persona, por curso; no se envía a la IA), los críticos señalados, un resumen con la misma
+  regla de decisión del asistente y, si la ficha ya se validó, lo que dijo el asistente en cada ítem. El PDF queda
+  como descarga opcional. «Consultar y descargar el checklist» del curso y un enlace en la ficha llevan ahí.
+
+## M1-v1.19.1 (2026-10-21)
+
+- Barra «Tu ruta del Módulo 2» arriba de la ficha y de las páginas de etapas, con el estilo de la ruta del Módulo 1:
+  las tres fases (✓ completa, «Estás aquí», 🔒 bloqueada, avance de etapas), un resumen y el próximo paso sugerido
+  con su botón «Ir». `classes/ruta_m2.php` (modelo puro probado en `verificar_diseno.php`, 105 casos).
+
+## M1-v1.19.0 (2026-10-21)
+
+**Módulo 2, Fase 3: consolidación y evaluación del diseño** (pedido de Interfases del 21-10-2026; cierra el módulo)
+
+- Etapa 7, consolidación: las seis etapas aceptadas de la Fase 2, tal cual y en orden, en un documento único. **No es
+  editable**: para ajustar se vuelve a la etapa de la Fase 2 (hay enlaces a cada una), y entonces hay que confirmar de
+  nuevo. Si una etapa cambia después de confirmar, la consolidación y su evaluación dejan de valer.
+- Etapa 8, evaluación: la IA aplica la rúbrica de validación técnica del cliente (9 criterios, niveles 1 a 4,
+  descriptores textuales): puntaje y justificación por criterio, fortalezas, debilidades y recomendaciones. El total
+  y la interpretación los calcula el código con la escala de la rúbrica; se aprueba desde 25 puntos. Una respuesta
+  sin los nueve criterios o con un puntaje fuera de 1 a 4 no se usa. Con el diseño aprobado se descarga el documento
+  final en Word (diseño consolidado + anexo con la evaluación), titulado con el nombre de la experiencia.
+- `configurar_modulo2.php`: la rúbrica queda como recurso oculto, enlazado desde la pestaña Fase 3, y al final de la
+  pestaña el botón «Ir a la consolidación y evaluación del diseño · Fase 3».
+- Campos `informe` y `huella` en `local_chatbot_diseno`; `cli/verificar_diseno.php` (94 casos).
+- `configurar_modulo2.php` pasa a «incrustado» los recursos enlazados que estaban en ventana emergente: abiertos por
+  enlace directo mostraban una página intermedia «Haga clic en … para ver el archivo».
+
+## M1-v1.18.0 (2026-10-21)
+
+**Módulo 2, Fase 2: hojas de trabajo del diseño en seis etapas** (pedido de Interfases del 21-10-2026; solo la parte
+del asistente, no el formato de la pestaña)
+
+- Página nueva `diseno.php?courseid=ID[&etapa=N]` para las etapas 1 a 6 del Prompt Maestro (análisis diagnóstico,
+  diseño de la experiencia, secuencia instruccional, materiales, plan de evaluación, instrumentos). En cada una el
+  asistente propone el producto a partir de la ficha validada, sus observaciones, los adjuntos y las etapas ya
+  aceptadas; la persona lo edita (editor de Moodle), pide ajustes (el asistente rehace la etapa completa), lo acepta
+  y lo descarga en Word (.docx real, con títulos, listas y tablas). Al final: «Regresar al curso» y «Avanzar a la
+  etapa siguiente» (solo con la etapa aceptada; en la 6, a la Fase 3).
+- Reglas del Prompt Maestro: no se entra sin la ficha validada y vigente (con el texto del prompt), no se salta una
+  etapa sin aceptar la anterior, cada etapa pide exactamente lo que el prompt lista y cierra con una verificación de
+  calidad; gobernanza (no inventar aprendizajes ni criterios, 3 a 5 criterios, juicios de valor, alineación
+  constructiva, lenguaje inclusivo).
+- `configurar_modulo2.php` agrega el botón «Ir al Asistente de Diseño · Fase 2» al final de la pestaña Fase 2 (en su
+  última subsección).
+- Tabla `local_chatbot_diseno`; interruptor `disenofase2`; `classes/diseno.php` y `cli/verificar_diseno.php` (57 casos).
+
+## M1-v1.17.0 (2026-10-21)
+
+**Módulo 2, Fase 1: ficha de diagnóstico ex-ante con validación** (pedido de Interfases del 21-10-2026, punto 4)
+
+- Página nueva `ficha_exante.php?courseid=ID`: la ficha de diagnóstico del cliente (9 secciones, 24 preguntas
+  cerradas, textos del documento), con la ayuda de la guía de llenado en cada pregunta, «Guardar borrador» y
+  «Guardar y validar», y dos adjuntos opcionales (Plan Formativo y Perfil Ocupacional, PDF o .docx de hasta 10 MB).
+- Al validar, el asistente aplica el checklist completo (32 ítems, Etapa 0 del Prompt Maestro) y el informe aparece en
+  la misma página: a) resultado por ítem (✔ / ⚠ / ❌ con observación), b) condición y c) debilidades y propuestas de
+  mejora. Con Aprobado o Aprobado con observaciones aparece «Continuar a la Fase 2: Diseño de la Experiencia de
+  Aprendizaje» (la sección del curso que se llama «Fase 2…»); si se cambia la ficha después, hay que validar de nuevo.
+- Control de entrada: sin aprendizaje esperado, un criterio y las secciones 4 y 5 no se llama al modelo y se dice qué
+  falta. La condición final es la más estricta entre la del modelo y la regla del checklist: un ítem crítico
+  (aprendizaje, criterios, coherencia general) que no se cumple no se aprueba. Un informe al que le falte un ítem no se
+  usa. El nombre de la persona facilitadora no viaja al modelo.
+- En celular, el resultado del checklist se apila (ítem, evaluación, observación) en vez de una tabla de tres
+  columnas con desplazamiento lateral.
+- La validación corre en una segunda llamada que la página dispara y consulta sola, para que un corte del servidor web
+  con adjuntos grandes no pierda el informe. No es una calificación ni toca el libro de calificaciones.
+- Tablas `local_chatbot_exante` y `local_chatbot_exante_val`; interruptor `fichaexante`; `classes/exante.php` y
+  `cli/verificar_exante.php` (104 casos).
+- Guion `cli/configurar_modulo2.php --curso=ID [--simular]` (puntos 1 a 3 del mismo pedido, más el botón del punto 4):
+  los materiales de apoyo de la Fase 1 (Guía, Ficha de campo, Ejemplo) y «Consultar y descargar el checklist» enlazan
+  a sus recursos, que quedan disponibles pero sin mostrarse en la página del curso; la condición enmarcada de los
+  recuadros de resultado queda centrada; se quitan las notas provisionales del texto («reemplaza #…») y se agrega al
+  final de «Completa y valida el formulario» el botón «Completar y validar la ficha de diagnóstico». Busca recursos y
+  secciones por nombre y marcas del texto, no por id; idempotente. Parte pura en `classes/modulo2_setup.php`.
+
 ## M1-v1.16.16 (2026-10-20)
 
 - `cli/configurar_modulo1.php` oculta la franja de navegación del curso (Curso, Participantes, Calificaciones,
