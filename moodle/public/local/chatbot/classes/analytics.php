@@ -150,6 +150,189 @@ class analytics {
     }
 
     /**
+     * Personas con alguna actividad del recorrido en el curso (perfil, diagnostico, PDP o proyecto).
+     *
+     * @param int $courseid
+     * @return int[]
+     */
+    public static function route_people(int $courseid): array {
+        global $DB;
+        $ids = [];
+        foreach (['local_chatbot_profile', 'local_chatbot_diag_response', 'local_chatbot_pdp', 'local_chatbot_project'] as $tabla) {
+            foreach ($DB->get_fieldset_sql("SELECT DISTINCT userid FROM {{$tabla}} WHERE courseid = ?", [$courseid]) as $uid) {
+                $ids[(int) $uid] = true;
+            }
+        }
+        return array_keys($ids);
+    }
+
+    /**
+     * Avance por etapa con la ruta vigente y el mismo criterio que la barra de ruta de cada persona
+     * (course_bridge::step_states()). Reemplaza en los indicadores a completion_funnel(), que contaba cinco
+     * etapas con consultas propias: con la ruta de 6 faltaba la Ruta Formativa Base y los porcentajes podian
+     * pasar de 100 (el diagnostico se contaba sin exigir el consentimiento vigente y la base si lo exigia).
+     *
+     * @param int $courseid
+     * @return array ['keys' => ruta vigente, 'iniciaron' => int, 'etapas' => clave => int]
+     */
+    public static function route_funnel(int $courseid): array {
+        $keys = course_bridge::route_keys();
+        $estados = [];
+        foreach (self::route_people($courseid) as $uid) {
+            $estados[$uid] = course_bridge::step_states($uid, $courseid);
+        }
+        return ['keys' => $keys] + self::funnel_counts($estados, $keys);
+    }
+
+    /**
+     * Cuenta cuantas personas tienen hecha cada etapa. Funcion pura.
+     *
+     * «Iniciaron» son quienes tienen al menos una etapa hecha: asi ninguna etapa supera el 100 %.
+     *
+     * @param array $estados Persona => (clave => bool), como lo devuelve step_states().
+     * @param string[] $keys Ruta vigente.
+     * @return array ['iniciaron' => int, 'etapas' => clave => int]
+     */
+    public static function funnel_counts(array $estados, array $keys): array {
+        $etapas = array_fill_keys($keys, 0);
+        $iniciaron = 0;
+        foreach ($estados as $estado) {
+            $alguna = false;
+            foreach ($keys as $clave) {
+                if (!empty($estado[$clave])) {
+                    $etapas[$clave]++;
+                    $alguna = true;
+                }
+            }
+            if ($alguna) {
+                $iniciaron++;
+            }
+        }
+        return ['iniciaron' => $iniciaron, 'etapas' => $etapas];
+    }
+
+    /**
+     * Personas en cada etapa de la ruta vigente, semana a semana (acumulado).
+     *
+     * Solo cuenta a quien tiene la etapa hecha segun step_states(), asi el ultimo punto de cada linea
+     * coincide con route_funnel(). La fecha es la primera en que la etapa quedo hecha; si no se puede
+     * saber, la persona entra en el punto de partida.
+     *
+     * @param int $courseid
+     * @param int $weeks
+     * @return array ['weeks' => marcas de tiempo, 'keys' => ruta, 'series' => clave => acumulados]
+     */
+    public static function route_steps_timeline(int $courseid, int $weeks = self::TIMELINE_WEEKS): array {
+        global $DB;
+        $weekstarts = self::timeline_weeks($weeks);
+        $keys = course_bridge::route_keys();
+        $p = ['courseid' => $courseid];
+        $fechas = [
+            'perfil' => $DB->get_records_sql_menu("SELECT userid, MAX(consenttime) FROM {local_chatbot_profile}
+                WHERE courseid = :courseid GROUP BY userid", $p),
+            'diagnostico' => $DB->get_records_sql_menu("SELECT userid, MIN(timecreated) FROM {local_chatbot_diag_response}
+                WHERE courseid = :courseid GROUP BY userid", $p),
+            'pdp' => $DB->get_records_sql_menu("SELECT p.userid, MIN(g.timemodified) FROM {local_chatbot_pdp} p
+                JOIN {local_chatbot_pdp_goal} g ON g.pdpid = p.id
+                WHERE p.courseid = :courseid AND g.status IN ('aceptado', 'modificado', 'completado')
+                      AND (g.ronda IS NULL OR g.ronda = p.ronda) GROUP BY p.userid", $p),
+            'proyecto' => $DB->get_records_sql_menu("SELECT userid, MAX(timemodified) FROM {local_chatbot_project}
+                WHERE courseid = :courseid GROUP BY userid", $p),
+            'cierre' => $DB->get_records_sql_menu("SELECT userid, MAX(timemodified) FROM {local_chatbot_closure}
+                WHERE courseid = :courseid GROUP BY userid", $p),
+        ];
+        $tiempos = array_fill_keys($keys, []);
+        foreach (self::route_people($courseid) as $uid) {
+            $estado = course_bridge::step_states($uid, $courseid);
+            foreach ($keys as $clave) {
+                if (empty($estado[$clave])) {
+                    continue;
+                }
+                $tiempos[$clave][] = $clave === 'ruta'
+                    ? self::ruta_time($uid, $courseid)
+                    : (int) ($fechas[$clave][$uid] ?? 0);
+            }
+        }
+        $series = [];
+        foreach ($keys as $clave) {
+            $series[$clave] = self::cumulative_weeks($tiempos[$clave], $weekstarts[0], $weeks);
+        }
+        return ['weeks' => $weekstarts, 'keys' => $keys, 'series' => $series];
+    }
+
+    /**
+     * Acumulado semanal de una lista de fechas. Funcion pura.
+     *
+     * Una fecha anterior a la ventana (o desconocida, 0) entra en el punto de partida; una posterior, no cuenta.
+     *
+     * @param int[] $tiempos
+     * @param int $origen Inicio de la primera semana.
+     * @param int $weeks
+     * @return int[] Un valor por semana.
+     */
+    public static function cumulative_weeks(array $tiempos, int $origen, int $weeks): array {
+        $porsemana = array_fill(0, $weeks, 0);
+        $antes = 0;
+        foreach ($tiempos as $t) {
+            // 7 * 86400 y no WEEKSECS: es funcion pura y el verificador corre sin Moodle.
+            $semana = $t > 0 ? (int) floor(($t - $origen) / (7 * 86400)) : -1;
+            if ($semana < 0) {
+                $antes++;
+            } else if ($semana < $weeks) {
+                $porsemana[$semana]++;
+            }
+        }
+        $acumulado = $antes;
+        $serie = [];
+        foreach ($porsemana as $n) {
+            $acumulado += $n;
+            $serie[] = $acumulado;
+        }
+        return $serie;
+    }
+
+    /**
+     * Cuando una persona termino la Ruta Formativa Base: la fecha en que recorrio el ultimo de sus recursos
+     * (lectura, caso y ejemplo al abrirse o completarse; el quiz al terminar un intento), con el mismo criterio
+     * que course_bridge::ruta_resources().
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @return int Marca de tiempo, o 0 si no se puede saber.
+     */
+    protected static function ruta_time(int $userid, int $courseid): int {
+        global $DB;
+        $recursos = course_bridge::ruta_resources($userid, $courseid);
+        if (!$recursos) {
+            return 0;
+        }
+        $primeros = $DB->get_records_sql_menu("SELECT eventcode, MIN(timecreated) FROM {local_chatbot_trace}
+            WHERE userid = ? AND courseid = ? AND eventcode LIKE 'EVT-U%' GROUP BY eventcode", [$userid, $courseid]);
+        $cms = get_fast_modinfo($courseid)->cms;
+        $ultimo = 0;
+        foreach ($recursos as $r) {
+            $unidad = explode('-', $r['code'])[0];
+            $sufijos = $r['kind'] === 'QF' ? ['SUBMIT', 'COMPLETE'] : ['VIEW', 'COMPLETE'];
+            $t = 0;
+            foreach ($sufijos as $sufijo) {
+                $e = (int) ($primeros["EVT-{$unidad}-{$r['kind']}-{$sufijo}"] ?? 0);
+                if ($e > 0 && ($t === 0 || $e < $t)) {
+                    $t = $e;
+                }
+            }
+            if ($r['kind'] === 'QF' && isset($cms[$r['cmid']])) {
+                $q = (int) $DB->get_field_sql("SELECT MIN(timefinish) FROM {quiz_attempts}
+                    WHERE quiz = ? AND userid = ? AND state = 'finished'", [$cms[$r['cmid']]->instance, $userid]);
+                if ($q > 0 && ($t === 0 || $q < $t)) {
+                    $t = $q;
+                }
+            }
+            $ultimo = max($ultimo, $t);
+        }
+        return $ultimo;
+    }
+
+    /**
      * Embudo de avance por componente del modulo.
      *
      * @param int $courseid

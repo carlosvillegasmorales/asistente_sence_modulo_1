@@ -54,14 +54,18 @@ if ($onlyids) {
        ORDER BY c.fullname ASC");
 }
 
-$funnel = \local_chatbot\analytics::completion_funnel($courseid);
+// Avance con la ruta vigente y el criterio de la barra de ruta de cada persona (course_bridge::step_states()).
+$funnel = \local_chatbot\analytics::route_funnel($courseid);
+$routesix = in_array('ruta', $funnel['keys'], true);
+$optionalkeys = array_map(fn($pos) => $funnel['keys'][$pos - 1],
+    \local_chatbot\journey::optional_positions($funnel['keys']));
 $gaps = \local_chatbot\analytics::gap_distribution($courseid);
 $variation = \local_chatbot\analytics::progress_variation($courseid);
 $goals = \local_chatbot\analytics::pdp_goal_outcomes($courseid);
 $interactions = \local_chatbot\analytics::interactions_by_mode($courseid);
 $hotspots = \local_chatbot\analytics::rubric_hotspots($courseid);
 $usage = \local_chatbot\analytics::usage_timeline($courseid);
-$route = \local_chatbot\analytics::route_timeline($courseid);
+$route = \local_chatbot\analytics::route_steps_timeline($courseid);
 $annexg = \local_chatbot\analytics::annex_g_indicators($courseid);
 // Registro y salud (M1-v1.6.2): el catalogo de eventos es la capa de abajo de
 // los indicadores del Anexo G, y la salud del servicio no estaba a la vista en
@@ -352,13 +356,16 @@ $modecolors = [
     \local_chatbot\assistant::MODE_COACH => $c['discard'],
     \local_chatbot\assistant::MODE_EVALUADOR => '#1baf7a',
 ];
-$stagecolors = [
-    'perfilamiento' => $c['b250'],
-    'diagnostico' => $c['b350'],
-    'pdp' => $c['series'],
-    'proyecto' => '#1c5cab',
-    'cierre' => '#0d366b',
-];
+// Una rampa azul de la primera a la ultima etapa, en el orden de la ruta vigente.
+$stageramp = [$c['b250'], $c['b350'], $c['series'], '#1c5cab', '#14457f', '#0d2f57'];
+$stagecolors = [];
+foreach ($funnel['keys'] as $i => $clave) {
+    $stagecolors[$clave] = $stageramp[min($i, count($stageramp) - 1)];
+}
+$stagename = function (string $clave) use ($routesix, $optionalkeys): string {
+    $nombre = get_string(\local_chatbot\course_bridge::step_name_key($clave, $routesix), 'local_chatbot');
+    return in_array($clave, $optionalkeys, true) ? $nombre . ' ' . get_string('funnel_optional', 'local_chatbot') : $nombre;
+};
 $levelcolors = [
     \local_chatbot\diagnostic::LEVEL_PRIORIDAD_ALTA => [$c['b250'], 'dark'],
     \local_chatbot\diagnostic::LEVEL_EN_DESARROLLO => [$c['b350'], 'dark'],
@@ -367,8 +374,8 @@ $levelcolors = [
 ];
 
 // Indicadores clave.
-$started = (int) $funnel['perfilamiento'];
-$finished = (int) $funnel['cierre'];
+$started = (int) $funnel['iniciaron'];
+$finished = (int) ($funnel['etapas']['cierre'] ?? 0);
 
 $goalskept = $goals['aceptado'] + $goals['modificado'] + $goals['completado'];
 $goalspending = $goals['propuesto'] + $goals['postergado'];
@@ -407,10 +414,13 @@ $kpis = [
             . '<line x1="4" y1="22" x2="4" y2="15"></line>',
     ],
     [
+        // Primero cuantas metas se decidieron: un «100 % se mantienen» sobre 2 de 9 escondia que 7 seguian sin decidir.
         'label' => get_string('kpi_goals', 'local_chatbot'),
-        'value' => $goalsdecided > 0 ? local_chatbot_dash_pct($goalskept, $goalsdecided) . '%' : '—',
-        'sub' => $goalsdecided > 0
-            ? get_string('kpi_goals_sub', 'local_chatbot', $goalsdecided)
+        'value' => $goalstotal > 0 ? local_chatbot_dash_pct($goalsdecided, $goalstotal) . '%' : '—',
+        'sub' => $goalstotal > 0
+            ? get_string('kpi_goals_sub', 'local_chatbot', (object) [
+                'decididas' => $goalsdecided, 'total' => $goalstotal, 'pendientes' => $goalspending,
+                'mantienen' => $goalsdecided > 0 ? local_chatbot_dash_pct($goalskept, $goalsdecided) . '%' : '—'])
             : get_string('kpi_goals_none', 'local_chatbot'),
         'icon' => '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle>'
             . '<circle cx="12" cy="12" r="2"></circle>',
@@ -506,12 +516,12 @@ echo $OUTPUT->header();
             $usagetotal += array_sum($values);
         }
 
-        // Linea de tiempo del recorrido: cinco etapas ordenadas, rampa azul.
+        // Linea de tiempo del recorrido: las etapas de la ruta vigente, en orden, rampa azul.
         $routeseries = [];
         $routetotal = 0;
         foreach ($route['series'] as $stage => $values) {
             $routeseries[] = [
-                'name' => get_string('funnel_' . $stage, 'local_chatbot'),
+                'name' => $stagename($stage),
                 'color' => $stagecolors[$stage],
                 'values' => $values,
             ];
@@ -563,10 +573,10 @@ echo $OUTPUT->header();
                 <?php echo local_chatbot_dash_empty('funnel_empty'); ?>
             <?php else: ?>
                 <ol class="m1-funnel">
-                    <?php foreach ($funnel as $key => $count):
+                    <?php foreach ($funnel['etapas'] as $key => $count):
                         $pct = local_chatbot_dash_pct((int) $count, $started); ?>
                         <li class="m1-funnel-row">
-                            <span class="m1-funnel-label"><?php echo s(get_string('funnel_' . $key, 'local_chatbot')); ?></span>
+                            <span class="m1-funnel-label"><?php echo s($stagename($key)); ?></span>
                             <span class="m1-track">
                                 <span class="m1-fill" style="width:<?php echo min(100, $pct); ?>%;background:<?php echo $c['series']; ?>"></span>
                             </span>
@@ -599,7 +609,12 @@ echo $OUTPUT->header();
                         ? local_chatbot_dash_pct($goalskept, $goalsdecided) . '%' : '—'; ?></span>
                     <span class="m1-goals-caption">
                         <strong><?php echo s(get_string('goals_kept', 'local_chatbot')); ?></strong><br>
-                        <span class="m1-muted"><?php echo s(get_string('goals_total', 'local_chatbot', $goalstotal)); ?></span>
+                        <span class="m1-muted"><?php echo s(get_string('goals_total', 'local_chatbot',
+                            (object) ['decididas' => $goalsdecided, 'total' => $goalstotal])); ?></span>
+                        <?php if ($goalspending > 0): ?><br>
+                            <span class="m1-goals-pending"><?php echo s(get_string('goals_undecided', 'local_chatbot',
+                                (object) ['n' => $goalspending, 'pct' => local_chatbot_dash_pct($goalspending, $goalstotal)])); ?></span>
+                        <?php endif; ?>
                     </span>
                 </div>
                 <?php echo local_chatbot_dash_stack($goalsegments, $goalstotal); ?>

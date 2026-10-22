@@ -11,6 +11,7 @@ define('MOODLE_INTERNAL', true);
 require_once(__DIR__ . '/_puro.php');
 require_once(__DIR__ . '/../classes/ux.php');
 require_once(__DIR__ . '/../classes/closure.php');
+require_once(__DIR__ . '/../classes/analytics.php');
 require_once(__DIR__ . '/../classes/journey.php');
 require_once(__DIR__ . '/../classes/stream.php');
 require_once(__DIR__ . '/../classes/feedback.php');
@@ -244,6 +245,23 @@ local_chatbot_verificar(!\local_chatbot\ux::is_listed(18, '180,118,x18'), 'solo 
 local_chatbot_verificar(\local_chatbot\closure::parse_course_ids('20, 18;19 20') === [20, 18, 19], 'la lista de cursos admite separadores y no repite');
 local_chatbot_verificar(\local_chatbot\closure::parse_course_ids('') === [] && \local_chatbot\closure::parse_course_ids('  ') === [], 'una lista vacia da cero cursos');
 local_chatbot_verificar(\local_chatbot\closure::parse_course_ids('0,1,x,-5,7') === [7], 'el sitio, el texto y los negativos se descartan');
+// Indicadores: embudo con la ruta vigente (6 etapas) y el criterio de la barra de ruta.
+$ruta6 = ['perfil', 'diagnostico', 'ruta', 'proyecto', 'pdp', 'cierre'];
+$estados = [
+    1 => ['perfil' => true, 'diagnostico' => true, 'ruta' => true, 'proyecto' => false, 'pdp' => true, 'cierre' => false],
+    2 => ['perfil' => true, 'diagnostico' => true, 'ruta' => false, 'proyecto' => false, 'pdp' => false, 'cierre' => false],
+    3 => ['perfil' => false, 'diagnostico' => true, 'ruta' => false, 'proyecto' => false, 'pdp' => false, 'cierre' => false],
+    4 => ['perfil' => false, 'diagnostico' => false, 'ruta' => false, 'proyecto' => false, 'pdp' => false, 'cierre' => false],
+];
+$embudo = \local_chatbot\analytics::funnel_counts($estados, $ruta6);
+local_chatbot_verificar($embudo['iniciaron'] === 3, 'iniciaron son quienes tienen al menos una etapa (sin perfil vigente tambien cuenta)');
+local_chatbot_verificar($embudo['etapas']['diagnostico'] === 3 && $embudo['etapas']['perfil'] === 2
+    && $embudo['etapas']['ruta'] === 1 && $embudo['etapas']['cierre'] === 0, 'cada etapa cuenta a quien la tiene hecha');
+local_chatbot_verificar(max($embudo['etapas']) <= $embudo['iniciaron'], 'ninguna etapa supera el 100 % de quienes iniciaron');
+local_chatbot_verificar(array_keys($embudo['etapas']) === $ruta6, 'el embudo sigue el orden de la ruta vigente, con la Ruta Formativa Base');
+$semana = 7 * 24 * 3600;
+local_chatbot_verificar(\local_chatbot\analytics::cumulative_weeks([0, 50, 1000 + $semana, 1000 + 5 * $semana], 1000, 3) === [2, 3, 3],
+    'el acumulado semanal pone lo anterior o sin fecha en el punto de partida y descarta lo posterior');
 // «Solo en estos cursos» (chatonlycourses): manda cuando tiene algo y deja fuera lo que no este en la lista.
 local_chatbot_verificar(!\local_chatbot\ux::is_hidden(6, '', '6') && \local_chatbot\ux::is_hidden(4, '', '6')
     && \local_chatbot\ux::is_hidden(99, '', '6'), 'con lista unica, solo ese curso muestra el asistente');

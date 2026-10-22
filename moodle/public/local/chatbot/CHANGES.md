@@ -1,5 +1,18 @@
 # Changelog
 
+## M1-v1.19.6 (2026-10-22)
+
+**Indicadores corregidos (cifras falsas o engañosas)**
+
+- «Avance por componente» y «Personas en cada etapa» siguen la ruta vigente (6 etapas, con la Ruta Formativa Base y el PDP
+  marcado opcional) y cuentan con el mismo criterio que la barra «Tu ruta» de cada persona (`course_bridge::step_states()`).
+  Antes usaban cinco consultas propias con la ruta de 5 y podían pasar de 100 % (Diagnóstico 4 de 3 = 133 %).
+- «Personas que iniciaron» = quienes tienen al menos una etapa hecha; ninguna etapa supera el 100 %.
+- Metas del asistente: la tarjeta muestra primero cuántas se decidieron («2 de 9 · 7 sin decidir») y luego cuántas se
+  mantienen de las decididas; antes un «100 %» sobre 2 de 9 escondía que 7 seguían sin decidir.
+- `analytics::route_funnel()`, `route_steps_timeline()`, `funnel_counts()` y `cumulative_weeks()` (las dos últimas puras,
+  con 5 casos en `verificar_experiencia.php`). `completion_funnel()` no cambia: la usa la exportación a la Suite.
+
 ## M1-v1.19.5 (2026-10-22)
 
 - Indicadores: la lista de cursos sale de `closure::parse_course_ids()`, que ya existía; se quita el duplicado

@@ -2582,6 +2582,16 @@ body.local-chatbot-dash-page #page-header {
     font-weight: 600;
     font-size: 14px;
 }
+/* Metas sin decidir: el dato que el «% se mantienen» no muestra. Destacado, sin color de alarma. */
+.m1-goals-pending {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f1f0ea;
+    color: var(--m1-ink);
+    font-weight: 600;
+}
 
 /* Brechas */
 .m1-gaps {
