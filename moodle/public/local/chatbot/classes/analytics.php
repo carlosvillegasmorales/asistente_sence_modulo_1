@@ -417,6 +417,12 @@ class analytics {
      */
     public static function module2_overview(): array {
         global $DB;
+        // Un servidor sin el Modulo 2 todavia (sin su codigo o sin sus tablas) muestra la pestaña vacia, no un error.
+        if (!class_exists(exante::class) || !class_exists(diseno::class)
+                || !$DB->get_manager()->table_exists('local_chatbot_exante')
+                || !$DB->get_manager()->table_exists('local_chatbot_diseno')) {
+            return [];
+        }
         $cursos = $DB->get_fieldset_sql("SELECT DISTINCT courseid FROM {local_chatbot_exante} WHERE courseid > 0");
         $textos = [];
         foreach (exante::checklist() as $seccion) {

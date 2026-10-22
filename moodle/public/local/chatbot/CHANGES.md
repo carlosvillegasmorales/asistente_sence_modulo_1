@@ -1,5 +1,10 @@
 # Changelog
 
+## M1-v1.19.9 (2026-10-22)
+
+- Indicadores: la pestaña Módulo 2 queda vacía (sin error) en un servidor que aún no tiene el código o las tablas del
+  Módulo 2. Permite llevar los indicadores al VPS del cliente antes del despliegue completo.
+
 ## M1-v1.19.8 (2026-10-22)
 
 **Indicadores: pestañas por público, dónde se detienen, período, exportar y Módulo 2**
