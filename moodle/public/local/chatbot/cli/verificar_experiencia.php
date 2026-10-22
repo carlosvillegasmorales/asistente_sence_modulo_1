@@ -239,6 +239,10 @@ local_chatbot_verificar(\local_chatbot\ux::is_listed(4, ' 4 ; 5 ,6') && \local_c
 local_chatbot_verificar(!\local_chatbot\ux::is_listed(1, '1,18') && !\local_chatbot\ux::is_listed(0, '0,18'),
     'el curso del sitio y el id 0 nunca se ocultan');
 local_chatbot_verificar(!\local_chatbot\ux::is_listed(18, '180,118,x18'), 'solo cuenta el id exacto');
+// Lista de cursos de un ajuste (la usan los indicadores): ids validos, sin repetir y en el orden escrito.
+local_chatbot_verificar(\local_chatbot\ux::list_ids('20, 18;19 20') === [20, 18, 19], 'la lista de cursos admite separadores y no repite');
+local_chatbot_verificar(\local_chatbot\ux::list_ids('') === [] && \local_chatbot\ux::list_ids('  ') === [], 'una lista vacia da cero cursos');
+local_chatbot_verificar(\local_chatbot\ux::list_ids('0,1,x,-5,7') === [7], 'el sitio, el texto y los negativos se descartan');
 // «Solo en estos cursos» (chatonlycourses): manda cuando tiene algo y deja fuera lo que no este en la lista.
 local_chatbot_verificar(!\local_chatbot\ux::is_hidden(6, '', '6') && \local_chatbot\ux::is_hidden(4, '', '6')
     && \local_chatbot\ux::is_hidden(99, '', '6'), 'con lista unica, solo ese curso muestra el asistente');

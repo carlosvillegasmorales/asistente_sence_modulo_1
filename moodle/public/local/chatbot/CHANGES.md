@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.19.3 (2026-10-22)
+
+- Indicadores (`indicadores.php`): con «Asistente solo en estos cursos» escrito, el selector «Ver datos de» lista solo
+  esos cursos (sin «Recorrido general» ni cursos de prueba) y la página abre en el primero. Sin la lista, igual que
+  antes. `ux::list_ids()` (función pura) con 3 casos nuevos en `verificar_experiencia.php`.
+
 ## M1-v1.19.2 (2026-10-21)
 
 - Checklist de la Fase 1 aplicable en Moodle (`checklist_exante.php`): los 32 ítems con ✔ / ⚠ / ❌ para marcar y

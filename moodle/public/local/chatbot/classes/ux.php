@@ -121,6 +121,24 @@ class ux {
     }
 
     /**
+     * Ids de curso de una lista escrita en un ajuste, sin repetir y en el orden escrito. Funcion pura.
+     *
+     * Los ids 0 y 1 (el sitio) y cualquier texto que no sea un numero se descartan.
+     *
+     * @param string $raw Lista separada por coma, punto y coma o espacio.
+     * @return int[]
+     */
+    public static function list_ids(string $raw): array {
+        $ids = [];
+        foreach (preg_split('/[\s,;]+/', trim($raw)) as $parte) {
+            if (ctype_digit($parte) && (int) $parte > 1 && !in_array((int) $parte, $ids, true)) {
+                $ids[] = (int) $parte;
+            }
+        }
+        return $ids;
+    }
+
+    /**
      * Valor efectivo de un interruptor. Funcion pura.
      *
      * Sin valor guardado (instalacion que aun no paso por la pagina de ajustes) manda el valor

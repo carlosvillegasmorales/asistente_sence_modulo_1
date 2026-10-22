@@ -25,6 +25,14 @@ require_capability('local/chatbot:viewanalytics', $context);
 
 $courseid = optional_param('courseid', 0, PARAM_INT);
 
+// Con «Asistente solo en estos cursos» (chatonlycourses) escrito, los indicadores muestran solo esos cursos: el asistente
+// existe unicamente ahi, asi que no hay «recorrido general» ni cursos de prueba que ver. Un curso ajeno a la lista
+// vuelve al primero de ella.
+$onlyids = \local_chatbot\ux::list_ids((string) get_config('local_chatbot', 'chatonlycourses'));
+if ($onlyids && !in_array($courseid, $onlyids, true)) {
+    $courseid = $onlyids[0];
+}
+
 $PAGE->set_url(new moodle_url('/local/chatbot/indicadores.php', ['courseid' => $courseid]));
 $PAGE->set_context($context);
 // 'report' y no 'standard': el layout estandar encajona el contenido en una
@@ -36,11 +44,15 @@ $PAGE->add_body_class('local-chatbot-dash-page');
 $PAGE->set_title(get_string('analytics_title', 'local_chatbot'));
 $PAGE->set_heading(get_string('analytics_heading', 'local_chatbot'));
 
-$courses = $DB->get_records_sql(
-    "SELECT DISTINCT c.id, c.fullname
-       FROM {course} c
-       JOIN {local_chatbot_profile} p ON p.courseid = c.id
-   ORDER BY c.fullname ASC");
+if ($onlyids) {
+    $courses = $DB->get_records_list('course', 'id', $onlyids, 'fullname ASC', 'id, fullname');
+} else {
+    $courses = $DB->get_records_sql(
+        "SELECT DISTINCT c.id, c.fullname
+           FROM {course} c
+           JOIN {local_chatbot_profile} p ON p.courseid = c.id
+       ORDER BY c.fullname ASC");
+}
 
 $funnel = \local_chatbot\analytics::completion_funnel($courseid);
 $gaps = \local_chatbot\analytics::gap_distribution($courseid);
@@ -438,7 +450,9 @@ echo $OUTPUT->header();
             <label for="m1-courseid"><?php echo s(get_string('analytics_course', 'local_chatbot')); ?></label>
             <div class="m1-select-wrap">
                 <select name="courseid" id="m1-courseid" onchange="this.form.submit()">
-                    <option value="0"><?php echo s(get_string('analytics_sitewide', 'local_chatbot')); ?></option>
+                    <?php if (!$onlyids): ?>
+                        <option value="0"><?php echo s(get_string('analytics_sitewide', 'local_chatbot')); ?></option>
+                    <?php endif; ?>
                     <?php foreach ($courses as $course): ?>
                         <option value="<?php echo (int) $course->id; ?>"
                             <?php echo $course->id == $courseid ? 'selected' : ''; ?>>
