@@ -80,6 +80,21 @@ local_chatbot_verificar(kb_store::answer_key_markers(
     'La clave de una buena actividad es la evidencia. Una respuesta correcta requiere criterio.') === [],
     'kb: la palabra "clave" en prosa no es un falso positivo');
 
+// Diagnostico (RU-DIAG-002): un item situacional tiene respuesta correcta; explicar que enfoque conviene la revela.
+$diag = \local_chatbot\assistant::diagnostic_phase_clause();
+local_chatbot_verificar(strpos($diag, 'SITUACIONALES') !== false && strpos($diag, 'NO le recuerdes') !== false,
+    'diagnostico: en un item situacional no se recuerda la practica habitual');
+local_chatbot_verificar(strpos($diag, 'ni compares enfoques') !== false && strpos($diag, 'eso ES la respuesta') !== false,
+    'diagnostico: en un item situacional no se dice que enfoque es mas adecuado');
+local_chatbot_verificar(strpos($diag, 'DECLARATIVOS') !== false && strpos($diag, 'Solo en estos recuerdale') !== false,
+    'diagnostico: el recordatorio de practica habitual queda solo para los declarativos');
+// Precision conceptual y de citas (errores vistos el 21-10-2026).
+$conceptos = \local_chatbot\assistant::concepts_clause();
+local_chatbot_verificar(strpos($conceptos, 'Desempeño esperado') !== false && strpos($conceptos, 'Aprendizaje esperado') !== false
+    && strpos($conceptos, 'suelen describir el aprendizaje esperado') !== false, 'conceptos: desempeño y aprendizaje esperado no se intercambian');
+local_chatbot_verificar(strpos($conceptos, 'CITAS') !== false && strpos($conceptos, 'estos cinco criterios') !== false,
+    'conceptos: no se atribuyen a un apartado listas o cantidades que no contiene');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $casos, $fallidos);
 if ($fallidos === 0) {
     echo "Integridad del cuestionario conforme a RU-TUT-007 y RU-KB-001 (SPEC v5).\n";

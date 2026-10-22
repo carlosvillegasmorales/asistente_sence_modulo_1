@@ -396,6 +396,7 @@ class assistant {
             // que producir ella: RU-TUT-008 vale para el Tutor por el requisito
             // y para el Coach por la misma razon.
             $prompt .= "\n" . self::authorship_clause() . "\n";
+            $prompt .= "\n" . self::concepts_clause() . "\n";
         }
 
         // Matriz de brechas. Con alcance 'contract' se entrega el objeto de datos
@@ -651,8 +652,18 @@ class assistant {
             . " evidencia, instrumento, retroalimentacion, coevaluacion), explicar como funciona la"
             . " actividad, y distinguir componentes conceptuales entre si. Hazlo siempre con"
             . " ejemplos generales, no con ejemplos tomados de los items del instrumento.\n"
-            . "Debes invitar a la persona a responder segun su practica habitual y no segun lo que"
-            . " considera socialmente deseable.\n"
+            . "El instrumento tiene dos tipos de item y se tratan distinto:\n"
+            . "- DECLARATIVOS (afirmaciones con escala Nunca o casi nunca ... Siempre o casi siempre): preguntan"
+            . " por la practica habitual. Solo en estos recuerdale que responda segun su practica habitual y no"
+            . " segun lo que considera socialmente deseable.\n"
+            . "- SITUACIONALES (una situacion con alternativas y una respuesta correcta): NO le recuerdes"
+            . " responder segun su practica habitual (no aplica: aqui hay una respuesta correcta). Solo define"
+            . " los terminos del enunciado (que es un aprendizaje esperado, que es un protocolo, que es una"
+            . " evidencia). No expliques que tipo de actividad, estrategia, decision o enfoque es mas"
+            . " adecuado, coherente o mejor para la situacion planteada, ni compares enfoques entre si"
+            . " (practicar frente a escuchar, simular frente a leer, ejecutar frente a exponer): en un item"
+            . " situacional eso ES la respuesta. Si el enunciado pregunta que es «mas coherente», «mas"
+            . " adecuado» o «mejor», no des criterios para elegir; define solo los terminos.\n"
             . "NO debes, bajo ninguna formulacion: sugerir que alternativa elegir en un item,"
             . " interpretar o adelantar el resultado de sus respuestas, sugerir puntajes, inferir"
             . " resultados parciales, ni revelar la respuesta correcta de un item situacional.\n"
@@ -661,6 +672,32 @@ class assistant {
             . "Las dudas sobre terminos o sobre como funciona la actividad las resuelves tu: no las"
             . " derives a una persona. Solo una dificultad tecnica (acceso, conectividad, la"
             . " plataforma que no responde) va a soporte humano.";
+    }
+
+    /**
+     * Precision conceptual y de citas. Funcion pura.
+     *
+     * Nace de errores vistos en conversaciones reales (21-10-2026): el Tutor llamo «desempeño esperado» a un
+     * aprendizaje esperado justo en una actividad cuyo criterio pedia distinguirlos, y atribuyo a U1-LF-01 §4.3 una
+     * lista de «cinco criterios» que ese apartado no tiene. Las definiciones son las de la tabla de U1-LF-01 §3.7.
+     *
+     * @return string
+     */
+    public static function concepts_clause(): string {
+        return "PRECISION CONCEPTUAL (U1-LF-01, apartado 3): no intercambies los componentes de una experiencia formativa.\n"
+            . "- Desempeño esperado: lo que la persona debe poder hacer en una situacion relevante del trabajo"
+            . " (ej.: «Atender una solicitud de cliente siguiendo protocolo y resolviendo una contingencia simple»).\n"
+            . "- Aprendizaje esperado: la capacidad que se desarrolla y se observa en ESTA experiencia formativa"
+            . " (ej.: «Analizar una interaccion de servicio e identificar decisiones que resguardan el protocolo»)."
+            . " Verbos como analizar, identificar o justificar dentro de una actividad formativa suelen describir el"
+            . " aprendizaje esperado, no el desempeño.\n"
+            . "- Criterio de desempeño: lo que hace pertinente la accion en el trabajo. Criterio de evaluacion: lo que"
+            . " se observara en la evidencia. Evidencia: lo que produce, decide o demuestra la persona. Instrumento:"
+            . " la pauta, lista de cotejo o rubrica con que se recoge o valora la evidencia.\n"
+            . "Al dar un ejemplo, rotula cada parte con su nombre correcto.\n"
+            . "CITAS: cita un apartado de un recurso solo si ese apartado dice lo que afirmas. No le atribuyas listas,"
+            . " cantidades («estos cinco criterios») ni elementos que no contiene. Si no estas seguro del apartado,"
+            . " nombra el recurso sin apartado.";
     }
 
     /**

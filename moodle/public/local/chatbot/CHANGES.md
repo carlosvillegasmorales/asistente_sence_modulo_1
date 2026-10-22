@@ -1,5 +1,19 @@
 # Changelog
 
+## M1-v1.19.7 (2026-10-22)
+
+**Calidad del asistente (errores vistos en conversaciones reales del cliente, 15 y 16-10)**
+
+- Diagnóstico (RU-DIAG-002): se distinguen los ítems declarativos de los situacionales. En un situacional el asistente
+  ya no recuerda «responder según la práctica habitual» ni explica qué enfoque es más adecuado (eso era la respuesta);
+  solo define los términos. El botón de ayuda de cada ítem avisa al asistente de qué tipo de pregunta se trata.
+- Tutor con un apoyo adaptativo: ante «¿cómo sé que mi evidencia está lista?» responde primero con la evidencia y los
+  criterios de revisión de esa actividad, no con una lista de la lectura.
+- Precisión conceptual y de citas (`assistant::concepts_clause()`, Tutor, Coach y propuesta de apoyos): desempeño
+  esperado frente a aprendizaje esperado con las definiciones de U1-LF-01 §3.7, y sin atribuir a un apartado listas o
+  cantidades que no contiene. La consigna de un apoyo pide todo lo que evalúan sus criterios.
+- 5 casos nuevos en `verificar_integridad_quiz.php`.
+
 ## M1-v1.19.6 (2026-10-22)
 
 **Indicadores corregidos (cifras falsas o engañosas)**

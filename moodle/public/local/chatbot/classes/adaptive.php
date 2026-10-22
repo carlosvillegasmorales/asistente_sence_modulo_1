@@ -985,7 +985,11 @@ class adaptive {
             $adapt = reset($open);
             return "APOYO ADAPTATIVO EN CURSO (estado: {$labels[$adapt->estado]}):\n{$adapt->consigna}\n"
                 . "Puedes ayudar a comprender la consigna y a pensar como abordarla, pero la evidencia"
-                . " la produce la persona.";
+                . " la produce la persona.\n"
+                . "Si pregunta que debe presentar, como sabra que su evidencia esta lista o como se revisara,"
+                . " responde PRIMERO con la «Evidencia que revisaremos» y los «Criterios de revisión» de ESTA"
+                . " consigna, tal como estan escritos: son los que se aplicaran. Puedes complementar con la"
+                . " lectura, pero nunca presentes una lista de la lectura como si fueran los criterios de la actividad.";
         }
 
         $lines = [];
@@ -1145,6 +1149,7 @@ class adaptive {
             . "Recursos del catalogo (para 'recurso_previo', usa el nombre exacto de uno):\n- "
             . implode("\n- ", array_column(coach_context::catalog($userid, $courseid), 'nombre')) . "\n"
             . "\n" . assistant::authorship_clause() . "\n\n"
+            . assistant::concepts_clause() . "\n\n"
             . "Responde UNICAMENTE con JSON, sin texto adicional (plantilla del Anexo F §5.3):\n"
             . '{"nombre": "...", "proposito": "...", "consigna": "...", "recurso_previo": "...",'
             . ' "evidencia": "...", "criterios": ["...", "..."], "tiempo": "...", "unidad": "..."}' . "\n"
@@ -1153,7 +1158,9 @@ class adaptive {
             . "- consigna: en segunda persona, ajustada a su nivel de orientacion y a su contexto, clara y"
             . " acotada; pide un producto concreto y breve (analisis, propuesta, tabla, esquema o decision"
             . " fundamentada). No incluyas la solucion. No digas \"en este chat\" ni \"en la conversacion\": la persona"
-            . " escribe su respuesta en el cuadro de evidencia que aparece bajo la actividad.\n"
+            . " escribe su respuesta en el cuadro de evidencia que aparece bajo la actividad. Debe pedir"
+            . " explicitamente cada elemento que evaluan los criterios que elijas: si un criterio pide distinguir el"
+            . " desempeño de referencia del aprendizaje esperado, la consigna pide redactar ambos.\n"
             . "- evidencia: que presentara la persona por escrito en ese cuadro de evidencia (o en un PDF adjunto).\n"
             . "- criterios: entre 2 y 4, copiados TEXTUALMENTE de los criterios formativos configurados.\n"
             . "- tiempo: rango breve y realista para su tiempo disponible (por ejemplo, \"20 a 30 minutos\").";

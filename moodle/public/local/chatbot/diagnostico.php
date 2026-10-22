@@ -356,7 +356,8 @@ echo $OUTPUT->header();
                               // onclick, sus comillas cerraban el atributo y el boton quedaba muerto. ?>
                         <button type="button" class="btn btn-sm btn-outline-secondary border-0 py-0 px-2 text-primary chatbot-inline-help-btn"
                                 title="<?php echo s(get_string('diag_ai_item_help', 'local_chatbot')); ?>"
-                                data-enunciado="<?php echo s($item->statement); ?>">
+                                data-enunciado="<?php echo s($item->statement); ?>"
+                                data-tipo="<?php echo $issituacional ? 'situacional' : 'declarativa'; ?>">
                             <i class="fa fa-lightbulb-o text-warning me-1"></i>
                             <span class="small d-none d-sm-inline"><?php echo get_string('diag_ai_item_help', 'local_chatbot'); ?></span>
                         </button>
@@ -421,9 +422,13 @@ echo $OUTPUT->header();
 </div>
 
 <script>
-function chatbotAskConcept(statement) {
+function chatbotAskConcept(statement, tipo) {
     if (typeof window.chatbotAsk === 'function') {
-        var query = 'Hola. En el diagnóstico estoy respondiendo sobre: "' + statement + '". ¿Podrías explicarme los conceptos clave de este enunciado con ejemplos generales de formación de adultos? (Recuerda no revelarme la respuesta ni sugerir alternativas).';
+        // El tipo de item le dice al asistente si hay una respuesta correcta en juego: en una pregunta situacional
+        // no debe orientar hacia ninguna alternativa ni recordar la «práctica habitual».
+        var query = tipo === 'situacional'
+            ? 'Hola. En el diagnóstico estoy respondiendo una pregunta situacional (con alternativas y una respuesta correcta) sobre: "' + statement + '". ¿Podrías explicarme solo el significado de los términos del enunciado con ejemplos generales? (Recuerda no revelarme la respuesta ni orientarme hacia ninguna alternativa).'
+            : 'Hola. En el diagnóstico estoy respondiendo sobre: "' + statement + '". ¿Podrías explicarme los conceptos clave de este enunciado con ejemplos generales de formación de adultos? (Recuerda no revelarme la respuesta ni sugerir alternativas).';
         window.chatbotAsk(query, 'tutor');
     } else if (typeof window.chatbotOpen === 'function') {
         window.chatbotOpen();
@@ -452,7 +457,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cada boton lleva su enunciado en un atributo, no en el onclick.
     document.querySelectorAll('.chatbot-inline-help-btn[data-enunciado]').forEach(function(boton) {
         boton.addEventListener('click', function() {
-            chatbotAskConcept(boton.getAttribute('data-enunciado') || '');
+            chatbotAskConcept(boton.getAttribute('data-enunciado') || '', boton.getAttribute('data-tipo') || '');
         });
     });
 
