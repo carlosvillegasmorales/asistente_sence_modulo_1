@@ -1,5 +1,10 @@
 # Changelog
 
+## M1-v1.19.14 (2026-10-22)
+
+- Indicadores: las pestañas pasan de texto gris a cuatro botones grandes, con el activo relleno de azul y una línea que dice
+  para quién es cada una («Para quien gestiona», «Uso y calidad del asistente»…). Dos por fila en celular.
+
 ## M1-v1.19.13 (2026-10-22)
 
 **«Lo más importante hoy»: dos conclusiones menos exageradas**

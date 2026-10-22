@@ -609,8 +609,10 @@ echo $OUTPUT->header();
         <nav class="m1-tabs" role="tablist" aria-label="<?php echo s(get_string('dash_tabs_label', 'local_chatbot')); ?>">
             <?php foreach (['resumen', 'asistente', 'tecnico', 'modulo2'] as $i => $tab): ?>
                 <button type="button" role="tab" class="m1-tab" data-m1-tab-btn="<?php echo $tab; ?>"
-                        aria-selected="<?php echo $i === 0 ? 'true' : 'false'; ?>"><?php
-                    echo s(get_string('dash_tab_' . $tab, 'local_chatbot')); ?></button>
+                        aria-selected="<?php echo $i === 0 ? 'true' : 'false'; ?>">
+                    <span class="m1-tab-name"><?php echo s(get_string('dash_tab_' . $tab, 'local_chatbot')); ?></span>
+                    <span class="m1-tab-sub"><?php echo s(get_string('dash_tab_sub_' . $tab, 'local_chatbot')); ?></span>
+                </button>
             <?php endforeach; ?>
         </nav>
         <div class="m1-dash-tools">
