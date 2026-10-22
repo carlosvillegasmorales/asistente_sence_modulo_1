@@ -20,6 +20,9 @@ class analytics {
     /** @var int Semanas que cubre la linea de tiempo, incluida la semana en curso. */
     const TIMELINE_WEEKS = 12;
 
+    /** @var float Diferencia minima (en puntos de 5) para decir que una dimension es mas debil que las demas. */
+    const DIM_MIN_GAP = 0.25;
+
     /**
      * Semanas de la linea de tiempo, de la mas antigua a la actual.
      *
@@ -226,7 +229,8 @@ class analytics {
 
         $caida = self::biggest_drop($d['etapas'] ?? [], $d['keys'] ?? [], $d['optional'] ?? []);
         if ($caida !== null) {
-            $lista[] = ['id' => 'drop', 'level' => 'aviso', 'params' => $caida];
+            // Si nadie llego a la etapa siguiente se dice asi, no «solo 0 llegaron (100 % menos)».
+            $lista[] = ['id' => $caida['next'] === 0 ? 'dropzero' : 'drop', 'level' => 'aviso', 'params' => $caida];
         }
 
         $metas = $d['goals'] ?? ['total' => 0, 'pending' => 0];
@@ -238,7 +242,11 @@ class analytics {
         $dims = array_values(array_filter($d['gaps'] ?? [], fn($g) => (int) ($g['personas'] ?? 0) > 0));
         if (count($dims) >= 2) {
             usort($dims, fn($a, $b) => $a['promedio'] <=> $b['promedio']);
-            if ($dims[0]['promedio'] < $dims[count($dims) - 1]['promedio']) {
+            // Solo hay una dimension «debil» si se separa de verdad del resto: al menos 0,25 puntos (de 5) por debajo del
+            // promedio de las demas. Con diferencias de centesimas no hay nada que reforzar y decirlo seria inventar.
+            $resto = array_slice($dims, 1);
+            $promresto = array_sum(array_column($resto, 'promedio')) / count($resto);
+            if ($promresto - $dims[0]['promedio'] >= self::DIM_MIN_GAP) {
                 $lista[] = ['id' => 'dim', 'level' => 'info', 'params' => ['dim' => $dims[0]['name'], 'prom' => $dims[0]['promedio']]];
             }
         }

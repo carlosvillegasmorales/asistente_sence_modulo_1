@@ -325,6 +325,29 @@ local_chatbot_verificar(in_array('done', array_column(\local_chatbot\analytics::
     'si alguien termino, se dice (es una buena noticia)');
 local_chatbot_verificar(!in_array('goals', array_column(\local_chatbot\analytics::insights(['started' => 4, 'goals' => ['total' => 2, 'pending' => 2],
     'stuck' => ['etapas' => [], 'dias' => 7]]), 'id'), true), 'con menos de 3 metas no se opina sobre las metas');
+// La dimension «mas debil» solo se dice si se separa de verdad del resto (0,25 puntos o mas por debajo del promedio de las demas).
+$cercanas = $datosins;
+$cercanas['gaps'] = [['name' => 'D1. A', 'promedio' => 2.69, 'personas' => 4], ['name' => 'D2. B', 'promedio' => 2.72, 'personas' => 4],
+    ['name' => 'D3. C', 'promedio' => 2.68, 'personas' => 4], ['name' => 'D4. D', 'promedio' => 2.67, 'personas' => 4]];
+local_chatbot_verificar(!in_array('dim', array_column(\local_chatbot\analytics::insights($cercanas, 9), 'id'), true),
+    'con promedios de 2,67 a 2,72 (diferencias de centesimas) no se señala una dimension debil');
+$apartada = $datosins;
+$apartada['gaps'] = [['name' => 'D1. A', 'promedio' => 3.4, 'personas' => 4], ['name' => 'D2. B', 'promedio' => 3.2, 'personas' => 4],
+    ['name' => 'D3. C', 'promedio' => 2.5, 'personas' => 4], ['name' => 'D4. D', 'promedio' => 3.3, 'personas' => 4]];
+$ins2 = \local_chatbot\analytics::insights($apartada, 9);
+local_chatbot_verificar(in_array('dim', array_column($ins2, 'id'), true)
+    && $ins2[array_search('dim', array_column($ins2, 'id'), true)]['params']['dim'] === 'D3. C',
+    'con una dimension 0,8 puntos bajo las demas, si se señala');
+$justa = $datosins;
+$justa['gaps'] = [['name' => 'D1. A', 'promedio' => 3.0, 'personas' => 4], ['name' => 'D2. B', 'promedio' => 2.75, 'personas' => 4]];
+local_chatbot_verificar(in_array('dim', array_column(\local_chatbot\analytics::insights($justa, 9), 'id'), true),
+    'una diferencia de exactamente 0,25 ya cuenta');
+// Si nadie llego a la etapa siguiente, la conclusion lo dice con otras palabras («ninguna ha llegado»).
+$nadie = $datosins;
+$nadie['etapas'] = ['perfil' => 7, 'diagnostico' => 4, 'ruta' => 0, 'proyecto' => 0, 'pdp' => 0, 'cierre' => 0];
+$idsnadie = array_column(\local_chatbot\analytics::insights($nadie, 9), 'id');
+local_chatbot_verificar(in_array('dropzero', $idsnadie, true) && !in_array('drop', $idsnadie, true),
+    'si nadie paso a la etapa siguiente no se dice «solo 0 llegaron (100 % menos)»');
 // Graficos semanales desde la primera actividad, y cambio de la ultima semana.
 local_chatbot_verificar(\local_chatbot\analytics::first_active_week([[0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 4, 4]]) === 5,
     'el grafico empieza una semana antes de la primera actividad');

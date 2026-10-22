@@ -1,5 +1,16 @@
 # Changelog
 
+## M1-v1.19.13 (2026-10-22)
+
+**«Lo más importante hoy»: dos conclusiones menos exageradas**
+
+- La dimensión «más débil» solo se señala si está al menos 0,25 puntos (de 5) por debajo del promedio de las demás
+  (`analytics::DIM_MIN_GAP`). Con promedios de 2,67 a 2,72 ya no se dice que una dimensión haya que reforzar.
+- La acción de «personas sin actividad» deja de decir que son «el grupo con más riesgo de abandonar»: ahora dice
+  «escribirles un recordatorio antes de que abandonen».
+- Si nadie llegó a la etapa siguiente, la conclusión dice «ninguna ha llegado todavía» y no «solo 0 llegaron (100 % menos)».
+- 4 casos nuevos en `verificar_experiencia.php`.
+
 ## M1-v1.19.12 (2026-10-22)
 
 - Indicadores: el promedio de la conclusión «dimensión más débil» usa la coma decimal; el encabezado de la tabla de avance
