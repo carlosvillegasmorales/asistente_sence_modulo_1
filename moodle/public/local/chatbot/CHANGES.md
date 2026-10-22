@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.19.4 (2026-10-22)
+
+- Indicadores: cuando solo hay un curso en la lista («Asistente solo en estos cursos»), se quita el selector y el nombre
+  completo del curso se muestra grande en el encabezado, con su propia tarjeta (24 px en celular: 20). Con varios cursos,
+  el selector sigue igual.
+
 ## M1-v1.19.3 (2026-10-22)
 
 - Indicadores (`indicadores.php`): con «Asistente solo en estos cursos» escrito, el selector «Ver datos de» lista solo

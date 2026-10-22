@@ -446,6 +446,13 @@ echo $OUTPUT->header();
             </div>
         </div>
 
+        <?php if ($onlyids && count($courses) === 1): $unico = reset($courses); ?>
+        <?php /* Un solo curso: no hay nada que elegir, asi que se muestra su nombre completo y grande, sin selector. */ ?>
+        <div class="m1-dash-course">
+            <span class="m1-dash-course-label"><?php echo s(get_string('analytics_course', 'local_chatbot')); ?></span>
+            <h2 class="m1-dash-course-name"><?php echo format_string($unico->fullname); ?></h2>
+        </div>
+        <?php else: ?>
         <form method="GET" class="m1-dash-filter">
             <label for="m1-courseid"><?php echo s(get_string('analytics_course', 'local_chatbot')); ?></label>
             <div class="m1-select-wrap">
@@ -464,6 +471,7 @@ echo $OUTPUT->header();
             <noscript><button type="submit" class="btn btn-primary btn-sm"><?php
                 echo s(get_string('dash_apply', 'local_chatbot')); ?></button></noscript>
         </form>
+        <?php endif; ?>
     </header>
 
     <section class="m1-kpis" aria-label="<?php echo s(get_string('analytics_heading', 'local_chatbot')); ?>">
