@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.19.5 (2026-10-22)
+
+- Indicadores: la lista de cursos sale de `closure::parse_course_ids()`, que ya existía; se quita el duplicado
+  `ux::list_ids()` de la v1.19.3. Sin cambios de comportamiento. Permite llevar la página a servidores que aún no
+  tienen la v1.19.x.
+
 ## M1-v1.19.4 (2026-10-22)
 
 - Indicadores: cuando solo hay un curso en la lista («Asistente solo en estos cursos»), se quita el selector y el nombre

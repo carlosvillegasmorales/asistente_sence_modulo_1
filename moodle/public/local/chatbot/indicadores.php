@@ -28,7 +28,7 @@ $courseid = optional_param('courseid', 0, PARAM_INT);
 // Con «Asistente solo en estos cursos» (chatonlycourses) escrito, los indicadores muestran solo esos cursos: el asistente
 // existe unicamente ahi, asi que no hay «recorrido general» ni cursos de prueba que ver. Un curso ajeno a la lista
 // vuelve al primero de ella.
-$onlyids = \local_chatbot\ux::list_ids((string) get_config('local_chatbot', 'chatonlycourses'));
+$onlyids = \local_chatbot\closure::parse_course_ids((string) get_config('local_chatbot', 'chatonlycourses'));
 if ($onlyids && !in_array($courseid, $onlyids, true)) {
     $courseid = $onlyids[0];
 }
