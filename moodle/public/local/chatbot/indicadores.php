@@ -444,9 +444,6 @@ $kpis = [
 
 $tablelabel = s(get_string('dash_table', 'local_chatbot'));
 
-// Pocos datos: con menos de 10 personas un porcentaje parece una conclusion y no lo es.
-$fewdata = $started > 0 && $started < 10;
-
 // Exportar a Excel: CSV con separador «;» y BOM UTF-8, que Excel abre directo con tildes y columnas.
 if (optional_param('exportar', 0, PARAM_INT) === 1) {
     require_sesskey();
@@ -589,13 +586,6 @@ echo $OUTPUT->header();
                 echo s(get_string('dash_export', 'local_chatbot')); ?></a>
         </div>
     </div>
-
-    <?php if ($fewdata): ?>
-        <div class="m1-fewdata" role="note" data-m1-tab="resumen asistente">
-            <strong><?php echo s(get_string('dash_fewdata_title', 'local_chatbot', $started)); ?></strong>
-            <?php echo s(get_string('dash_fewdata_body', 'local_chatbot')); ?>
-        </div>
-    <?php endif; ?>
 
     <section class="m1-kpis" data-m1-tab="resumen" aria-label="<?php echo s(get_string('analytics_heading', 'local_chatbot')); ?>">
         <?php foreach ($kpis as $kpi): ?>

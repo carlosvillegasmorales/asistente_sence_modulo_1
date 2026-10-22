@@ -594,8 +594,6 @@ $string['dash_tab_modulo2'] = 'Módulo 2';
 $string['dash_weeks_label'] = 'Gráficos semanales:';
 $string['dash_weeks_option'] = 'últimas {$a} semanas';
 $string['dash_export'] = 'Exportar a Excel';
-$string['dash_fewdata_title'] = 'Pocos datos (n = {$a}).';
-$string['dash_fewdata_body'] = 'Con tan pocas personas, los porcentajes aún no son representativos: léelos como casos, no como tendencias.';
 $string['stuck_title'] = 'Dónde se detienen las personas';
 $string['stuck_help'] = 'Para cada persona que inició, la etapa obligatoria que le falta, y cuántas llevan más de {$a} días sin actividad (asistente, recursos de la unidad o diagnóstico).';
 $string['stuck_col_stage'] = 'Etapa pendiente';

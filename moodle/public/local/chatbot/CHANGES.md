@@ -1,5 +1,9 @@
 # Changelog
 
+## M1-v1.19.10 (2026-10-22)
+
+- Indicadores: se quita el aviso «Pocos datos», a pedido del usuario.
+
 ## M1-v1.19.9 (2026-10-22)
 
 - Indicadores: la pestaña Módulo 2 queda vacía (sin error) en un servidor que aún no tiene el código o las tablas del

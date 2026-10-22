@@ -2351,16 +2351,6 @@ body.local-chatbot-dash-page #page-header {
 .m1-export:hover {
     filter: brightness(1.1);
 }
-/* Pocos datos: el porcentaje no es una tendencia. */
-.m1-fewdata {
-    margin: 0 0 18px;
-    padding: 10px 16px;
-    border-radius: 10px;
-    background: #fff8e6;
-    border: 1px solid #f1d58a;
-    color: #5c4a12;
-    font-size: 14px;
-}
 /* Donde se detienen: se resalta la etapa con personas inactivas. */
 .m1-stuck .m1-stuck-alert td:last-child {
     color: #b4400f;

@@ -594,8 +594,6 @@ $string['dash_tab_modulo2'] = 'Module 2';
 $string['dash_weeks_label'] = 'Weekly charts:';
 $string['dash_weeks_option'] = 'last {$a} weeks';
 $string['dash_export'] = 'Export to Excel';
-$string['dash_fewdata_title'] = 'Little data (n = {$a}).';
-$string['dash_fewdata_body'] = 'With so few people, percentages are not representative yet: read them as cases, not as trends.';
 $string['stuck_title'] = 'Where people stop';
 $string['stuck_help'] = 'For each person who started, the required stage they are missing, and how many have had no activity for more than {$a} days (assistant, unit resources or diagnostic).';
 $string['stuck_col_stage'] = 'Pending stage';
