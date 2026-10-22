@@ -333,6 +333,172 @@ class analytics {
     }
 
     /**
+     * Donde se detienen las personas: en que etapa obligatoria esta cada una y cuantas llevan dias sin actividad.
+     *
+     * @param int $courseid
+     * @param int $dias Dias sin actividad para considerar a alguien detenido.
+     * @return array Ver stuck_counts().
+     */
+    public static function route_stuck(int $courseid, int $dias = 7): array {
+        global $DB;
+        $keys = course_bridge::route_keys();
+        $opcionales = array_map(fn($pos) => $keys[$pos - 1], journey::optional_positions($keys));
+        $estados = [];
+        foreach (self::route_people($courseid) as $uid) {
+            $estados[$uid] = course_bridge::step_states($uid, $courseid);
+        }
+        // Ultima actividad: lo mas reciente entre trazas, mensajes al asistente y respuestas del diagnostico.
+        $ultimas = [];
+        foreach (['local_chatbot_trace', 'local_chatbot_messages', 'local_chatbot_diag_response'] as $tabla) {
+            foreach ($DB->get_records_sql_menu("SELECT userid, MAX(timecreated) FROM {{$tabla}}
+                    WHERE courseid = ? GROUP BY userid", [$courseid]) as $uid => $t) {
+                $ultimas[(int) $uid] = max($ultimas[(int) $uid] ?? 0, (int) $t);
+            }
+        }
+        return self::stuck_counts($estados, $keys, $opcionales, $ultimas, time(), $dias);
+    }
+
+    /**
+     * Cuenta en que etapa obligatoria pendiente esta cada persona que inicio, y cuantas llevan mas de N dias sin
+     * actividad. Funcion pura.
+     *
+     * La etapa de una persona es la primera obligatoria que le falta, en el orden de la ruta. Quien tiene todas las
+     * obligatorias hechas cuenta como «terminaron». Quien no tiene ninguna etapa hecha no inicio y no cuenta.
+     *
+     * @param array $estados Persona => (clave => bool).
+     * @param string[] $keys Ruta vigente.
+     * @param string[] $opcionales Claves opcionales (no detienen a nadie).
+     * @param array $ultimas Persona => marca de tiempo de su ultima actividad.
+     * @param int $ahora
+     * @param int $dias
+     * @return array ['etapas' => clave => ['total' => int, 'inactivas' => int], 'terminaron' => int, 'dias' => int]
+     */
+    public static function stuck_counts(array $estados, array $keys, array $opcionales, array $ultimas,
+            int $ahora, int $dias): array {
+        $etapas = [];
+        foreach ($keys as $clave) {
+            if (!in_array($clave, $opcionales, true)) {
+                $etapas[$clave] = ['total' => 0, 'inactivas' => 0];
+            }
+        }
+        $terminaron = 0;
+        foreach ($estados as $uid => $estado) {
+            if (!array_filter($estado)) {
+                continue;
+            }
+            $pendiente = null;
+            foreach (array_keys($etapas) as $clave) {
+                if (empty($estado[$clave])) {
+                    $pendiente = $clave;
+                    break;
+                }
+            }
+            if ($pendiente === null) {
+                $terminaron++;
+                continue;
+            }
+            $etapas[$pendiente]['total']++;
+            $ultima = (int) ($ultimas[$uid] ?? 0);
+            if ($ultima === 0 || $ahora - $ultima > $dias * 86400) {
+                $etapas[$pendiente]['inactivas']++;
+            }
+        }
+        return ['etapas' => $etapas, 'terminaron' => $terminaron, 'dias' => $dias];
+    }
+
+    /**
+     * Indicadores del Modulo 2 (ficha ex-ante, diseño en 6 etapas y evaluacion con la rubrica), por curso.
+     *
+     * Solo agrega: cuantas personas, en que condicion, que items fallan mas. Ningun nombre.
+     *
+     * @return array Lista de cursos con: courseid, nombre, fichas, condiciones (aprobado/observaciones/no_aprobado),
+     *               items (los que mas fallan), etapas (1 a 7 => personas con la etapa aceptada), evaluadas,
+     *               aprobadas, promedio.
+     */
+    public static function module2_overview(): array {
+        global $DB;
+        $cursos = $DB->get_fieldset_sql("SELECT DISTINCT courseid FROM {local_chatbot_exante} WHERE courseid > 0");
+        $textos = [];
+        foreach (exante::checklist() as $seccion) {
+            foreach ($seccion['items'] as $id => $texto) {
+                $textos[$id] = $texto;
+            }
+        }
+        $resultado = [];
+        foreach ($cursos as $cid) {
+            $cid = (int) $cid;
+            // La validacion vigente de cada persona es la ultima terminada.
+            $ultimas = [];
+            foreach ($DB->get_records_select('local_chatbot_exante_val', 'courseid = ? AND estado = ?',
+                    [$cid, exante::LISTO], 'id ASC', 'id, userid, condicion, informe') as $v) {
+                $ultimas[(int) $v->userid] = $v;
+            }
+            $condiciones = [exante::APROBADO => 0, exante::OBSERVACIONES => 0, exante::NO_APROBADO => 0];
+            $itemsporpersona = [];
+            foreach ($ultimas as $v) {
+                if (isset($condiciones[$v->condicion])) {
+                    $condiciones[$v->condicion]++;
+                }
+                $informe = (array) json_decode((string) $v->informe, true);
+                $itemsporpersona[] = array_map(fn($i) => (string) ($i['estado'] ?? ''), (array) ($informe['items'] ?? []));
+            }
+            $items = [];
+            foreach (self::top_failing($itemsporpersona, 5) as $id => $n) {
+                $items[] = ['id' => $id, 'texto' => $textos[$id] ?? $id, 'fallan' => $n,
+                    'critico' => in_array($id, exante::CRITICOS, true)];
+            }
+            $etapas = array_fill(1, diseno::CONSOLIDACION, 0);
+            $evaluadas = 0;
+            $aprobadas = 0;
+            $suma = 0;
+            foreach ($DB->get_records('local_chatbot_diseno', ['courseid' => $cid], '', 'id, userid, etapa, estado, informe')
+                    as $fila) {
+                $n = (int) $fila->etapa;
+                if ($n >= 1 && $n <= diseno::CONSOLIDACION && $fila->estado === diseno::ACEPTADO) {
+                    $etapas[$n]++;
+                }
+                if ($n === diseno::EVALUACION && $fila->informe) {
+                    $informe = (array) json_decode((string) $fila->informe, true);
+                    if (isset($informe['total'])) {
+                        $evaluadas++;
+                        $suma += (int) $informe['total'];
+                        if ((int) $informe['total'] >= diseno::APROBADO_DESDE) {
+                            $aprobadas++;
+                        }
+                    }
+                }
+            }
+            $resultado[] = ['courseid' => $cid, 'nombre' => (string) $DB->get_field('course', 'fullname', ['id' => $cid]),
+                'fichas' => $DB->count_records_select('local_chatbot_exante', 'courseid = ?', [$cid]),
+                'validadas' => count($ultimas), 'condiciones' => $condiciones, 'items' => $items, 'etapas' => $etapas,
+                'evaluadas' => $evaluadas, 'aprobadas' => $aprobadas,
+                'promedio' => $evaluadas > 0 ? round($suma / $evaluadas, 1) : null];
+        }
+        return $resultado;
+    }
+
+    /**
+     * Items del checklist que mas personas no cumplen o cumplen a medias, de mas a menos. Funcion pura.
+     *
+     * @param array $itemsporpersona Lista de (id => estado) por persona.
+     * @param int $n Cuantos devolver.
+     * @return array id => cantidad de personas.
+     */
+    public static function top_failing(array $itemsporpersona, int $n): array {
+        $cuenta = [];
+        foreach ($itemsporpersona as $items) {
+            foreach ($items as $id => $estado) {
+                if (in_array($estado, ['no_cumple', 'parcial'], true)) {
+                    $cuenta[$id] = ($cuenta[$id] ?? 0) + 1;
+                }
+            }
+        }
+        // De mas a menos; a igual cantidad, en el orden del checklist (c1_1, c1_2, c2_1...).
+        uksort($cuenta, fn($a, $b) => ($cuenta[$b] <=> $cuenta[$a]) ?: strnatcmp((string) $a, (string) $b));
+        return array_slice($cuenta, 0, $n, true);
+    }
+
+    /**
      * Embudo de avance por componente del modulo.
      *
      * @param int $courseid

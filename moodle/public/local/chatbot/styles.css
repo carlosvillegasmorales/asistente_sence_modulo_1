@@ -2273,6 +2273,134 @@ body.local-chatbot-dash-page #page-header {
     letter-spacing: 0.04em;
     margin: 0;
 }
+/* Barra del panel: pestañas por publico, periodo de los graficos y exportar. */
+.m1-dash [data-m1-tab][hidden] {
+    display: none !important;
+}
+.m1-dash-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 24px;
+    margin: 0 0 18px;
+    border-bottom: 1px solid var(--m1-border);
+}
+.m1-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.m1-tab {
+    border: 0;
+    background: none;
+    padding: 10px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--m1-muted);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+}
+.m1-tab:hover {
+    color: var(--m1-ink);
+}
+.m1-tab[aria-selected="true"] {
+    color: var(--m1-accent);
+    border-bottom-color: var(--m1-accent);
+}
+.m1-tab:focus-visible {
+    outline: 2px solid var(--m1-accent);
+    outline-offset: 2px;
+}
+.m1-dash-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    padding-bottom: 10px;
+}
+.m1-weeks {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--m1-muted);
+}
+.m1-weeks label {
+    margin: 0;
+}
+.m1-weeks select {
+    border: 1px solid var(--m1-border);
+    border-radius: 8px;
+    padding: 4px 8px;
+    background: var(--m1-surface);
+    color: var(--m1-ink);
+}
+.m1-export {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: var(--m1-accent);
+    color: #fff !important;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none !important;
+}
+.m1-export:hover {
+    filter: brightness(1.1);
+}
+/* Pocos datos: el porcentaje no es una tendencia. */
+.m1-fewdata {
+    margin: 0 0 18px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: #fff8e6;
+    border: 1px solid #f1d58a;
+    color: #5c4a12;
+    font-size: 14px;
+}
+/* Donde se detienen: se resalta la etapa con personas inactivas. */
+.m1-stuck .m1-stuck-alert td:last-child {
+    color: #b4400f;
+    font-weight: 700;
+}
+.m1-stuck-done {
+    margin: 10px 0 0;
+}
+/* Modulo 2. */
+.m1-m2-kpis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 28px;
+    margin: 6px 0 16px;
+    font-size: 13px;
+    color: var(--m1-muted);
+}
+.m1-m2-num {
+    display: block;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--m1-ink);
+    line-height: 1.1;
+}
+.m1-dash .m1-m2-sub {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 18px 0 8px;
+}
+.m1-m2-critico {
+    display: inline-block;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #fde8e0;
+    color: #b4400f;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
 /* Un solo curso en la lista: nombre completo y grande, en su propia fila, sin selector. */
 .m1-dash-course {
     flex: 1 1 100%;

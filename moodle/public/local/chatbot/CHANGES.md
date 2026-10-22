@@ -1,5 +1,20 @@
 # Changelog
 
+## M1-v1.19.8 (2026-10-22)
+
+**Indicadores: pestañas por público, dónde se detienen, período, exportar y Módulo 2**
+
+- Pestañas «Resumen» (gestión: avance, dónde se detienen, metas, brechas), «Asistente» (uso, interacciones, Anexo G,
+  quiz), «Técnico» (eventos y salud del servicio) y «Módulo 2». Sin JavaScript se ve todo; la dirección recuerda la pestaña.
+- Aviso de pocos datos cuando iniciaron menos de 10 personas.
+- «Dónde se detienen las personas»: la primera etapa obligatoria que le falta a cada quien y cuántas llevan más de 7 días
+  sin actividad (`analytics::route_stuck()`, `stuck_counts()` pura).
+- Período de los gráficos semanales (4, 12, 26 o 52 semanas) y «Exportar a Excel» (CSV con «;» y tildes).
+- Módulo 2: fichas ex-ante guardadas y validadas, condición final, ítems del checklist que más fallan (marcando los
+  críticos), personas por etapa de diseño aceptada y evaluaciones con la rúbrica (`analytics::module2_overview()`,
+  `top_failing()` pura).
+- 6 casos nuevos en `verificar_experiencia.php`.
+
 ## M1-v1.19.7 (2026-10-22)
 
 **Calidad del asistente (errores vistos en conversaciones reales del cliente, 15 y 16-10)**

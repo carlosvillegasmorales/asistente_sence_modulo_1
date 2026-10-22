@@ -262,6 +262,28 @@ local_chatbot_verificar(array_keys($embudo['etapas']) === $ruta6, 'el embudo sig
 $semana = 7 * 24 * 3600;
 local_chatbot_verificar(\local_chatbot\analytics::cumulative_weeks([0, 50, 1000 + $semana, 1000 + 5 * $semana], 1000, 3) === [2, 3, 3],
     'el acumulado semanal pone lo anterior o sin fecha en el punto de partida y descarta lo posterior');
+// Donde se detienen: primera etapa obligatoria pendiente; el PDP opcional no detiene a nadie.
+$ahora = 1000000;
+$detenidas = \local_chatbot\analytics::stuck_counts($estados, $ruta6, ['pdp'],
+    [1 => $ahora - 3 * 86400, 2 => $ahora - 10 * 86400, 3 => $ahora - 1 * 86400], $ahora, 7);
+local_chatbot_verificar(!isset($detenidas['etapas']['pdp']), 'el PDP opcional no es una etapa donde alguien quede detenido');
+local_chatbot_verificar($detenidas['etapas']['proyecto']['total'] === 1 && $detenidas['etapas']['ruta']['total'] === 1
+    && $detenidas['etapas']['perfil']['total'] === 1, 'cada persona queda en su primera etapa obligatoria pendiente');
+local_chatbot_verificar($detenidas['etapas']['ruta']['inactivas'] === 1 && $detenidas['etapas']['proyecto']['inactivas'] === 0
+    && $detenidas['etapas']['perfil']['inactivas'] === 0, 'solo cuenta como inactiva quien lleva mas de 7 dias sin actividad');
+local_chatbot_verificar(array_sum(array_column($detenidas['etapas'], 'total')) + $detenidas['terminaron'] === 3,
+    'quien no inicio no cuenta; quienes iniciaron suman lo mismo que el embudo');
+$todo = array_fill_keys($ruta6, true);
+$todo['pdp'] = false;
+local_chatbot_verificar(\local_chatbot\analytics::stuck_counts([9 => $todo], $ruta6, ['pdp'], [], $ahora, 7)['terminaron'] === 1,
+    'con todas las obligatorias hechas (sin el PDP opcional) la persona termino');
+// Modulo 2: items del checklist que mas fallan.
+$fallas = \local_chatbot\analytics::top_failing([
+    ['c1_1' => 'cumple', 'c2_1' => 'no_cumple', 'c2_2' => 'parcial'],
+    ['c1_1' => 'parcial', 'c2_1' => 'no_cumple', 'c2_2' => 'cumple'],
+    ['c1_1' => 'cumple', 'c2_1' => 'parcial', 'c2_2' => 'cumple'],
+], 2);
+local_chatbot_verificar($fallas === ['c2_1' => 3, 'c1_1' => 1], 'los items que mas fallan, de mas a menos y en orden del checklist al empatar');
 // «Solo en estos cursos» (chatonlycourses): manda cuando tiene algo y deja fuera lo que no este en la lista.
 local_chatbot_verificar(!\local_chatbot\ux::is_hidden(6, '', '6') && \local_chatbot\ux::is_hidden(4, '', '6')
     && \local_chatbot\ux::is_hidden(99, '', '6'), 'con lista unica, solo ese curso muestra el asistente');
