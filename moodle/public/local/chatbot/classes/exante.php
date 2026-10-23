@@ -71,6 +71,9 @@ class exante {
     const LARGO_TEXTO = 255;
     const LARGO_PARRAFO = 4000;
 
+    /** @var int Criterios de evaluacion que exige el Prompt Maestro (minimo; el maximo son las 5 casillas). */
+    const CRITERIOS_MIN = 3;
+
     /**
      * Secciones de la ficha, con el texto del documento del cliente.
      *
@@ -98,7 +101,8 @@ class exante {
                     'ayuda' => 'Transcriba el aprendizaje esperado completo tal como está formulado en el plan formativo.'],
                 ['id' => 'criterio1', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 1',
                     'ayuda' => 'Registre los criterios de evaluación tal como están definidos en el plan formativo. '
-                        . 'Si el aprendizaje esperado tiene menos de cinco, deje en blanco los espacios restantes.'],
+                        . 'Se necesitan al menos 3 y como máximo 5; si el aprendizaje esperado tiene menos de cinco, '
+                        . 'deje en blanco los espacios restantes.'],
                 ['id' => 'criterio2', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 2'],
                 ['id' => 'criterio3', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 3'],
                 ['id' => 'criterio4', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 4'],
@@ -408,7 +412,7 @@ class exante {
     /**
      * Control de entrada del Prompt Maestro: sin esto no se valida.
      *
-     * Pide aprendizaje esperado, al menos un criterio, la informacion del contexto (seccion 5) y las
+     * Pide aprendizaje esperado, al menos 3 criterios (Prompt Maestro), la informacion del contexto (seccion 5) y las
      * caracteristicas de los participantes (seccion 4). El resto lo juzga el checklist.
      *
      * @param array $data Ficha ya limpia.
@@ -419,8 +423,11 @@ class exante {
         if (self::vacio($data['aprendizaje'] ?? '')) {
             $falta[] = '2.1 Aprendizaje esperado';
         }
-        if (self::criteria_count($data) === 0) {
-            $falta[] = '2.1 Criterios de evaluación (al menos uno)';
+        // Prompt Maestro: «No utilizar menos de 3 o más de 5 criterios de evaluación». El maximo lo pone la ficha
+        // (cinco casillas); el minimo se exige aqui, antes de llamar al modelo.
+        $criterios = self::criteria_count($data);
+        if ($criterios < self::CRITERIOS_MIN) {
+            $falta[] = '2.1 Criterios de evaluación (mínimo ' . self::CRITERIOS_MIN . '; la ficha tiene ' . $criterios . ')';
         }
         foreach (['dominio', 'heterogeneidad', 'necesidades', 'participacion',
                 'contexto', 'estrategia_didactica', 'pertinencia_contexto', 'situaciones'] as $id) {
@@ -1100,8 +1107,9 @@ class exante {
     public static function fase1_ok(int $userid, int $courseid): ?\stdClass {
         $ficha = self::get_ficha($userid, $courseid);
         $val = self::latest_validation($userid, $courseid);
+        // Una validacion anterior a la exigencia de 3 criterios tampoco habilita el diseno.
         if (!$ficha || !$val || $val->estado !== self::LISTO || !self::can_advance($val->condicion)
-                || $val->huella !== self::ficha_fingerprint($ficha)) {
+                || $val->huella !== self::ficha_fingerprint($ficha) || self::criteria_count($ficha->data) < self::CRITERIOS_MIN) {
             return null;
         }
         return $val;

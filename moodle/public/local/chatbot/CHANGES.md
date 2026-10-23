@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.19.15 (2026-10-23)
+
+- Módulo 2, ficha ex-ante: no se valida con menos de 3 criterios de evaluación (Prompt Maestro: «No utilizar menos
+  de 3 o más de 5 criterios»); antes bastaba uno. El aviso dice cuántos tiene la ficha, la ayuda lo anticipa y una
+  validación anterior con menos de 3 tampoco abre la Fase 2. El máximo de 5 lo pone la ficha (cinco casillas).
+
 ## M1-v1.19.14 (2026-10-22)
 
 - Indicadores: las pestañas pasan de texto gris a cuatro botones grandes, con el activo relleno de azul y una línea que dice

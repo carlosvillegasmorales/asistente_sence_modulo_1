@@ -123,12 +123,22 @@ local_chatbot_verificar(count($falta) === 10, 'la ficha vacía pide aprendizaje,
 local_chatbot_verificar(in_array('2.1 Aprendizaje esperado', $falta, true), 'se pide el aprendizaje esperado por su nombre');
 local_chatbot_verificar(in_array('5.2 Estrategia didáctica más pertinente', $falta, true),
     'se pide la estrategia didáctica con el texto de la ficha');
-$solocriterio5 = $ejemplo;
-foreach (['criterio1', 'criterio2', 'criterio3', 'criterio4'] as $c) {
-    $solocriterio5[$c] = '';
-}
-$solocriterio5['criterio5'] = 'Un criterio';
-local_chatbot_verificar(exante::missing_inputs($solocriterio5) === [], 'basta un criterio en cualquier casilla');
+// Prompt Maestro: «No utilizar menos de 3 o más de 5 criterios de evaluación».
+$criterios = static function(array $llenos) use ($ejemplo) {
+    $f = $ejemplo;
+    for ($i = 1; $i <= 5; $i++) {
+        $f['criterio' . $i] = in_array($i, $llenos, true) ? 'Criterio ' . $i : '';
+    }
+    return exante::missing_inputs($f);
+};
+local_chatbot_verificar($criterios([1]) === ['2.1 Criterios de evaluación (mínimo 3; la ficha tiene 1)'],
+    'con 1 criterio no se valida y se dice cuántos tiene');
+local_chatbot_verificar($criterios([1, 2]) === ['2.1 Criterios de evaluación (mínimo 3; la ficha tiene 2)'],
+    'con 2 criterios no se valida');
+local_chatbot_verificar($criterios([2, 4, 5]) === [], 'con 3 criterios en cualquier casilla se valida');
+local_chatbot_verificar($criterios([1, 2, 3, 4, 5]) === [], 'con 5 criterios se valida');
+local_chatbot_verificar(count(exante::field_keys()) === count(array_unique(array_keys(exante::field_keys())))
+    && !isset(exante::field_keys()['criterio6']), 'la ficha no admite más de 5 criterios');
 $sinsecc4 = $ejemplo;
 $sinsecc4['necesidades'] = [];
 local_chatbot_verificar(exante::missing_inputs($sinsecc4) === ['4.3 Principales necesidades del grupo (marcar todas las que apliquen)'],
