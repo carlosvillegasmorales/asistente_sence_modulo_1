@@ -1,5 +1,18 @@
 # Changelog
 
+## M1-v1.19.18 (2026-10-24)
+
+- Recursos PDF incrustados: el visor del navegador se abre sin el panel de miniaturas y ajustado al ancho
+  (`#navpanes=0&view=FitH`); con el visor alineado al encabezado, el panel se comía el espacio y la hoja quedaba
+  cortada. Interruptor `pdfvisor`.
+
+## M1-v1.19.17 (2026-10-24)
+
+- Recursos PDF incrustados: el visor queda alineado con el encabezado de la página (830 px, centrado), con borde y
+  alto cómodo; antes Moodle lo estiraba a todo el ancho y quedaba descuadrado. Aplica a todo PDF incrustado del sitio.
+- `configurar_modulo2.php`: apaga «mostrar tipo» en los recursos del Módulo 2 (el recuadro que solo decía «PDF») y
+  renombra sus archivos sin tildes, porque Moodle manda el nombre en bruto y el visor lo mostraba como «DiagnÃ³stico».
+
 ## M1-v1.19.16 (2026-10-24)
 
 - `configurar_modulo2.php` sobre los textos rediseñados por el cliente: si la pestaña ya trae su propio botón con

@@ -3879,3 +3879,19 @@ body.local-chatbot-dash-page #page-header {
 .chatbot-diseno-doc th {
     background: #e8f0f7;
 }
+
+/* Recursos PDF incrustados: el visor alineado con el encabezado de la pagina (Moodle le pone por JavaScript el ancho
+   de toda la ventana y quedaba descuadrado hacia la derecha), con borde y un alto comodo para leer. */
+.path-mod-resource .resourcecontent.resourcepdf {
+    max-width: 830px;
+    margin: 0 auto 1.5rem auto;
+}
+
+.path-mod-resource .resourcecontent.resourcepdf #resourceobject {
+    width: 100% !important;
+    height: 78vh !important;
+    min-height: 520px;
+    border: 1px solid #d5dde5;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}

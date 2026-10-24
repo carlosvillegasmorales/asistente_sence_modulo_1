@@ -81,6 +81,37 @@ class modulo2_setup {
     }
 
     /**
+     * Opciones de visualizacion sin «mostrar tipo»: el recuadro que solo dice «PDF» sobre el visor.
+     *
+     * @param string $serializado displayoptions del recurso (serialize de PHP).
+     * @return string|null Nuevo valor, o null si no hay que cambiar nada.
+     */
+    public static function display_options(string $serializado): ?string {
+        $opciones = @unserialize($serializado, ['allowed_classes' => false]);
+        if (!is_array($opciones) || empty($opciones['showtype'])) {
+            return null;
+        }
+        $opciones['showtype'] = 0;
+        return serialize($opciones);
+    }
+
+    /**
+     * Nombre de archivo sin tildes ni eñes. Moodle manda el nombre con tildes en bruto en la cabecera
+     * Content-Disposition y el visor de PDF del navegador lo muestra como «DiagnÃ³stico».
+     *
+     * @param string $nombre
+     * @return string Igual si ya era ASCII.
+     */
+    public static function ascii_filename(string $nombre): string {
+        if (preg_match('/^[\x20-\x7E]+$/', $nombre)) {
+            return $nombre;
+        }
+        $limpio = \core_text::specialtoascii($nombre);
+        $limpio = preg_replace('/[^\x20-\x7E]/', '', $limpio);
+        return trim($limpio) !== '' ? $limpio : $nombre;
+    }
+
+    /**
      * Enlaza cada tarjeta «MATERIAL N» a su recurso: el titulo y un boton «Abrir o descargar».
      *
      * @param string $html Resumen de la seccion de diagnostico.

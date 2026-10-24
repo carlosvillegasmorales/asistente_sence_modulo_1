@@ -1260,3 +1260,7 @@ $string['autocheck_critical_warning'] = 'Marcaste como «No cumple» un ítem cr
 $string['autocheck_note'] = 'Es una autorrevisión: la condición oficial es la del informe que entrega el asistente al validar la ficha.';
 $string['autocheck_go_ficha'] = 'Ir a completar y validar la ficha';
 $string['autocheck_link'] = 'Revisa tu ficha con el checklist antes de validarla';
+
+// Recursos PDF incrustados.
+$string['ux_pdfvisor'] = 'Visor de PDF ajustado al ancho';
+$string['ux_pdfvisor_desc'] = 'En la página de un recurso PDF incrustado, el visor del navegador se abre sin el panel de miniaturas y ajustado al ancho de la página. Apagado: el visor se abre como lo decide el navegador.';

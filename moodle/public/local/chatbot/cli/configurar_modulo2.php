@@ -98,6 +98,33 @@ foreach ($recursos as $clave => $cmid) {
         $cambiodisplay = true;
     }
 }
+// Sin el recuadro «PDF» sobre el visor, y nombres de archivo sin tildes (el visor los mostraba como «DiagnÃ³stico»).
+$fs = get_file_storage();
+foreach ($recursos as $clave => $cmid) {
+    $cm = $modinfo->get_cm($cmid);
+    $opciones = (string) $DB->get_field('resource', 'displayoptions', ['id' => $cm->instance]);
+    $nuevas = modulo2_setup::display_options($opciones);
+    if ($nuevas !== null) {
+        echo "  recurso {$clave} (cm {$cmid}): sin el recuadro del tipo de archivo\n";
+        if (!$simular) {
+            $DB->set_field('resource', 'displayoptions', $nuevas, ['id' => $cm->instance]);
+            $cambiodisplay = true;
+        }
+    }
+    $contexto = context_module::instance($cmid);
+    foreach ($fs->get_area_files($contexto->id, 'mod_resource', 'content', 0, 'sortorder DESC, id', false) as $archivo) {
+        $nombre = modulo2_setup::ascii_filename($archivo->get_filename());
+        if ($nombre === $archivo->get_filename()
+                || $fs->file_exists($contexto->id, 'mod_resource', 'content', 0, $archivo->get_filepath(), $nombre)) {
+            continue;
+        }
+        echo "  recurso {$clave} (cm {$cmid}): archivo «{$archivo->get_filename()}» -> «{$nombre}»\n";
+        if (!$simular) {
+            $archivo->rename($archivo->get_filepath(), $nombre);
+            $cambiodisplay = true;
+        }
+    }
+}
 if ($cambiodisplay) {
     rebuild_course_cache($cursoid, true);
 }

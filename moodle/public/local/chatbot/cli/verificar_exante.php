@@ -321,6 +321,18 @@ local_chatbot_verificar(strpos($res2, 'href="uf"') !== false && substr($res2, -6
 local_chatbot_verificar(modulo2_setup::add_form_button(modulo2_setup::link_checklist(modulo2_setup::center_conditions($res2),
     'uc'), 'uf') === $res2, 'los ajustes de la sección del formulario son idempotentes');
 
+// --- Recursos PDF: sin el recuadro «PDF» y nombre de archivo sin tildes ---
+$opc = modulo2_setup::display_options(serialize(['popupwidth' => 620, 'showtype' => 1]));
+local_chatbot_verificar($opc !== null && unserialize($opc) === ['popupwidth' => 620, 'showtype' => 0],
+    'se apaga «mostrar tipo» y se conserva lo demás');
+local_chatbot_verificar(modulo2_setup::display_options(serialize(['showtype' => 0])) === null
+    && modulo2_setup::display_options('basura') === null, 'sin «mostrar tipo» o sin opciones válidas no se toca');
+local_chatbot_verificar(modulo2_setup::ascii_filename('Checklist Ficha Diagnóstico, Evaluación Ex - Ante.pdf')
+    === 'Checklist Ficha Diagnostico, Evaluacion Ex - Ante.pdf', 'el nombre del archivo queda sin tildes');
+local_chatbot_verificar(modulo2_setup::ascii_filename('Rúbrica Validación Técnica Diseño.pdf') === 'Rubrica Validacion Tecnica Diseno.pdf',
+    'también sin eñes');
+local_chatbot_verificar(modulo2_setup::ascii_filename('Guia.pdf') === 'Guia.pdf', 'un nombre ASCII no cambia');
+
 // --- Checklist aplicado en Moodle (autorrevision) ---
 $marcas = exante::self_check_clean(['c1_1' => 'cumple', 'c1_2' => 'parcial', 'c2_1' => 'no_cumple', 'c9_9' => 'cumple',
     'c3_1' => 'excelente']);

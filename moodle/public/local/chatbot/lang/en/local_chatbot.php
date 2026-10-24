@@ -1258,3 +1258,7 @@ $string['autocheck_critical_warning'] = 'You marked a critical item (expected le
 $string['autocheck_note'] = 'This is a self-review: the official condition is the one in the report the assistant delivers when validating the form.';
 $string['autocheck_go_ficha'] = 'Go to complete and validate the form';
 $string['autocheck_link'] = 'Review your form with the checklist before validating it';
+
+// Embedded PDF resources.
+$string['ux_pdfvisor'] = 'PDF viewer fitted to width';
+$string['ux_pdfvisor_desc'] = 'On the page of an embedded PDF resource, the browser viewer opens without the thumbnails pane and fitted to the page width. Off: the viewer opens as the browser decides.';
