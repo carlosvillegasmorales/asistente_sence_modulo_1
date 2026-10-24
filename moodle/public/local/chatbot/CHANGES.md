@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.19.16 (2026-10-24)
+
+- `configurar_modulo2.php` sobre los textos rediseñados por el cliente: si la pestaña ya trae su propio botón con
+  «#» («Acceder al asistente IA» en la Fase 2, «Revisar y descargar la rúbrica» en la Fase 3), se enlaza ese en vez de
+  agregar otro; se quitan todos sus comentarios «… REEMPLAZA # …». Probado sobre el HTML real del curso 4 del cliente.
+
 ## M1-v1.19.15 (2026-10-23)
 
 - Módulo 2, ficha ex-ante: no se valida con menos de 3 criterios de evaluación (Prompt Maestro: «No utilizar menos

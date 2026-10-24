@@ -268,6 +268,24 @@ local_chatbot_verificar(modulo2_setup::add_validation_buttons($f3, 'ur', 'u7') =
 local_chatbot_verificar(strpos(modulo2_setup::add_validation_buttons('', '', 'u7'), 'RUBRICA') === false,
     'sin recurso de rúbrica solo va el botón');
 
+// --- Textos rediseñados por el cliente (24-10): sus propios botones con «#» se enlazan, no se duplican ---
+$f2cli = '<div><!-- REEMPLAZA # POR EL ENLACE REAL AL ASISTENTE IA --> <a style="display: inline-block;" href="#"> Acceder al asistente IA </a></div>';
+$f2 = modulo2_setup::add_design_button($f2cli, 'u2');
+local_chatbot_verificar(strpos($f2, 'href="u2"> Acceder al asistente IA </a>') !== false && strpos($f2, 'REEMPLAZA') === false
+    && strpos($f2, modulo2_setup::BOTON_DISENO) === false, 'Fase 2: se enlaza el botón del cliente y no se agrega otro');
+local_chatbot_verificar(modulo2_setup::add_design_button($f2, 'u2') === $f2, 'enlazar el botón del cliente es idempotente');
+$f3cli = '<div><!-- REEMPLAZA # POR LA URL REAL DEL ARCHIVO EN MOODLE --> <a style="x" href="#"> Revisar y descargar la rúbrica </a>'
+    . '<p>Cierre</p></div>';
+$f3b = modulo2_setup::add_validation_buttons($f3cli, 'ur', 'u7');
+local_chatbot_verificar(strpos($f3b, 'href="ur"> Revisar y descargar la rúbrica </a>') !== false
+    && strpos($f3b, modulo2_setup::BOTON_RUBRICA) === false && strpos($f3b, 'href="u7"') > strpos($f3b, 'Cierre')
+    && strpos($f3b, 'REEMPLAZA') === false, 'Fase 3: se enlaza la rúbrica del cliente y el botón al asistente va al final');
+local_chatbot_verificar(modulo2_setup::add_validation_buttons($f3b, 'ur', 'u7') === $f3b, 'los ajustes de la Fase 3 del cliente son idempotentes');
+$chk = modulo2_setup::link_checklist('<!-- IMPORTANTE: REEMPLAZA # POR LA URL REAL DEL ARCHIVO EN MOODLE -->'
+    . '<a href="#"> Consultar y descargar el checklist </a>', 'uc');
+local_chatbot_verificar(strpos($chk, 'REEMPLAZA') === false && strpos($chk, 'href="uc"') !== false,
+    'también se quita el comentario «IMPORTANTE: REEMPLAZA #…» del cliente');
+
 // --- Barra «Tu ruta del Modulo 2» ---
 $r = ruta_m2::model(['ficha' => ruta_m2::FICHA_SIN, 'aceptadas' => [], 'fase' => 1]);
 local_chatbot_verificar(!$r['pasos'][1]['done'] && $r['pasos'][1]['here'] && $r['pasos'][2]['locked'] && $r['pasos'][3]['locked'],

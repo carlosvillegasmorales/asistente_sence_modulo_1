@@ -27,6 +27,12 @@ class modulo2_setup {
     /** @var string Texto del enlace a la rubrica de la Fase 3. */
     const BOTON_RUBRICA = 'Revisar y descargar la rúbrica de validación';
 
+    /** @var string Boton que el cliente puso en la pestana Fase 2 (con «#»), si existe. */
+    const BOTON_CLIENTE_FASE2 = 'Acceder al asistente IA';
+
+    /** @var string Boton que el cliente puso en la pestana Fase 3 para la rubrica (con «#»), si existe. */
+    const BOTON_CLIENTE_RUBRICA = 'Revisar y descargar la rúbrica';
+
     /** @var string Texto del boton a las etapas 7 y 8 del asistente. */
     const BOTON_VALIDACION = 'Ir a la consolidación y evaluación del diseño · Fase 3';
 
@@ -154,7 +160,8 @@ class modulo2_setup {
      * @return string
      */
     public static function link_checklist(string $html, string $url): string {
-        $html = preg_replace('/<!--\s*REEMPLAZA # POR LA URL REAL[^>]*-->\s*/u', '', $html);
+        // Los comentarios del cliente varian («REEMPLAZA # ...», «IMPORTANTE: REEMPLAZA # ...»).
+        $html = preg_replace('/<!--[^>]*REEMPLAZA #[^>]*-->\s*/u', '', $html);
         $html = preg_replace('/<p\b[^>]*>\s*Nota: reemplaza el enlace provisional[^<]*<\/p>\s*/u', '', $html);
         // Reemplaza el enlace que tenga (el «#» provisional o uno anterior): ahora lleva al checklist en Moodle.
         return preg_replace('/(<a\b[^>]*?)href="[^"]*"([^>]*>\s*Consultar y descargar el checklist)/u',
@@ -180,7 +187,39 @@ class modulo2_setup {
      * @return string
      */
     public static function add_design_button(string $html, string $url): string {
+        // Si el texto del cliente ya trae su boton («Acceder al asistente IA», con «#»), se enlaza ese.
+        if (self::has_anchor($html, self::BOTON_CLIENTE_FASE2)) {
+            return self::link_anchor($html, self::BOTON_CLIENTE_FASE2, $url);
+        }
         return self::add_button($html, $url, self::BOTON_DISENO, 'ASISTENTE FASE 2');
+    }
+
+    /**
+     * Si el texto tiene un enlace con ese texto visible.
+     *
+     * @param string $html
+     * @param string $texto
+     * @return bool
+     */
+    public static function has_anchor(string $html, string $texto): bool {
+        return (bool) preg_match('/<a\b[^>]*>\s*' . preg_quote($texto, '/') . '\s*<\/a>/u', $html);
+    }
+
+    /**
+     * Apunta a $url el enlace con ese texto visible y quita los comentarios «REEMPLAZA # ...» del cliente.
+     *
+     * @param string $html
+     * @param string $texto
+     * @param string $url
+     * @return string
+     */
+    public static function link_anchor(string $html, string $texto, string $url): string {
+        $html = preg_replace('/<!--[^>]*REEMPLAZA #[^>]*-->\s*/u', '', $html);
+        return preg_replace_callback('/<a\b([^>]*)>(\s*' . preg_quote($texto, '/') . '\s*)<\/a>/u',
+            static function($m) use ($url) {
+                $attrs = preg_replace('/\shref="[^"]*"/', '', $m[1]);
+                return '<a' . $attrs . ' href="' . htmlspecialchars($url, ENT_QUOTES) . '">' . $m[2] . '</a>';
+            }, $html);
     }
 
     /**
@@ -192,7 +231,10 @@ class modulo2_setup {
      * @return string
      */
     public static function add_validation_buttons(string $html, string $rubrica, string $url): string {
-        if ($rubrica !== '') {
+        if ($rubrica !== '' && self::has_anchor($html, self::BOTON_CLIENTE_RUBRICA)) {
+            // El texto del cliente ya trae «Revisar y descargar la rúbrica» (con «#»): se enlaza ese.
+            $html = self::link_anchor($html, self::BOTON_CLIENTE_RUBRICA, $rubrica);
+        } else if ($rubrica !== '') {
             $html = self::add_button($html, $rubrica, self::BOTON_RUBRICA, 'RUBRICA', false);
         }
         return self::add_button($html, $url, self::BOTON_VALIDACION, 'ASISTENTE FASE 3');
