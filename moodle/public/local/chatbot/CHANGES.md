@@ -1,5 +1,21 @@
 # Changelog
 
+## M1-v1.20.0 (2026-10-26)
+
+**Módulo 2 reutilizable** (Interfases, 26-10-2026: «este módulo debe poder ser utilizado repetidamente en distintos
+diseños de experiencias»)
+
+- Varios diseños por persona y curso: cada diseño es una ficha con su validación y sus ocho etapas. En la ficha, «Tus
+  diseños» lista los diseños con su estado (fase, etapas aceptadas o «Completado y aprobado (35/36)»), marca el que
+  está «En uso» y permite abrir otro, empezar uno en blanco o uno nuevo a partir de la ficha actual (copia datos y
+  adjuntos, no la validación ni las etapas). Al aprobar el diseño, la página ofrece empezar otro.
+- Ya no se queda atrapado en la etapa 8: sin etapa pedida, la página abre la primera sin aceptar de la Fase 2, o la
+  etapa 1 si las seis están aceptadas; el punto «Fase 2» de la ruta lleva ahí, y con el diseño aprobado hay enlaces a
+  cada etapa para revisarlo.
+- Base: `activa` en `local_chatbot_exante` (sin índice único por persona y curso) y `fichaid` en
+  `local_chatbot_diseno` (único por ficha y etapa); la migración asigna las etapas existentes a la ficha de cada
+  persona. La autorrevisión del checklist y los indicadores del Módulo 2 pasan a contar por ficha.
+
 ## M1-v1.19.18 (2026-10-24)
 
 - Recursos PDF incrustados: el visor del navegador se abre sin el panel de miniaturas y ajustado al ancho

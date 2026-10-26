@@ -377,6 +377,23 @@ class diseno {
     }
 
     /**
+     * Etapa que abre la pagina de la Fase 2 cuando no se pide una: la primera sin aceptar de la Fase 2, o la etapa 1
+     * si las seis estan aceptadas, para recorrer el diseno. Antes caia en la etapa 8 y, con el modulo terminado, no
+     * habia como volver a las etapas (Interfases, 26-10-2026). La Fase 3 se abre con su propio enlace (etapa 7).
+     *
+     * @param int[] $aceptadas
+     * @return int
+     */
+    public static function entry_stage(array $aceptadas): int {
+        foreach (array_keys(self::etapas()) as $n) {
+            if (!in_array($n, $aceptadas, true)) {
+                return $n;
+            }
+        }
+        return 1;
+    }
+
+    /**
      * Instrucciones al modelo para producir (o ajustar) el producto de una etapa.
      *
      * @param int $etapa
@@ -741,16 +758,27 @@ class diseno {
     // ------------------------------------------------------------------------------------------
 
     /**
-     * Productos de la persona en el curso.
+     * Productos del diseno en uso de la persona en el curso.
      *
      * @param int $userid
      * @param int $courseid
      * @return \stdClass[] etapa => fila.
      */
     public static function get_all(int $userid, int $courseid): array {
+        $ficha = exante::get_ficha($userid, $courseid);
+        return $ficha ? self::get_by_ficha((int) $ficha->id) : [];
+    }
+
+    /**
+     * Productos de un diseno (cada ficha tiene sus propias etapas).
+     *
+     * @param int $fichaid
+     * @return \stdClass[] etapa => fila.
+     */
+    public static function get_by_ficha(int $fichaid): array {
         global $DB;
         $salida = [];
-        foreach ($DB->get_records('local_chatbot_diseno', ['userid' => $userid, 'courseid' => $courseid]) as $fila) {
+        foreach ($DB->get_records('local_chatbot_diseno', ['fichaid' => $fichaid]) as $fila) {
             if ($fila->generacion === exante::PROCESANDO && $fila->timemodified < time() - exante::PROCESO_MAX) {
                 $fila->generacion = exante::ERROR;
                 $fila->error = 'tiempo';
@@ -786,7 +814,7 @@ class diseno {
     }
 
     /**
-     * Fila de una etapa (la crea vacia si no existe).
+     * Fila de una etapa del diseno en uso (la crea vacia si no existe).
      *
      * @param int $userid
      * @param int $courseid
@@ -795,13 +823,17 @@ class diseno {
      */
     private static function row(int $userid, int $courseid, int $etapa): \stdClass {
         global $DB;
-        $fila = $DB->get_record('local_chatbot_diseno', ['userid' => $userid, 'courseid' => $courseid, 'etapa' => $etapa]);
+        $ficha = exante::get_ficha($userid, $courseid);
+        if (!$ficha) {
+            throw new \moodle_exception('invalidrecord', 'error', '', 'local_chatbot_exante');
+        }
+        $fila = $DB->get_record('local_chatbot_diseno', ['fichaid' => $ficha->id, 'etapa' => $etapa]);
         if ($fila) {
             return $fila;
         }
         $now = time();
-        $fila = (object) ['userid' => $userid, 'courseid' => $courseid, 'etapa' => $etapa, 'contenido' => null,
-            'estado' => self::BORRADOR, 'generacion' => '', 'timecreated' => $now, 'timemodified' => $now];
+        $fila = (object) ['fichaid' => (int) $ficha->id, 'userid' => $userid, 'courseid' => $courseid, 'etapa' => $etapa,
+            'contenido' => null, 'estado' => self::BORRADOR, 'generacion' => '', 'timecreated' => $now, 'timemodified' => $now];
         $fila->id = $DB->insert_record('local_chatbot_diseno', $fila);
         return $fila;
     }
@@ -917,7 +949,8 @@ class diseno {
         }
 
         $previas = [];
-        foreach (self::get_all((int) $fila->userid, (int) $fila->courseid) as $n => $otra) {
+        // Las etapas del mismo diseno, aunque la persona haya cambiado de diseno mientras esto corria.
+        foreach (self::get_by_ficha((int) $fila->fichaid) as $n => $otra) {
             if ($n < (int) $fila->etapa && $otra->estado === self::ACEPTADO && $otra->contenido) {
                 $previas[$n] = html_to_text((string) $otra->contenido, 0, false);
             }
@@ -955,8 +988,7 @@ class diseno {
      */
     private static function evaluate(\stdClass $fila, array $ficha, int $fichaid): array {
         global $DB;
-        $c = $DB->get_record('local_chatbot_diseno', ['userid' => $fila->userid, 'courseid' => $fila->courseid,
-            'etapa' => self::CONSOLIDACION]);
+        $c = $DB->get_record('local_chatbot_diseno', ['fichaid' => $fila->fichaid, 'etapa' => self::CONSOLIDACION]);
         if (!$c || $c->estado !== self::ACEPTADO || !$c->contenido) {
             return [exante::ERROR, ['error' => 'sinconsolidado']];
         }

@@ -1262,3 +1262,21 @@ $string['autocheck_link'] = 'Review your form with the checklist before validati
 // Embedded PDF resources.
 $string['ux_pdfvisor'] = 'PDF viewer fitted to width';
 $string['ux_pdfvisor_desc'] = 'On the page of an embedded PDF resource, the browser viewer opens without the thumbnails pane and fitted to the page width. Off: the viewer opens as the browser decides.';
+
+// Module 2: several designs per person (the module is used again and again).
+$string['designs_title'] = 'Your learning experience designs';
+$string['designs_help'] = 'You can use this module for several experiences: each design has its own form, validation and stages. The one «In use» is the one you see in the form and in the phases; the others stay saved and you can open them again.';
+$string['designs_current'] = 'In use';
+$string['designs_open'] = 'Open';
+$string['designs_untitled'] = 'Design without a title yet';
+$string['designs_new'] = 'New blank design';
+$string['designs_new_copy'] = 'New design from this form';
+$string['designs_opened'] = 'You opened that design: it is now the one in use.';
+$string['designs_created'] = 'You started a new design. The previous one stays saved in «Your designs».';
+$string['r2_status_fase1'] = 'Phase 1: form to validate';
+$string['r2_status_fase2'] = 'Phase 2: {$a} of 6 stages accepted';
+$string['r2_status_fase3'] = 'Phase 3: to consolidate and evaluate';
+$string['r2_status_done'] = 'Completed and approved ({$a}/36)';
+$string['diseno_review_stages'] = 'Review the stages of this design';
+$string['diseno_another'] = 'Are you going to design another learning experience? This design stays saved and you can start a new one.';
+$string['diseno_go_designs'] = 'Start another design';

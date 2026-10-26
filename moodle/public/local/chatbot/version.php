@@ -18,8 +18,8 @@
  */
 
 defined('MOODLE_INTERNAL') || die();
-$plugin->version   = 2026102121;
+$plugin->version   = 2026102600;
 $plugin->requires  = 2023100900;
 $plugin->component = 'local_chatbot';
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = 'M1-v1.19.18';
+$plugin->release   = 'M1-v1.20.0';

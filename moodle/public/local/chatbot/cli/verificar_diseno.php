@@ -71,6 +71,27 @@ local_chatbot_verificar(diseno::current_stage([]) === 1 && diseno::current_stage
     && diseno::current_stage(range(1, 7)) === 8,
     'la etapa en curso es la primera sin aceptar');
 
+// --- Volver a las etapas con el diseno terminado (Interfases, 26-10-2026) ---
+local_chatbot_verificar(diseno::entry_stage([]) === 1 && diseno::entry_stage([1, 2]) === 3,
+    'sin etapa pedida se abre la primera sin aceptar de la Fase 2');
+local_chatbot_verificar(diseno::entry_stage(range(1, 8)) === 1 && diseno::entry_stage(range(1, 6)) === 1,
+    'con la Fase 2 completa se abre la etapa 1 para recorrer el diseño, no la etapa 8');
+local_chatbot_verificar(diseno::entry_stage([1, 3, 4, 5, 6]) === 2, 'una etapa sin aceptar en medio es la que se abre');
+
+// --- Varios disenos: nombre y estado en la lista ---
+local_chatbot_verificar(exante::design_label(['aprendizaje' => 'Comunicar información'], 'Comunicando en el trabajo')
+    === 'Comunicando en el trabajo', 'el diseño se nombra por su experiencia');
+local_chatbot_verificar(exante::design_label(['aprendizaje' => "Comunicar\ninformación  clara", 'plan' => 'PF']) === 'Comunicar información clara',
+    'sin experiencia, por el aprendizaje esperado');
+local_chatbot_verificar(exante::design_label(['aprendizaje' => '', 'plan' => 'Plan X']) === 'Plan X'
+    && exante::design_label([]) === '', 'luego por el plan formativo, y vacío si no hay nada');
+local_chatbot_verificar(mb_strlen(exante::design_label(['aprendizaje' => str_repeat('palabra ', 30)])) <= 90, 'un nombre largo se acorta');
+local_chatbot_verificar(ruta_m2::design_status(['ficha' => ruta_m2::FICHA_SIN])[0] === 'r2_status_fase1'
+    && ruta_m2::design_status(['ficha' => ruta_m2::FICHA_OK, 'aceptadas' => [1, 2]]) === ['r2_status_fase2', 2]
+    && ruta_m2::design_status(['ficha' => ruta_m2::FICHA_OK, 'aceptadas' => range(1, 6)])[0] === 'r2_status_fase3'
+    && ruta_m2::design_status(['ficha' => ruta_m2::FICHA_OK, 'aceptadas' => range(1, 7), 'aprobado' => true,
+        'evaluacion' => ['total' => 35]]) === ['r2_status_done', 35], 'cada diseño de la lista dice en qué fase va');
+
 // --- Instrucciones al modelo ---
 $ficha = "2. Aprendizaje esperado\n- 2.1. Aprendizaje esperado: Comunicar información...";
 $informe = ['debilidades' => ['Falta evidencia de desempeño.'], 'sugerencias' => ['Agregar desempeño en 7.3.']];

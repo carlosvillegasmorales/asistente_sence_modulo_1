@@ -646,5 +646,53 @@ function xmldb_local_chatbot_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026102102, 'local', 'chatbot');
     }
 
+    if ($oldversion < 2026102600) {
+
+        // Modulo 2: varios disenos por persona y curso (Interfases, 26-10-2026: el modulo se usa repetidamente para
+        // distintas experiencias). Cada ficha es un diseno; una esta en uso. Las etapas pasan a ser de la ficha.
+        $table = new xmldb_table('local_chatbot_exante');
+        $field = new xmldb_field('activa', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'data');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $unico = new xmldb_index('userid_courseid', XMLDB_INDEX_UNIQUE, ['userid', 'courseid']);
+        if ($dbman->index_exists($table, $unico)) {
+            $dbman->drop_index($table, $unico);
+        }
+        $indice = new xmldb_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+        if (!$dbman->index_exists($table, $indice)) {
+            $dbman->add_index($table, $indice);
+        }
+
+        $table = new xmldb_table('local_chatbot_diseno');
+        $field = new xmldb_field('fichaid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'id');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        // Hasta ahora habia una sola ficha por persona y curso: cada etapa es de esa ficha.
+        $fichas = $DB->get_records_menu('local_chatbot_exante', null, '', "id, " . $DB->sql_concat('userid', "'-'", 'courseid'));
+        $porpersona = array_flip($fichas);
+        $filas = $DB->get_recordset('local_chatbot_diseno', ['fichaid' => 0], '', 'id, userid, courseid');
+        foreach ($filas as $fila) {
+            $clave = $fila->userid . '-' . $fila->courseid;
+            if (isset($porpersona[$clave])) {
+                $DB->set_field('local_chatbot_diseno', 'fichaid', $porpersona[$clave], ['id' => $fila->id]);
+            }
+        }
+        $filas->close();
+        $unico = new xmldb_index('userid_courseid_etapa', XMLDB_INDEX_UNIQUE, ['userid', 'courseid', 'etapa']);
+        if ($dbman->index_exists($table, $unico)) {
+            $dbman->drop_index($table, $unico);
+        }
+        foreach ([new xmldb_index('fichaid_etapa', XMLDB_INDEX_UNIQUE, ['fichaid', 'etapa']),
+                new xmldb_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid'])] as $indice) {
+            if (!$dbman->index_exists($table, $indice)) {
+                $dbman->add_index($table, $indice);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026102600, 'local', 'chatbot');
+    }
+
     return true;
 }

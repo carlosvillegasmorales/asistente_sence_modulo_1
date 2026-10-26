@@ -66,6 +66,17 @@ if ($action === 'ejecutar' || $action === 'estado') {
     exit;
 }
 
+// --- Varios disenos: abrir uno guardado o empezar otro (el modulo se usa una y otra vez) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['abrir', 'nuevo'], true)) {
+    require_sesskey();
+    if ($action === 'abrir') {
+        exante::activate($USER->id, $courseid, required_param('id', PARAM_INT));
+        redirect($pageurl, get_string('designs_opened', 'local_chatbot'), null, \core\output\notification::NOTIFY_SUCCESS);
+    }
+    exante::new_ficha($USER->id, $courseid, (bool) optional_param('copiar', 0, PARAM_BOOL));
+    redirect($pageurl, get_string('designs_created', 'local_chatbot'), null, \core\output\notification::NOTIFY_SUCCESS);
+}
+
 // --- Guardar (y validar) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'validar'], true)) {
     require_sesskey();
@@ -234,6 +245,51 @@ echo $OUTPUT->header();
 
     <?php // Las tres fases del modulo, con el mismo estilo que la ruta del Modulo 1. ?>
     <?php echo \local_chatbot\ruta_m2::render($USER->id, $courseid, 1); ?>
+
+    <?php // Tus disenos: cada experiencia es una ficha con su validacion y sus etapas; una esta en uso. ?>
+    <?php $disenos = exante::list_fichas($USER->id, $courseid); ?>
+    <?php if ($disenos): ?>
+        <div class="card shadow-sm border-0 mb-4" id="disenos">
+            <div class="card-body">
+                <h5 class="mb-1"><?php echo get_string('designs_title', 'local_chatbot'); ?></h5>
+                <p class="small text-muted mb-3"><?php echo get_string('designs_help', 'local_chatbot'); ?></p>
+                <ul class="list-unstyled mb-3">
+                    <?php foreach ($disenos as $d):
+                        $estado = \local_chatbot\ruta_m2::state_for($d);
+                        $nombre = exante::design_label($d->data, $estado['experiencia']);
+                        [$clave, $a] = \local_chatbot\ruta_m2::design_status($estado);
+                        $enuso = (int) $d->id === (int) $ficha->id; ?>
+                        <li class="d-flex flex-wrap align-items-center gap-2 border-bottom py-2">
+                            <div class="flex-grow-1" style="min-width: 220px;">
+                                <div class="fw-medium"><?php echo $nombre !== '' ? s($nombre) : get_string('designs_untitled', 'local_chatbot'); ?></div>
+                                <div class="small text-muted"><?php echo get_string($clave, 'local_chatbot', $a); ?> ·
+                                    <?php echo userdate($d->timemodified, get_string('strftimedatetimeshort', 'langconfig')); ?></div>
+                            </div>
+                            <?php if ($enuso): ?>
+                                <span class="badge text-bg-primary"><?php echo get_string('designs_current', 'local_chatbot'); ?></span>
+                            <?php else: ?>
+                                <form method="post" action="<?php echo $pageurl->out(false); ?>" class="m-0">
+                                    <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                    <input type="hidden" name="id" value="<?php echo (int) $d->id; ?>">
+                                    <button type="submit" name="action" value="abrir" class="btn btn-sm btn-outline-primary"><?php
+                                        echo get_string('designs_open', 'local_chatbot'); ?></button>
+                                </form>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                <form method="post" action="<?php echo $pageurl->out(false); ?>" class="d-flex flex-wrap gap-2 m-0">
+                    <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                    <button type="submit" name="action" value="nuevo" class="btn btn-primary btn-sm"><i class="fa fa-plus me-1"></i><?php
+                        echo get_string('designs_new', 'local_chatbot'); ?></button>
+                    <button type="submit" name="action" value="nuevo" class="btn btn-outline-primary btn-sm"
+                            onclick="this.form.copiar.value = 1;"><i class="fa fa-copy me-1"></i><?php
+                        echo get_string('designs_new_copy', 'local_chatbot'); ?></button>
+                    <input type="hidden" name="copiar" value="0">
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <div class="alert alert-info">
         <strong><?php echo get_string('exante_intro_title', 'local_chatbot'); ?>.</strong>

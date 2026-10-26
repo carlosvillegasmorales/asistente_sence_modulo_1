@@ -481,12 +481,13 @@
         <INDEX NAME="interactionid_userid" UNIQUE="true" FIELDS="interactionid, userid"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="local_chatbot_exante" COMMENT="Modulo 2, Fase 1: ficha de diagnostico (evaluacion ex-ante) de la persona en el curso. Una por persona y curso">
+    <TABLE NAME="local_chatbot_exante" COMMENT="Modulo 2, Fase 1: ficha de diagnostico (evaluacion ex-ante). Cada diseno de la persona en el curso es una ficha; una esta en uso">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="data" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Respuestas de la ficha en JSON (claves de exante::field_keys)"/>
+        <FIELD NAME="activa" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 si es el diseno en uso de la persona en el curso"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
@@ -494,7 +495,7 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="userid_courseid" UNIQUE="true" FIELDS="userid, courseid"/>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="local_chatbot_exante_val" COMMENT="Validacion de una ficha ex-ante con el checklist del cliente. Una fila por intento; no es una calificacion">
@@ -522,9 +523,10 @@
         <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="local_chatbot_diseno" COMMENT="Modulo 2, Fase 2: producto de cada etapa del diseno de la experiencia de aprendizaje (Prompt Maestro, etapas 1 a 6). Una fila por persona, curso y etapa">
+    <TABLE NAME="local_chatbot_diseno" COMMENT="Modulo 2, Fases 2 y 3: producto de cada etapa del diseno (Prompt Maestro, etapas 1 a 8). Una fila por ficha (diseno) y etapa">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="fichaid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Ficha (diseno) a la que pertenece la etapa"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="etapa" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false"/>
@@ -546,7 +548,8 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="userid_courseid_etapa" UNIQUE="true" FIELDS="userid, courseid, etapa"/>
+        <INDEX NAME="fichaid_etapa" UNIQUE="true" FIELDS="fichaid, etapa"/>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
       </INDEXES>
     </TABLE>
   </TABLES>

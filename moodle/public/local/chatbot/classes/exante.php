@@ -869,7 +869,11 @@ class exante {
     // ------------------------------------------------------------------------------------------
 
     /**
-     * La ficha de la persona en el curso.
+     * La ficha del diseno en uso de la persona en el curso.
+     *
+     * Desde v1.20.0 una persona puede tener varios disenos en el mismo curso (pedido de Interfases del 26-10-2026:
+     * el modulo se usa repetidamente para distintas experiencias). Cada diseno es una ficha con su validacion y sus
+     * etapas; uno esta en uso (activa = 1) y es el que muestran todas las paginas.
      *
      * @param int $userid
      * @param int $courseid
@@ -877,7 +881,26 @@ class exante {
      */
     public static function get_ficha(int $userid, int $courseid): ?\stdClass {
         global $DB;
-        $ficha = $DB->get_record('local_chatbot_exante', ['userid' => $userid, 'courseid' => $courseid]);
+        $filas = $DB->get_records('local_chatbot_exante', ['userid' => $userid, 'courseid' => $courseid],
+            'activa DESC, id DESC', '*', 0, 1);
+        if (!$filas) {
+            return null;
+        }
+        $ficha = reset($filas);
+        $ficha->data = self::clean((array) json_decode((string) $ficha->data, true));
+        return $ficha;
+    }
+
+    /**
+     * Ficha por id, solo si es de la persona.
+     *
+     * @param int $fichaid
+     * @param int $userid
+     * @return \stdClass|null
+     */
+    public static function get_ficha_by_id(int $fichaid, int $userid): ?\stdClass {
+        global $DB;
+        $ficha = $DB->get_record('local_chatbot_exante', ['id' => $fichaid, 'userid' => $userid]);
         if (!$ficha) {
             return null;
         }
@@ -886,7 +909,23 @@ class exante {
     }
 
     /**
-     * Guarda la ficha (una por persona y curso).
+     * Todos los disenos de la persona en el curso, el mas reciente primero.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @return \stdClass[]
+     */
+    public static function list_fichas(int $userid, int $courseid): array {
+        global $DB;
+        $fichas = $DB->get_records('local_chatbot_exante', ['userid' => $userid, 'courseid' => $courseid], 'id DESC');
+        foreach ($fichas as $ficha) {
+            $ficha->data = self::clean((array) json_decode((string) $ficha->data, true));
+        }
+        return $fichas;
+    }
+
+    /**
+     * Guarda la ficha del diseno en uso (la crea si la persona no tiene ninguna).
      *
      * @param int $userid
      * @param int $courseid
@@ -897,13 +936,77 @@ class exante {
         global $DB;
         $now = time();
         $json = json_encode($data, JSON_UNESCAPED_UNICODE);
-        $id = $DB->get_field('local_chatbot_exante', 'id', ['userid' => $userid, 'courseid' => $courseid]);
-        if ($id) {
-            $DB->update_record('local_chatbot_exante', (object) ['id' => $id, 'data' => $json, 'timemodified' => $now]);
-            return (int) $id;
+        $actual = self::get_ficha($userid, $courseid);
+        if ($actual) {
+            $DB->update_record('local_chatbot_exante', (object) ['id' => $actual->id, 'data' => $json,
+                'activa' => 1, 'timemodified' => $now]);
+            return (int) $actual->id;
         }
         return (int) $DB->insert_record('local_chatbot_exante', (object) ['userid' => $userid,
-            'courseid' => $courseid, 'data' => $json, 'timecreated' => $now, 'timemodified' => $now]);
+            'courseid' => $courseid, 'data' => $json, 'activa' => 1, 'timecreated' => $now, 'timemodified' => $now]);
+    }
+
+    /**
+     * Deja en uso un diseno de la persona (los demas quedan guardados, sin borrarse).
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @param int $fichaid
+     * @return bool false si la ficha no es de la persona en ese curso.
+     */
+    public static function activate(int $userid, int $courseid, int $fichaid): bool {
+        global $DB;
+        if (!$DB->record_exists('local_chatbot_exante', ['id' => $fichaid, 'userid' => $userid, 'courseid' => $courseid])) {
+            return false;
+        }
+        $DB->set_field('local_chatbot_exante', 'activa', 0, ['userid' => $userid, 'courseid' => $courseid]);
+        $DB->set_field('local_chatbot_exante', 'activa', 1, ['id' => $fichaid]);
+        return true;
+    }
+
+    /**
+     * Empieza un diseno nuevo y lo deja en uso. Con $copiar, parte de los datos y adjuntos del diseno en uso (mismo
+     * organismo, grupo y contexto), sin su validacion ni sus etapas, que son de cada experiencia.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @param bool $copiar
+     * @return int id de la ficha nueva.
+     */
+    public static function new_ficha(int $userid, int $courseid, bool $copiar): int {
+        global $DB;
+        $base = $copiar ? self::get_ficha($userid, $courseid) : null;
+        $data = $base ? $base->data : self::clean([]);
+        $now = time();
+        $DB->set_field('local_chatbot_exante', 'activa', 0, ['userid' => $userid, 'courseid' => $courseid]);
+        $id = (int) $DB->insert_record('local_chatbot_exante', (object) ['userid' => $userid, 'courseid' => $courseid,
+            'data' => json_encode($data, JSON_UNESCAPED_UNICODE), 'activa' => 1, 'timecreated' => $now,
+            'timemodified' => $now]);
+        if ($base) {
+            $fs = get_file_storage();
+            foreach (self::attachments((int) $base->id) as $area => $archivo) {
+                $fs->create_file_from_storedfile(['itemid' => $id], $archivo);
+            }
+        }
+        return $id;
+    }
+
+    /**
+     * Nombre con que se reconoce un diseno en la lista: el de la experiencia si ya lo tiene (etapa 2), si no el
+     * aprendizaje esperado o el plan formativo. Funcion pura.
+     *
+     * @param array $data Ficha ya limpia.
+     * @param string $experiencia Nombre de la experiencia (vacio si aun no hay etapa 2).
+     * @return string
+     */
+    public static function design_label(array $data, string $experiencia = ''): string {
+        foreach ([$experiencia, (string) ($data['aprendizaje'] ?? ''), (string) ($data['plan'] ?? '')] as $texto) {
+            $texto = trim(preg_replace('/\s+/u', ' ', $texto));
+            if ($texto !== '') {
+                return \core_text::strlen($texto) > 90 ? rtrim(\core_text::substr($texto, 0, 87)) . '…' : $texto;
+            }
+        }
+        return '';
     }
 
     /**
@@ -1006,16 +1109,26 @@ class exante {
     }
 
     /**
-     * Ultima validacion de la persona en el curso. Una que quedo procesando demasiado se da por caida.
+     * Ultima validacion del diseno en uso de la persona en el curso.
      *
      * @param int $userid
      * @param int $courseid
      * @return \stdClass|null Con informe decodificado.
      */
     public static function latest_validation(int $userid, int $courseid): ?\stdClass {
+        $ficha = self::get_ficha($userid, $courseid);
+        return $ficha ? self::latest_validation_for((int) $ficha->id) : null;
+    }
+
+    /**
+     * Ultima validacion de una ficha. Una que quedo procesando demasiado se da por caida.
+     *
+     * @param int $fichaid
+     * @return \stdClass|null Con informe decodificado.
+     */
+    public static function latest_validation_for(int $fichaid): ?\stdClass {
         global $DB;
-        $filas = $DB->get_records('local_chatbot_exante_val', ['userid' => $userid, 'courseid' => $courseid],
-            'id DESC', '*', 0, 1);
+        $filas = $DB->get_records('local_chatbot_exante_val', ['fichaid' => $fichaid], 'id DESC', '*', 0, 1);
         if (!$filas) {
             return null;
         }

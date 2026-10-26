@@ -98,6 +98,17 @@ foreach (diseno::etapas() as $n => $e) {
             <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
                 <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('diseno_final_download', 'local_chatbot'); ?></a></div>
         </div>
+        <?php // El modulo se usa una y otra vez: se puede volver a las etapas y empezar otra experiencia. ?>
+        <div class="card border-0 bg-light mb-4">
+            <div class="card-body">
+                <p class="mb-1"><strong><?php echo get_string('diseno_review_stages', 'local_chatbot'); ?></strong></p>
+                <p class="small mb-3"><?php echo implode(' · ', $enlacesfase2); ?></p>
+                <p class="mb-2"><?php echo get_string('diseno_another', 'local_chatbot'); ?></p>
+                <a class="btn btn-outline-primary" href="<?php echo (new moodle_url('/local/chatbot/ficha_exante.php',
+                    ['courseid' => $courseid], 'disenos'))->out(false); ?>"><i class="fa fa-plus me-1"></i><?php
+                    echo get_string('diseno_go_designs', 'local_chatbot'); ?></a>
+            </div>
+        </div>
     <?php else: ?>
         <div class="alert alert-info">
             <?php echo get_string('diseno_not_approved', 'local_chatbot'); ?>

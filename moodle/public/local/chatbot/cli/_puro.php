@@ -62,6 +62,14 @@ if (!class_exists('core_text')) {
 
         /**
          * @param string $text
+         * @return int
+         */
+        public static function strlen($text) {
+            return mb_strlen((string) $text, 'UTF-8');
+        }
+
+        /**
+         * @param string $text
          * @return string
          */
         public static function specialtoascii($text) {

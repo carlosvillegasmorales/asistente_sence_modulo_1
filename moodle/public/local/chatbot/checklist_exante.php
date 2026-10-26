@@ -37,7 +37,9 @@ if (!\local_chatbot\ux::on('fichaexante')) {
     exit;
 }
 
-$preferencia = 'local_chatbot_autocheck_' . $courseid;
+// Las marcas son de cada diseno (la persona puede tener varios en el curso).
+$fichaactual = exante::get_ficha($USER->id, $courseid);
+$preferencia = 'local_chatbot_autocheck_' . $courseid . ($fichaactual ? '_' . $fichaactual->id : '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_sesskey();

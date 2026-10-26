@@ -65,7 +65,7 @@ $fase1 = exante::fase1_ok($USER->id, $courseid);
 $filas = diseno::get_all($USER->id, $courseid);
 $aceptadas = diseno::accepted($filas);
 if (!isset($etapas[$etapa])) {
-    $etapa = diseno::current_stage($aceptadas);
+    $etapa = diseno::entry_stage($aceptadas);
 }
 $pageurl = new moodle_url('/local/chatbot/diseno.php', ['courseid' => $courseid, 'etapa' => $etapa]);
 $PAGE->set_url($pageurl);

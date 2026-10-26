@@ -85,8 +85,17 @@ class ruta_m2 {
      * @return array Entrada de model() sin la pantalla.
      */
     public static function state(int $userid, int $courseid): array {
-        $ficha = exante::get_ficha($userid, $courseid);
-        $val = exante::latest_validation($userid, $courseid);
+        return self::state_for(exante::get_ficha($userid, $courseid));
+    }
+
+    /**
+     * Estado de un diseno (la ficha, su validacion y sus etapas), leido de la base.
+     *
+     * @param \stdClass|null $ficha
+     * @return array Entrada de model() sin la pantalla, mas 'evaluacion' (la vigente o null).
+     */
+    public static function state_for(?\stdClass $ficha): array {
+        $val = $ficha ? exante::latest_validation_for((int) $ficha->id) : null;
         if (!$val) {
             $estado = self::FICHA_SIN;
         } else if (in_array($val->estado, [exante::PENDIENTE, exante::PROCESANDO], true)) {
@@ -96,7 +105,7 @@ class ruta_m2 {
         } else {
             $estado = ($ficha && $val->huella === exante::ficha_fingerprint($ficha)) ? self::FICHA_OK : self::FICHA_DESACTUALIZADA;
         }
-        $filas = diseno::get_all($userid, $courseid);
+        $filas = $ficha ? diseno::get_by_ficha((int) $ficha->id) : [];
         $borradores = [];
         foreach ($filas as $n => $fila) {
             if ($fila->estado !== diseno::ACEPTADO && trim(strip_tags((string) $fila->contenido)) !== '') {
@@ -105,7 +114,30 @@ class ruta_m2 {
         }
         $evaluacion = diseno::current_evaluation($filas);
         return ['ficha' => $estado, 'aceptadas' => diseno::accepted($filas), 'borradores' => $borradores,
-            'evaluado' => $evaluacion !== null, 'aprobado' => $evaluacion && !empty($evaluacion['banda']['aprobado'])];
+            'evaluado' => $evaluacion !== null, 'aprobado' => $evaluacion && !empty($evaluacion['banda']['aprobado']),
+            'evaluacion' => $evaluacion,
+            'experiencia' => isset($filas[2]) ? diseno::experience_name(html_to_text((string) $filas[2]->contenido, 0, false)) : ''];
+    }
+
+    /**
+     * Donde va un diseno, en una frase corta para la lista «Tus diseños». Funcion pura.
+     *
+     * @param array $e Resultado de state_for().
+     * @return array [clave de idioma, parametro].
+     */
+    public static function design_status(array $e): array {
+        $aceptadas = $e['aceptadas'] ?? [];
+        if (!empty($e['aprobado'])) {
+            return ['r2_status_done', (int) ($e['evaluacion']['total'] ?? 0)];
+        }
+        if (($e['ficha'] ?? self::FICHA_SIN) !== self::FICHA_OK) {
+            return ['r2_status_fase1', null];
+        }
+        $hechas = count(array_intersect(array_keys(diseno::etapas()), $aceptadas));
+        if ($hechas < count(diseno::etapas())) {
+            return ['r2_status_fase2', $hechas];
+        }
+        return ['r2_status_fase3', null];
     }
 
     /**

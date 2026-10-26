@@ -714,11 +714,12 @@ class analytics {
         $resultado = [];
         foreach ($cursos as $cid) {
             $cid = (int) $cid;
-            // La validacion vigente de cada persona es la ultima terminada.
+            // La validacion vigente de cada ficha es la ultima terminada (desde v1.20.0 una persona puede tener
+            // varios disenos en el curso, cada uno con su ficha).
             $ultimas = [];
             foreach ($DB->get_records_select('local_chatbot_exante_val', 'courseid = ? AND estado = ?',
-                    [$cid, exante::LISTO], 'id ASC', 'id, userid, condicion, informe') as $v) {
-                $ultimas[(int) $v->userid] = $v;
+                    [$cid, exante::LISTO], 'id ASC', 'id, fichaid, userid, condicion, informe') as $v) {
+                $ultimas[(int) $v->fichaid] = $v;
             }
             $condiciones = [exante::APROBADO => 0, exante::OBSERVACIONES => 0, exante::NO_APROBADO => 0];
             $itemsporpersona = [];

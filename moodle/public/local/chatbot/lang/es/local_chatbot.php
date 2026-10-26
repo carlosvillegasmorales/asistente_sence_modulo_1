@@ -1264,3 +1264,21 @@ $string['autocheck_link'] = 'Revisa tu ficha con el checklist antes de validarla
 // Recursos PDF incrustados.
 $string['ux_pdfvisor'] = 'Visor de PDF ajustado al ancho';
 $string['ux_pdfvisor_desc'] = 'En la página de un recurso PDF incrustado, el visor del navegador se abre sin el panel de miniaturas y ajustado al ancho de la página. Apagado: el visor se abre como lo decide el navegador.';
+
+// Modulo 2: varios disenos por persona (el modulo se usa una y otra vez).
+$string['designs_title'] = 'Tus diseños de experiencias de aprendizaje';
+$string['designs_help'] = 'Puedes usar este módulo para varias experiencias: cada diseño tiene su propia ficha, su validación y sus etapas. El que está «En uso» es el que ves en la ficha y en las fases; los demás quedan guardados y puedes volver a abrirlos.';
+$string['designs_current'] = 'En uso';
+$string['designs_open'] = 'Abrir';
+$string['designs_untitled'] = 'Diseño sin título todavía';
+$string['designs_new'] = 'Nuevo diseño en blanco';
+$string['designs_new_copy'] = 'Nuevo diseño a partir de esta ficha';
+$string['designs_opened'] = 'Abriste ese diseño: ahora es el que está en uso.';
+$string['designs_created'] = 'Empezaste un diseño nuevo. El anterior queda guardado en «Tus diseños».';
+$string['r2_status_fase1'] = 'Fase 1: ficha por validar';
+$string['r2_status_fase2'] = 'Fase 2: {$a} de 6 etapas aceptadas';
+$string['r2_status_fase3'] = 'Fase 3: por consolidar y evaluar';
+$string['r2_status_done'] = 'Completado y aprobado ({$a}/36)';
+$string['diseno_review_stages'] = 'Revisa las etapas de este diseño';
+$string['diseno_another'] = '¿Vas a diseñar otra experiencia de aprendizaje? Este diseño queda guardado y puedes empezar uno nuevo.';
+$string['diseno_go_designs'] = 'Empezar otro diseño';
