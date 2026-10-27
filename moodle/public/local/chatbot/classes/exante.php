@@ -34,7 +34,6 @@ class exante {
     const T_NUMERO = 'numero';
     const T_UNA = 'una';
     const T_VARIAS = 'varias';
-    const T_VALIDACION = 'validacion';
 
     /** Evaluacion de un item del checklist. */
     const CUMPLE = 'cumple';
@@ -78,7 +77,8 @@ class exante {
      * Secciones de la ficha, con el texto del documento del cliente.
      *
      * Cada campo: id, tipo, num (numeracion de la ficha), label, ayuda (de la guia de llenado),
-     * opciones (clave => texto) y otro (clave de la opcion que abre un campo de texto «id_otro»).
+     * opciones (clave => texto), otro (clave de la opcion que abre un campo de texto «id_otro») y opcional (las
+     * observaciones: si traen informacion aportan, si vienen vacias no son un vacio de la ficha).
      *
      * @return array
      */
@@ -115,7 +115,7 @@ class exante {
                     'label' => 'Tiempo asignado a la experiencia de aprendizaje a diseñar (en minutos)',
                     'ayuda' => 'Debe ser menor al tiempo total disponible: tras la implementación debieran '
                         . 'realizarse ajustes o acciones remediales para cerrar brechas.'],
-                ['id' => 'obs_evaluacion', 'tipo' => self::T_PARRAFO, 'num' => '2.4',
+                ['id' => 'obs_evaluacion', 'tipo' => self::T_PARRAFO, 'num' => '2.4', 'opcional' => true,
                     'label' => 'Observaciones sobre la evaluación del aprendizaje esperado',
                     'ayuda' => 'Síntesis de la pertinencia y factibilidad de los criterios de evaluación definidos '
                         . 'en el plan formativo para el aprendizaje esperado.'],
@@ -140,7 +140,8 @@ class exante {
                 ['id' => 'complejidad', 'tipo' => self::T_UNA, 'num' => '3.4', 'label' => 'Nivel de complejidad esperado:',
                     'ayuda' => 'Nivel de dominio que se espera alcanzar al finalizar la experiencia de aprendizaje.',
                     'opciones' => ['inicial' => 'Inicial', 'intermedio' => 'Intermedio', 'avanzado' => 'Avanzado']],
-                ['id' => 'obs3', 'tipo' => self::T_PARRAFO, 'label' => 'Observaciones breves (opcional):'],
+                ['id' => 'obs3', 'tipo' => self::T_PARRAFO, 'opcional' => true,
+                    'label' => 'Observaciones breves (opcional):'],
             ]],
             4 => ['titulo' => 'Caracterización de los participantes', 'campos' => [
                 ['id' => 'dominio', 'tipo' => self::T_UNA, 'num' => '4.1',
@@ -155,7 +156,8 @@ class exante {
                 ['id' => 'participacion', 'tipo' => self::T_UNA, 'num' => '4.4',
                     'label' => 'Condición general de participación:',
                     'opciones' => ['regular' => 'Regular', 'intermitente' => 'Intermitente', 'irregular' => 'Irregular']],
-                ['id' => 'obs4', 'tipo' => self::T_PARRAFO, 'label' => 'Observaciones breves (opcional):'],
+                ['id' => 'obs4', 'tipo' => self::T_PARRAFO, 'opcional' => true,
+                    'label' => 'Observaciones breves (opcional):'],
             ]],
             5 => ['titulo' => 'Contexto de aplicación', 'campos' => [
                 ['id' => 'contexto', 'tipo' => self::T_UNA, 'num' => '5.1', 'label' => 'El aprendizaje se relaciona mejor con:',
@@ -172,7 +174,8 @@ class exante {
                 ['id' => 'situaciones', 'tipo' => self::T_UNA, 'num' => '5.4',
                     'label' => 'Existen situaciones reales del entorno que pueden servir como referencia:',
                     'opciones' => ['si' => 'Sí', 'no' => 'No', 'parcial' => 'Parcialmente']],
-                ['id' => 'obs5', 'tipo' => self::T_PARRAFO, 'label' => 'Observaciones breves (opcional):'],
+                ['id' => 'obs5', 'tipo' => self::T_PARRAFO, 'opcional' => true,
+                    'label' => 'Observaciones breves (opcional):'],
             ]],
             6 => ['titulo' => 'Recursos disponibles', 'campos' => [
                 ['id' => 'espacio', 'tipo' => self::T_UNA, 'num' => '6.1', 'label' => 'Espacio físico:',
@@ -190,7 +193,8 @@ class exante {
                         'ninguno' => 'Ninguno de los anteriores']],
                 ['id' => 'accesibilidad', 'tipo' => self::T_UNA, 'num' => '6.5', 'label' => 'Accesibilidad:',
                     'opciones' => ['total' => 'Total', 'parcial' => 'Parcial', 'adecuaciones' => 'Requiere adecuaciones']],
-                ['id' => 'obs6', 'tipo' => self::T_PARRAFO, 'label' => 'Observaciones breves (opcional):'],
+                ['id' => 'obs6', 'tipo' => self::T_PARRAFO, 'opcional' => true,
+                    'label' => 'Observaciones breves (opcional):'],
             ]],
             7 => ['titulo' => 'Decisión de diseño', 'campos' => [
                 ['id' => 'modalidad', 'tipo' => self::T_UNA, 'num' => '7.1', 'label' => 'Modalidad prioritaria de trabajo:',
@@ -207,7 +211,8 @@ class exante {
                     'opciones' => ['rubrica' => 'Rúbrica', 'cotejo' => 'Lista de cotejo',
                         'apreciacion' => 'Escala de apreciación', 'observacion' => 'Pauta de observación',
                         'prueba' => 'Prueba aplicada']],
-                ['id' => 'obs7', 'tipo' => self::T_PARRAFO, 'label' => 'Observaciones breves (opcional):'],
+                ['id' => 'obs7', 'tipo' => self::T_PARRAFO, 'opcional' => true,
+                    'label' => 'Observaciones breves (opcional):'],
             ]],
             8 => ['titulo' => 'Juicio fundado', 'campos' => [
                 ['id' => 'pertinencia_global', 'tipo' => self::T_UNA, 'num' => '8.1',
@@ -221,15 +226,11 @@ class exante {
                     'opciones' => ['recursos' => 'Falta de recursos', 'dominio' => 'Bajo dominio del grupo',
                         'alineacion' => 'Escasa alineación curricular', 'tiempo' => 'Tiempo insuficiente',
                         'otro' => 'Otro:'], 'otro' => 'otro'],
-                ['id' => 'obs_finales', 'tipo' => self::T_PARRAFO,
+                ['id' => 'obs_finales', 'tipo' => self::T_PARRAFO, 'opcional' => true,
                     'label' => 'Observaciones finales (una línea por criterio relevante):'],
             ]],
-            9 => ['titulo' => 'Validación', 'campos' => [
-                ['id' => 'val', 'tipo' => self::T_VALIDACION, 'label' => 'Aspecto',
-                    'filas' => ['revision' => 'Revisión del diagnóstico',
-                        'equipo' => 'Validación con equipo de facilitadores del Plan Formativo',
-                        'aprobacion' => 'Aprobación final']],
-            ]],
+            // La seccion 9 del documento («Validación»: fechas y responsables de revisión, validación con el
+            // equipo y aprobación final) no va en el formulario en línea, a pedido del equipo (26-10-2026).
         ];
     }
 
@@ -307,7 +308,7 @@ class exante {
     }
 
     /**
-     * Claves que se guardan de la ficha: los campos, sus «_otro» y las celdas de la tabla de validacion.
+     * Claves que se guardan de la ficha: los campos y sus «_otro».
      *
      * @return array clave => tipo de dato (texto, parrafo, numero, una, varias).
      */
@@ -315,13 +316,6 @@ class exante {
         $claves = [];
         foreach (self::sections() as $seccion) {
             foreach ($seccion['campos'] as $campo) {
-                if ($campo['tipo'] === self::T_VALIDACION) {
-                    foreach (array_keys($campo['filas']) as $fila) {
-                        $claves[$campo['id'] . '_' . $fila . '_fecha'] = self::T_TEXTO;
-                        $claves[$campo['id'] . '_' . $fila . '_responsable'] = self::T_TEXTO;
-                    }
-                    continue;
-                }
                 $claves[$campo['id']] = $campo['tipo'];
                 if (!empty($campo['otro'])) {
                     $claves[$campo['id'] . '_otro'] = self::T_TEXTO;
@@ -329,6 +323,25 @@ class exante {
             }
         }
         return $claves;
+    }
+
+    /**
+     * Campos opcionales de la ficha (las observaciones), con su rotulo para el modelo.
+     *
+     * @return string[] id => rotulo («2.4 Observaciones ...» o «Sección 3: Observaciones breves»).
+     */
+    public static function optional_fields(): array {
+        $opcionales = [];
+        foreach (self::sections() as $n => $seccion) {
+            foreach ($seccion['campos'] as $campo) {
+                if (!empty($campo['opcional'])) {
+                    $rotulo = rtrim(str_replace(' (opcional)', '', $campo['label']), ':');
+                    $opcionales[$campo['id']] = !empty($campo['num']) ? $campo['num'] . ' ' . $rotulo
+                        : 'Sección ' . $n . ': ' . $rotulo;
+                }
+            }
+        }
+        return $opcionales;
     }
 
     /**
@@ -473,14 +486,6 @@ class exante {
                 $id = $campo['id'];
                 $rotulo = (!empty($campo['num']) ? $campo['num'] . '. ' : '') . rtrim($campo['label'], ':');
                 switch ($campo['tipo']) {
-                    case self::T_VALIDACION:
-                        foreach ($campo['filas'] as $fila => $texto) {
-                            $fecha = trim((string) ($data[$id . '_' . $fila . '_fecha'] ?? ''));
-                            $resp = trim((string) ($data[$id . '_' . $fila . '_responsable'] ?? ''));
-                            $lineas[] = '- ' . $texto . ': fecha ' . ($fecha !== '' ? $fecha : $sin)
-                                . '; responsable ' . ($resp !== '' ? $resp : $sin);
-                        }
-                        continue 2;
                     case self::T_UNA:
                     case self::T_VARIAS:
                         $elegidos = (array) ($data[$id] ?? []);
@@ -504,7 +509,7 @@ class exante {
                             $valor = '(registrado)';
                         }
                         if ($valor === '') {
-                            $valor = $sin;
+                            $valor = !empty($campo['opcional']) ? '(opcional, sin información)' : $sin;
                         }
                 }
                 $lineas[] = '- ' . $rotulo . ': ' . $valor;
@@ -524,6 +529,19 @@ class exante {
         ksort($data);
         ksort($adjuntos);
         return sha1(json_encode([$data, $adjuntos], JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Huella de una ficha guardada tal como se valido y con el esquema vigente. Si se quita un campo de la ficha
+     * (la seccion 9, 26-10-2026) la huella cambia aunque la persona no haya tocado nada: con esto la migracion pone
+     * al dia la de sus validaciones en vez de dejarlas desactualizadas.
+     *
+     * @param array $guardada Ficha tal como esta en la base (limpia con el esquema con que se guardo).
+     * @param string[] $adjuntos Huellas de contenido de los archivos, por area.
+     * @return string[] [huella con que se valido, huella con el esquema vigente].
+     */
+    public static function schema_fingerprints(array $guardada, array $adjuntos): array {
+        return [self::fingerprint($guardada, $adjuntos), self::fingerprint(self::clean($guardada), $adjuntos)];
     }
 
     /**
@@ -575,6 +593,13 @@ class exante {
             '- El tiempo asignado a la experiencia (2.3) debe ser menor que el tiempo total disponible (2.2).',
             '- Una opción "Otro" u "Otra" marcada debe venir especificada.',
             '- Detecta vacíos de información y repórtalos. Propón soluciones viables sin alterar el plan formativo.',
+            '- Los campos de observaciones son opcionales (' . implode('; ', self::optional_fields()) . '). Si traen '
+                . 'información, considérala como aporte a la ficha. Si vienen vacíos ("opcional, sin información"), '
+                . 'no es un vacío de información: no lo menciones en observaciones, debilidades ni sugerencias, y no '
+                . 'bajes por eso la evaluación de ningún ítem.',
+            '- La ficha en línea no incluye la tabla de validación del documento (fechas y responsables de la '
+                . 'revisión, de la validación con el equipo y de la aprobación final): no la reportes como faltante. '
+                . 'Los ítems de la sección 9 del checklist se evalúan sobre la ficha completa.',
             '- Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género.',
             '- Evalúas la ficha, no a la persona: no asignes notas ni puntajes.',
             '',

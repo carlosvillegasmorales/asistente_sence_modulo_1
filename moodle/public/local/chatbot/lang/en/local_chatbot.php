@@ -1102,12 +1102,11 @@ $string['ux_fichaexante_desc'] = 'Module 2 Phase 1 page (local/chatbot/ficha_exa
 $string['exante_title'] = 'Diagnostic form (ex-ante evaluation)';
 $string['exante_disabled'] = 'The diagnostic form is not available right now.';
 $string['exante_intro_title'] = 'How to fill in this form';
-$string['exante_intro'] = 'Record in the 9 sections what really exists in your context, not ideal conditions. At the end you can attach the Training Plan and the Occupational Profile (optional) and press «Save and validate»: the assistant applies the validation checklist and gives you the report on this same page. If the form is Approved or Approved with observations, the step to Phase 2 is enabled. You can save a draft and continue later.';
+$string['exante_intro'] = 'Record in the 8 sections what really exists in your context, not ideal conditions. At the end you can attach the Training Plan and the Occupational Profile (optional) and press «Save and validate»: the assistant applies the validation checklist and gives you the report on this same page. If the form is Approved or Approved with observations, the step to Phase 2 is enabled. You can save a draft and continue later.';
 $string['exante_report_link'] = 'Go to the validation report';
-$string['exante_required_note'] = 'To validate, at least the expected learning outcome, 3 assessment criteria (maximum 5) and the answers of sections 4 and 5 are needed.';
+$string['exante_required_note'] = 'To validate, at least the expected learning outcome, 3 assessment criteria (maximum 5) and the answers of sections 4 and 5 are needed. The observations are optional: if you fill them in, the assistant takes them into account; if they are left blank, nothing is flagged.';
 $string['exante_other_placeholder'] = 'Specify';
-$string['exante_val_fecha'] = 'Date';
-$string['exante_val_responsable'] = 'Responsible';
+$string['exante_optional'] = 'optional';
 $string['exante_attachments_title'] = 'Supporting documents (optional)';
 $string['exante_attachments_help'] = 'If you attach them, the assistant uses them to review the coherence, depth and alignment of the form; the form remains the main source. Formats: PDF or Word (.docx), up to 10 MB each.';
 $string['exante_attach_plan'] = 'Attach Training Plan';
@@ -1262,6 +1261,8 @@ $string['autocheck_link'] = 'Review your form with the checklist before validati
 // Embedded PDF resources.
 $string['ux_pdfvisor'] = 'PDF viewer fitted to width';
 $string['ux_pdfvisor_desc'] = 'On the page of an embedded PDF resource, the browser viewer opens without the thumbnails pane and fitted to the page width. Off: the viewer opens as the browser decides.';
+$string['ux_navestudiante'] = 'No course menu for students';
+$string['ux_navestudiante_desc'] = 'In courses, learners do not see the Course / Participants / Grades / Activities / More bar. Teachers (editing or not), managers and administrators keep it: whoever has moodle/grade:viewall in the course. It is only visual: the pages still open by their address. Off: the menu shows as Moodle displays it.';
 
 // Module 2: several designs per person (the module is used again and again).
 $string['designs_title'] = 'Your learning experience designs';

@@ -1,5 +1,29 @@
 # Changelog
 
+## M1-v1.20.2 (2026-10-26)
+
+- En los cursos, quien cursa ya no ve la franja Curso / Participantes / Calificaciones / Actividades / Más. La
+  conserva quien tiene `moodle/grade:viewall` en el curso: docentes con o sin edición (también el rol consultor),
+  gestores y administración. Es solo visual (las páginas siguen abriéndose por su dirección) y va en el código del
+  plugin, no en el HTML adicional del sitio, así que vale en cualquier servidor y curso. Interruptor `navestudiante`.
+
+## M1-v1.20.1 (2026-10-26)
+
+**Ficha ex-ante: sin la sección 9 y con observaciones opcionales**
+
+- La ficha en línea queda con 8 secciones: se quitó la tabla «Validación» (fechas y responsables de la revisión, de la
+  validación con el equipo y de la aprobación final). El checklist sigue con sus 9 secciones y 32 ítems; el asistente
+  sabe que esa tabla no está en la ficha y no la reporta como faltante.
+- Todas las observaciones son opcionales (2.4, las «Observaciones breves» de las secciones 3 a 7 y las observaciones
+  finales): si traen información el asistente la considera; si vienen vacías llegan como «opcional, sin información» y
+  no generan observaciones, debilidades ni sugerencias. En el formulario, 2.4 y las observaciones finales muestran
+  «(opcional)».
+- Migración: sin las celdas de la sección 9 cambia la huella de toda ficha; las validaciones hechas sobre la ficha tal
+  como está se ponen al día para que no queden desactualizadas ni cierren la Fase 2. Los datos guardados no se tocan.
+- `configurar_modulo2.php`: el botón «Consultar y descargar el checklist» de la pestaña Fase 1 vuelve a llevar al
+  recurso del checklist (oculto en la página del curso), como los materiales. El checklist para marcar en Moodle
+  (`checklist_exante.php`) sigue enlazado desde la ficha.
+
 ## M1-v1.20.0 (2026-10-26)
 
 **Módulo 2 reutilizable** (Interfases, 26-10-2026: «este módulo debe poder ser utilizado repetidamente en distintos

@@ -1104,12 +1104,11 @@ $string['ux_fichaexante_desc'] = 'Página de la Fase 1 del Módulo 2 (local/chat
 $string['exante_title'] = 'Ficha de diagnóstico (evaluación ex-ante)';
 $string['exante_disabled'] = 'La ficha de diagnóstico no está disponible en este momento.';
 $string['exante_intro_title'] = 'Cómo completar esta ficha';
-$string['exante_intro'] = 'Registra en las 9 secciones lo que realmente existe en tu contexto, no condiciones ideales. Al final puedes adjuntar el Plan Formativo y el Perfil Ocupacional (opcionales) y pulsar «Guardar y validar»: el asistente aplica el checklist de validación y te entrega el informe en esta misma página. Si la ficha queda Aprobada o Aprobada con observaciones, se habilita el paso a la Fase 2. Puedes guardar un borrador y seguir después.';
+$string['exante_intro'] = 'Registra en las 8 secciones lo que realmente existe en tu contexto, no condiciones ideales. Al final puedes adjuntar el Plan Formativo y el Perfil Ocupacional (opcionales) y pulsar «Guardar y validar»: el asistente aplica el checklist de validación y te entrega el informe en esta misma página. Si la ficha queda Aprobada o Aprobada con observaciones, se habilita el paso a la Fase 2. Puedes guardar un borrador y seguir después.';
 $string['exante_report_link'] = 'Ir al informe de validación';
-$string['exante_required_note'] = 'Para validar se necesitan, como mínimo, el aprendizaje esperado, 3 criterios de evaluación (máximo 5) y las respuestas de las secciones 4 y 5.';
+$string['exante_required_note'] = 'Para validar se necesitan, como mínimo, el aprendizaje esperado, 3 criterios de evaluación (máximo 5) y las respuestas de las secciones 4 y 5. Las observaciones son opcionales: si las completas, el asistente las considera; si quedan en blanco, no se marca nada.';
 $string['exante_other_placeholder'] = 'Especifique';
-$string['exante_val_fecha'] = 'Fecha';
-$string['exante_val_responsable'] = 'Responsable';
+$string['exante_optional'] = 'opcional';
 $string['exante_attachments_title'] = 'Documentos complementarios (opcionales)';
 $string['exante_attachments_help'] = 'Si los adjuntas, el asistente los usa para revisar la coherencia, la profundidad y la alineación de la ficha; la ficha sigue siendo la fuente principal. Formatos: PDF o Word (.docx), hasta 10 MB cada uno.';
 $string['exante_attach_plan'] = 'Adjuntar Plan Formativo';
@@ -1264,6 +1263,8 @@ $string['autocheck_link'] = 'Revisa tu ficha con el checklist antes de validarla
 // Recursos PDF incrustados.
 $string['ux_pdfvisor'] = 'Visor de PDF ajustado al ancho';
 $string['ux_pdfvisor_desc'] = 'En la página de un recurso PDF incrustado, el visor del navegador se abre sin el panel de miniaturas y ajustado al ancho de la página. Apagado: el visor se abre como lo decide el navegador.';
+$string['ux_navestudiante'] = 'Sin el menú del curso para estudiantes';
+$string['ux_navestudiante_desc'] = 'En los cursos, quien cursa no ve la franja Curso / Participantes / Calificaciones / Actividades / Más. La conservan docentes (con o sin edición), gestores y administración: quien tiene moodle/grade:viewall en el curso. Es solo visual: las páginas siguen abriéndose por su dirección. Apagado: el menú se ve como lo muestra Moodle.';
 
 // Modulo 2: varios disenos por persona (el modulo se usa una y otra vez).
 $string['designs_title'] = 'Tus diseños de experiencias de aprendizaje';

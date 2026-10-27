@@ -10,4 +10,9 @@ $callbacks = [
         'callback' => '\local_chatbot\output_hook::after_main_region',
         'priority' => 100,
     ],
+    [
+        'hook' => \core\hook\output\before_standard_head_html_generation::class,
+        'callback' => '\local_chatbot\output_hook::before_head',
+        'priority' => 100,
+    ],
 ];

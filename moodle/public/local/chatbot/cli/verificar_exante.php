@@ -33,7 +33,7 @@ function local_chatbot_verificar(bool $condicion, string $descripcion): void {
 
 // --- La ficha es la del documento del cliente ---
 $secciones = exante::sections();
-local_chatbot_verificar(array_keys($secciones) === range(1, 9), 'la ficha tiene las 9 secciones en orden');
+local_chatbot_verificar(array_keys($secciones) === range(1, 8), 'la ficha tiene 8 secciones en orden (sin la 9, Validación)');
 $cerradas = [];
 foreach ($secciones as $seccion) {
     foreach ($seccion['campos'] as $campo) {
@@ -42,7 +42,7 @@ foreach ($secciones as $seccion) {
         }
     }
 }
-// La guia de llenado: «9 secciones con 24 preguntas cerradas».
+// La guia de llenado: «9 secciones con 24 preguntas cerradas»; la 9 (tabla de validacion) no tenia ninguna.
 local_chatbot_verificar(count($cerradas) === 24, '24 preguntas cerradas, como dice la guía (hay ' . count($cerradas) . ')');
 $esperadas = ['3.1' => 4, '3.2' => 5, '3.3' => 3, '3.4' => 3, '4.1' => 3, '4.2' => 3, '4.3' => 7, '4.4' => 3,
     '5.1' => 3, '5.2' => 5, '5.3' => 3, '5.4' => 3, '6.1' => 3, '6.2' => 3, '6.3' => 3, '6.4' => 5, '6.5' => 3,
@@ -53,10 +53,21 @@ local_chatbot_verificar(exante::field('alineacion')['opciones']['total'] === 'To
     '3.3 conserva el texto completo de la primera alternativa');
 $claves = exante::field_keys();
 foreach (['criterio1', 'criterio5', 'tiempo_total', 'tiempo_experiencia', 'obs_evaluacion', 'necesidades_otro',
-        'riesgo_otro', 'val_revision_fecha', 'val_aprobacion_responsable', 'obs_finales'] as $clave) {
+        'riesgo_otro', 'obs_finales'] as $clave) {
     local_chatbot_verificar(isset($claves[$clave]), "la ficha guarda «{$clave}»");
 }
-local_chatbot_verificar(!isset($claves['val']), 'la tabla de validación se guarda por celdas, no como un campo');
+local_chatbot_verificar(!array_filter(array_keys($claves), static function($c) {
+    return strpos($c, 'val') === 0;
+}), 'la ficha ya no guarda la tabla de validación (sección 9)');
+
+// --- Las observaciones son opcionales (Ivan, 26-10-2026) ---
+$opcionales = exante::optional_fields();
+local_chatbot_verificar(array_keys($opcionales) === ['obs_evaluacion', 'obs3', 'obs4', 'obs5', 'obs6', 'obs7', 'obs_finales'],
+    'todas las observaciones son opcionales, y nada más');
+local_chatbot_verificar($opcionales['obs_evaluacion'] === '2.4 Observaciones sobre la evaluación del aprendizaje esperado'
+    && $opcionales['obs3'] === 'Sección 3: Observaciones breves'
+    && $opcionales['obs_finales'] === 'Sección 8: Observaciones finales (una línea por criterio relevante)',
+    'cada observación opcional se nombra por su número o su sección');
 
 // --- El checklist es el del documento del cliente ---
 $checklist = exante::checklist();
@@ -111,10 +122,14 @@ $ejemplo = exante::clean([
     'espacio' => 'ajustes', 'equipamiento' => 'parcial', 'conectividad' => 'intermitente',
     'digitales' => ['plataforma', 'audiovisual'], 'accesibilidad' => 'total', 'modalidad' => 'simulacion',
     'estrategia' => 'caso', 'evidencia' => 'producto', 'instrumento' => 'rubrica', 'pertinencia_global' => 'alto',
-    'ajustes' => 'no', 'riesgo' => 'recursos', 'val_revision_fecha' => '20/03/2026',
-    'val_revision_responsable' => 'Coordinador técnico',
+    'ajustes' => 'no', 'riesgo' => 'recursos',
 ]);
 local_chatbot_verificar(exante::missing_inputs($ejemplo) === [], 'el ejemplo del cliente pasa el control de entrada');
+$sinobs = $ejemplo;
+foreach (array_keys($opcionales) as $id) {
+    $sinobs[$id] = '';
+}
+local_chatbot_verificar(exante::missing_inputs($sinobs) === [], 'sin ninguna observación la ficha igual se valida');
 local_chatbot_verificar(exante::criteria_count($ejemplo) === 4, 'el ejemplo registra 4 criterios');
 
 // --- Control de entrada del Prompt Maestro ---
@@ -151,10 +166,15 @@ local_chatbot_verificar(strpos($texto, 'Nombre del facilitador o facilitadora: (
     'el modelo sabe que el nombre se registró');
 local_chatbot_verificar(strpos($texto, '3.2. El perfil ocupacional exige desempeño en: Tareas rutinarias; Tareas técnicas; '
     . 'Trabajo colaborativo') !== false, 'las alternativas viajan con su texto');
-local_chatbot_verificar(strpos($texto, '- Validación con equipo de facilitadores del Plan Formativo: fecha (sin respuesta)') !== false,
+local_chatbot_verificar(strpos($texto, '- Criterio de evaluación 5: (sin respuesta)') !== false,
     'lo vacío se dice explícitamente');
-local_chatbot_verificar(strpos($texto, '- Revisión del diagnóstico: fecha 20/03/2026; responsable Coordinador técnico') !== false,
-    'la tabla de validación viaja por filas');
+local_chatbot_verificar(strpos($texto, '- 2.4. Observaciones sobre la evaluación del aprendizaje esperado: Los criterios son '
+    . 'claros y observables.') !== false, 'una observación con información viaja al modelo');
+local_chatbot_verificar(strpos($texto, '- Observaciones breves (opcional): (opcional, sin información)') !== false
+    && strpos($texto, '- Observaciones finales (una línea por criterio relevante): (opcional, sin información)') !== false,
+    'una observación vacía viaja como opcional, no como «sin respuesta»');
+local_chatbot_verificar(strpos($texto, 'Revisión del diagnóstico') === false && strpos($texto, 'Validación con equipo') === false
+    && strpos($texto, "\n9. ") === false, 'la sección 9 ya no viaja al modelo');
 $conotro = $ejemplo;
 $conotro['riesgo'] = 'otro';
 $conotro['riesgo_otro'] = 'Rotación del equipo';
@@ -173,6 +193,14 @@ local_chatbot_verificar($h !== exante::fingerprint($ejemplo, []), 'quitar un adj
 $otro = $ejemplo;
 $otro['tiempo_experiencia'] = '200';
 local_chatbot_verificar($h !== exante::fingerprint($otro, ['exante_plan' => 'abc']), 'cambiar la ficha cambia la huella');
+// Migracion: una ficha guardada con la seccion 9 se valido con otra huella; se pone al dia sin que la persona la toque.
+$vieja = $ejemplo + ['val_revision_fecha' => '20/03/2026', 'val_revision_responsable' => 'Coordinador técnico',
+    'val_equipo_fecha' => '', 'val_equipo_responsable' => '', 'val_aprobacion_fecha' => '', 'val_aprobacion_responsable' => ''];
+[$antes, $ahora] = exante::schema_fingerprints($vieja, ['exante_plan' => 'abc']);
+local_chatbot_verificar($antes === exante::fingerprint($vieja, ['exante_plan' => 'abc']) && $ahora === $h && $antes !== $ahora,
+    'migración: la huella vieja (con la sección 9) pasa a la de la ficha sin ella');
+local_chatbot_verificar(exante::schema_fingerprints($ejemplo, ['exante_plan' => 'abc']) === [$h, $h],
+    'migración: una ficha ya al día no cambia de huella');
 
 // --- Instrucciones al modelo ---
 $prompt = exante::build_prompt([]);
@@ -192,6 +220,12 @@ local_chatbot_verificar(strpos($prompt1, 'adjuntó: Plan Formativo') !== false
 local_chatbot_verificar(strpos($prompt, 'no menos de 3 ni más de 5 criterios') !== false, 'regla de 3 a 5 criterios');
 local_chatbot_verificar(strpos($prompt, '"adecuadamente"') !== false, 'regla de juicios de valor');
 local_chatbot_verificar(strpos($prompt, 'lenguaje inclusivo') !== false, 'regla de lenguaje inclusivo');
+local_chatbot_verificar(strpos($prompt, 'Los campos de observaciones son opcionales (2.4 Observaciones sobre la evaluación '
+    . 'del aprendizaje esperado; Sección 3: Observaciones breves;') !== false
+    && strpos($prompt, 'no lo menciones en observaciones, debilidades ni sugerencias') !== false,
+    'el prompt dice qué observaciones son opcionales y que vacías no se reportan');
+local_chatbot_verificar(strpos($prompt, 'no incluye la tabla de validación del documento') !== false
+    && strpos($prompt, 'no la reportes como faltante') !== false, 'el prompt sabe que la ficha no trae la sección 9');
 
 // --- Lectura del informe del modelo ---
 $completo = ['items' => [], 'condicion' => 'aprobado', 'debilidades' => ['d1'], 'sugerencias' => ['s1', '', 's2']];
@@ -348,9 +382,11 @@ local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exan
 $todas['c9_2'] = exante::NO_CUMPLE;
 local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::NO_APROBADO,
     'un crítico que no cumple: no aprobado, con la misma regla del asistente');
-$enlazado = modulo2_setup::link_checklist('<a style="y" href="http://x/mod/resource/view.php?id=606"> Consultar y descargar el checklist </a>', 'uc2');
-local_chatbot_verificar(strpos($enlazado, 'href="uc2"') !== false && strpos($enlazado, 'id=606') === false,
-    'el botón del checklist cambia de un enlace anterior al checklist en Moodle');
+$enlazado = modulo2_setup::link_checklist('<a style="y" href="http://x/local/chatbot/checklist_exante.php?courseid=4"> '
+    . 'Consultar y descargar el checklist </a>', 'http://x/mod/resource/view.php?id=606');
+local_chatbot_verificar(strpos($enlazado, 'href="http://x/mod/resource/view.php?id=606"') !== false
+    && strpos($enlazado, 'checklist_exante.php') === false && strpos($enlazado, 'style="y"') !== false,
+    'el botón del checklist cambia de un enlace anterior (el checklist en Moodle) al recurso del checklist');
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {

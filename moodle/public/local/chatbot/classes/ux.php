@@ -53,6 +53,7 @@ class ux {
         'fichaexante' => 1,     // Modulo 2, Fase 1: ficha de diagnostico ex-ante validada con el checklist (v1.17.0).
         'pdfvisor' => 1,        // Recursos PDF incrustados: visor sin panel de miniaturas y ajustado al ancho (v1.19.17).
         'disenofase2' => 1,     // Modulo 2, Fases 2 y 3: hojas de trabajo de las etapas 1 a 8 del diseno (v1.18.0, v1.19.0).
+        'navestudiante' => 1,   // Sin la franja Curso / Participantes / Calificaciones / ... para quien cursa (v1.20.2).
     ];
 
     /**

@@ -170,27 +170,6 @@ function local_chatbot_exante_campo(array $campo, array $data): void {
     $id = $campo['id'];
     $rotulo = (!empty($campo['num']) ? $campo['num'] . '. ' : '') . $campo['label'];
     echo '<div class="mb-3 pb-3 border-bottom">';
-    if ($campo['tipo'] === exante::T_VALIDACION) {
-        echo '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr>';
-        echo '<th>' . s($campo['label']) . '</th>';
-        echo '<th style="width:170px;">' . get_string('exante_val_fecha', 'local_chatbot') . '</th>';
-        echo '<th style="width:240px;">' . get_string('exante_val_responsable', 'local_chatbot') . '</th>';
-        echo '</tr></thead><tbody>';
-        foreach ($campo['filas'] as $fila => $texto) {
-            $f = $id . '_' . $fila . '_fecha';
-            $r = $id . '_' . $fila . '_responsable';
-            echo '<tr><td class="small">' . s($texto) . '</td>';
-            echo '<td><input type="text" class="form-control form-control-sm" name="' . $f . '" maxlength="'
-                . exante::LARGO_TEXTO . '" placeholder="dd/mm/aaaa" aria-label="' . s($texto) . ' — '
-                . s(get_string('exante_val_fecha', 'local_chatbot')) . '" value="' . s($data[$f] ?? '') . '"></td>';
-            echo '<td><input type="text" class="form-control form-control-sm" name="' . $r . '" maxlength="'
-                . exante::LARGO_TEXTO . '" aria-label="' . s($texto) . ' — '
-                . s(get_string('exante_val_responsable', 'local_chatbot')) . '" value="' . s($data[$r] ?? '') . '"></td></tr>';
-        }
-        echo '</tbody></table></div></div>';
-        return;
-    }
-
     if (in_array($campo['tipo'], [exante::T_UNA, exante::T_VARIAS], true)) {
         $varias = $campo['tipo'] === exante::T_VARIAS;
         echo '<fieldset><legend class="fs-6 fw-medium mb-1">' . s($rotulo) . '</legend>';
@@ -218,7 +197,10 @@ function local_chatbot_exante_campo(array $campo, array $data): void {
     }
 
     $domid = 'f_' . $id;
-    echo '<label class="form-label fw-medium mb-1" for="' . $domid . '">' . s($rotulo) . '</label>';
+    // Las observaciones son opcionales; las que no lo dicen en el texto de la ficha lo muestran aparte.
+    $opcional = !empty($campo['opcional']) && \core_text::strpos(\core_text::strtolower($rotulo), 'opcional') === false
+        ? ' <span class="fw-normal text-muted">(' . get_string('exante_optional', 'local_chatbot') . ')</span>' : '';
+    echo '<label class="form-label fw-medium mb-1" for="' . $domid . '">' . s($rotulo) . $opcional . '</label>';
     if (!empty($campo['ayuda'])) {
         echo '<p class="small text-muted mb-2">' . s($campo['ayuda']) . '</p>';
     }

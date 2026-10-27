@@ -10,6 +10,7 @@ define('MOODLE_INTERNAL', true);
 
 require_once(__DIR__ . '/_puro.php');
 require_once(__DIR__ . '/../classes/ux.php');
+require_once(__DIR__ . '/../classes/output_hook.php');
 require_once(__DIR__ . '/../classes/closure.php');
 require_once(__DIR__ . '/../classes/analytics.php');
 require_once(__DIR__ . '/../classes/journey.php');
@@ -25,6 +26,7 @@ require_once(__DIR__ . '/../classes/profile.php');
 use local_chatbot\feedback;
 use local_chatbot\guardrails;
 use local_chatbot\journey;
+use local_chatbot\output_hook;
 use local_chatbot\pdp;
 use local_chatbot\profile;
 use local_chatbot\reminders;
@@ -55,6 +57,13 @@ foreach (['screencontext', 'routebar', 'pdpguide', 'goalorder', 'gapchange', 'su
         'nextaction', 'coursebar', 'modebyscreen', 'resourcechips', 'feedback', 'retry', 'kbcache', 'streaming'] as $f) {
     local_chatbot_verificar(array_key_exists($f, ux::DEFAULTS), "la mejora '{$f}' tiene interruptor");
 }
+
+// --- Menu del curso solo para quien acompana (pedido del 26-10-2026) ---
+local_chatbot_verificar(array_key_exists('navestudiante', ux::DEFAULTS), "la mejora 'navestudiante' tiene interruptor");
+local_chatbot_verificar(output_hook::hide_course_nav(18, 1, false), 'quien cursa no ve el menú del curso');
+local_chatbot_verificar(!output_hook::hide_course_nav(18, 1, true), 'quien acompaña el curso (con o sin edición) lo conserva');
+local_chatbot_verificar(!output_hook::hide_course_nav(1, 1, false) && !output_hook::hide_course_nav(0, 1, false),
+    'fuera de un curso no se oculta nada');
 
 // --- Tu proximo paso ---
 $base = ['consent' => true, 'diagnostic' => true, 'plan_validated' => true, 'project' => false, 'closure' => false,

@@ -694,5 +694,27 @@ function xmldb_local_chatbot_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026102600, 'local', 'chatbot');
     }
 
+    if ($oldversion < 2026102601) {
+
+        // La ficha ex-ante ya no tiene la seccion 9 (Validacion): sin sus celdas cambia la huella de toda ficha, aunque
+        // nadie la haya tocado. Las validaciones hechas sobre la ficha tal como esta se ponen al dia, para que no queden
+        // desactualizadas ni cierren la Fase 2. Los datos guardados no se tocan: las celdas viejas se ignoran al leer.
+        $fichas = $DB->get_recordset('local_chatbot_exante', null, '', 'id, data');
+        foreach ($fichas as $ficha) {
+            $huellas = [];
+            foreach (\local_chatbot\exante::attachments((int) $ficha->id) as $area => $archivo) {
+                $huellas[$area] = $archivo->get_contenthash();
+            }
+            [$antes, $ahora] = \local_chatbot\exante::schema_fingerprints(
+                (array) json_decode((string) $ficha->data, true), $huellas);
+            if ($antes !== $ahora) {
+                $DB->set_field('local_chatbot_exante_val', 'huella', $ahora, ['fichaid' => $ficha->id, 'huella' => $antes]);
+            }
+        }
+        $fichas->close();
+
+        upgrade_plugin_savepoint(true, 2026102601, 'local', 'chatbot');
+    }
+
     return true;
 }

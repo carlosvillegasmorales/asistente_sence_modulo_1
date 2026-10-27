@@ -162,9 +162,9 @@ foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') 
     }
     if (strpos($antes, 'Consultar y descargar el checklist') !== false) {
         $despues = modulo2_setup::center_conditions($despues);
-        // El checklist se aplica en Moodle (checklist_exante.php); el PDF queda descargable desde esa pagina.
-        $despues = modulo2_setup::link_checklist($despues,
-            (new moodle_url('/local/chatbot/checklist_exante.php', ['courseid' => $cursoid]))->out(false));
+        // El boton lleva al recurso del checklist (oculto), como los materiales (pedido del 26-10-2026). El checklist
+        // para marcar en Moodle (checklist_exante.php) sigue enlazado desde la ficha.
+        $despues = modulo2_setup::link_checklist($despues, $url($recursos['checklist']));
         $despues = modulo2_setup::add_form_button($despues, $fichaurl);
     }
     if ($despues === $antes) {

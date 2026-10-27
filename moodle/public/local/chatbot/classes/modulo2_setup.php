@@ -194,7 +194,7 @@ class modulo2_setup {
         // Los comentarios del cliente varian («REEMPLAZA # ...», «IMPORTANTE: REEMPLAZA # ...»).
         $html = preg_replace('/<!--[^>]*REEMPLAZA #[^>]*-->\s*/u', '', $html);
         $html = preg_replace('/<p\b[^>]*>\s*Nota: reemplaza el enlace provisional[^<]*<\/p>\s*/u', '', $html);
-        // Reemplaza el enlace que tenga (el «#» provisional o uno anterior): ahora lleva al checklist en Moodle.
+        // Reemplaza el enlace que tenga (el «#» provisional o uno anterior) por el recibido.
         return preg_replace('/(<a\b[^>]*?)href="[^"]*"([^>]*>\s*Consultar y descargar el checklist)/u',
             '$1href="' . htmlspecialchars($url, ENT_QUOTES) . '"$2', $html);
     }
