@@ -247,6 +247,21 @@ echo $OUTPUT->header();
     <?php // Las tres fases del modulo, con el mismo estilo que la ruta del Modulo 1. ?>
     <?php echo \local_chatbot\ruta_m2::render($USER->id, $courseid, 1); ?>
 
+    <?php if (\local_chatbot\ux::on('bienvenidam2')): ?>
+        <?php // Bienvenida del Prompt Maestro, textual: es lo primero que dice el asistente. ?>
+        <div class="card border-0 shadow-sm mb-3" style="background: #eef5fb; border-left: 5px solid #20639b !important;">
+            <div class="card-body d-flex gap-3 align-items-start">
+                <div aria-hidden="true" style="flex: 0 0 42px; width: 42px; height: 42px; line-height: 42px; border-radius: 50%;
+                    background: #20639b; color: #ffffff; text-align: center; font-size: 20px;"><i class="fa fa-comments"></i></div>
+                <div>
+                    <?php foreach (exante::welcome() as $i => $parrafo): ?>
+                        <p class="<?php echo $i === 0 ? 'fw-bold mb-2' : 'mb-2'; ?>"><?php echo s($parrafo); ?></p>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <?php // Tus disenos: cada experiencia es una ficha con su validacion y sus etapas; una esta en uso. ?>
     <?php $disenos = exante::list_fichas($USER->id, $courseid); ?>
     <?php if ($disenos): ?>

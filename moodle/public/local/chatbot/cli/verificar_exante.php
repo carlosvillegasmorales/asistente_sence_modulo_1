@@ -62,8 +62,12 @@ local_chatbot_verificar(!array_filter(array_keys($claves), static function($c) {
 
 // --- Las observaciones son opcionales (Ivan, 26-10-2026) ---
 $opcionales = exante::optional_fields();
-local_chatbot_verificar(array_keys($opcionales) === ['obs_evaluacion', 'obs3', 'obs4', 'obs5', 'obs6', 'obs7', 'obs_finales'],
-    'todas las observaciones son opcionales, y nada más');
+local_chatbot_verificar(array_keys($opcionales) === ['modulo', 'competencia', 'obs_evaluacion', 'obs3', 'obs4', 'obs5', 'obs6',
+    'obs7', 'obs_finales'], 'son opcionales todas las observaciones, el Nombre del Módulo y la Competencia del Módulo, y nada más');
+local_chatbot_verificar($opcionales['modulo'] === 'Sección 1: Nombre del Módulo'
+    && strpos(exante::to_text(exante::clean(['plan' => 'P'])), '- Nombre del Módulo: (opcional, sin información)') !== false
+    && strpos(exante::to_text(exante::clean(['plan' => 'P'])), '- Competencia del Módulo: (opcional, sin información)') !== false,
+    'módulo y competencia vacíos llegan al modelo como opcionales, no como faltantes (revisión del 30-10)');
 local_chatbot_verificar($opcionales['obs_evaluacion'] === '2.4 Observaciones sobre la evaluación del aprendizaje esperado'
     && $opcionales['obs3'] === 'Sección 3: Observaciones breves'
     && $opcionales['obs_finales'] === 'Sección 8: Observaciones finales (una línea por criterio relevante)',
@@ -254,8 +258,9 @@ local_chatbot_verificar(strpos($prompt, 'al menos 3 y sin un número máximo') !
     'regla de criterios: al menos 3, sin máximo');
 local_chatbot_verificar(strpos($prompt, '"adecuadamente"') !== false, 'regla de juicios de valor');
 local_chatbot_verificar(strpos($prompt, 'lenguaje inclusivo') !== false, 'regla de lenguaje inclusivo');
-local_chatbot_verificar(strpos($prompt, 'Los campos de observaciones son opcionales (2.4 Observaciones sobre la evaluación '
-    . 'del aprendizaje esperado; Sección 3: Observaciones breves;') !== false
+local_chatbot_verificar(strpos($prompt, 'Sección 1: Nombre del Módulo; Sección 1: Competencia del Módulo; 2.4 Observaciones '
+    . 'sobre la evaluación del aprendizaje esperado; Sección 3: Observaciones breves;') !== false
+    && strpos($prompt, 'el ítem c1_1 (datos administrativos) no deja de cumplirse porque falten el Nombre del Módulo') !== false
     && strpos($prompt, 'no lo menciones en observaciones, debilidades ni sugerencias') !== false,
     'el prompt dice qué observaciones son opcionales y que vacías no se reportan');
 local_chatbot_verificar(strpos($prompt, 'no incluye la tabla de validación del documento') !== false
@@ -340,8 +345,17 @@ local_chatbot_verificar(exante::valid_reason(['codigo' => 'otro', 'cita' => 'Con
     'un código fuera de los cuatro motivos no cuenta');
 local_chatbot_verificar(exante::valid_reason(['codigo' => 'tema', 'cita' => 'conocer la HISTORIA de la computacion'], $ficha4, exante::NO_APROBADO) !== null,
     'la cita se compara sin tildes, mayúsculas ni signos');
-local_chatbot_verificar(exante::valid_reason(['codigo' => 'plan', 'cita' => 'El plan adjunto habla de cuidados de pacientes'], $ficha4, exante::NO_APROBADO) !== null,
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'plan', 'cita' => 'El plan adjunto habla de cuidados de pacientes'], $ficha4, exante::NO_APROBADO, true) !== null,
     'con el motivo «plan» la cita puede venir del Plan Formativo adjunto');
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'plan', 'cita' => 'El plan adjunto habla de cuidados de pacientes'], $ficha4, exante::NO_APROBADO) === null,
+    'sin el Plan Formativo adjunto, el motivo «plan» no detiene la ficha (revisión del 30-10)');
+// Bienvenida del Prompt Maestro, textual (revision del 30-10).
+$bienvenida = exante::welcome();
+local_chatbot_verificar(count($bienvenida) === 3
+    && $bienvenida[0] === 'Bienvenido/a, soy tu asistente de apoyo en diseño instruccional por competencias.'
+    && strpos($bienvenida[1], 'Te puedo ayudar a analizar fichas de diagnóstico (evaluación ex-ante), diseñar experiencias') === 0
+    && substr($bienvenida[2], -strlen('enriquecer el análisis y mejorar la precisión del diseño.')) === 'enriquecer el análisis y mejorar la precisión del diseño.',
+    'la bienvenida es la del Prompt Maestro, textual, en 3 párrafos');
 local_chatbot_verificar(exante::valid_reason($tema, $ficha4, exante::APROBADO) === null
     && exante::valid_reason($tema, $ficha4, exante::OBSERVACIONES) === null,
     'un motivo que acompaña a otra condición del modelo no detiene la ficha');

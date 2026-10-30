@@ -1,5 +1,17 @@
 # Changelog
 
+## M1-v1.20.9 (2026-10-30)
+
+Revisión del Módulo 2 del 30-10 (puntos 1 a 3):
+
+- **Módulo y Competencia vacíos ya no impiden «Aprobado».** La IA los marcaba como faltantes en el ítem c1_1 aunque no
+  son obligatorios. Ahora llegan al modelo como «(opcional, sin información)», entran en la lista de campos opcionales
+  (`exante::optional_fields()`) y el prompt dice que c1_1 no deja de cumplirse por ellos.
+- **El motivo grave «plan» exige el Plan Formativo adjunto** (`valid_reason(..., $conplan)`): sin plan no hay contra qué
+  comparar, y una ficha sin adjuntos no se detiene por ese motivo.
+- **Bienvenida del Prompt Maestro, textual,** al comienzo de la ficha de diagnóstico (`exante::welcome()`), como pide el
+  Prompt Maestro («Al iniciar, debes mostrar exactamente el siguiente mensaje»). Interruptor `bienvenidam2`.
+
 ## M1-v1.20.8 (2026-10-29)
 
 Cierre de los puntos 12 y 14 de la propuesta «la IA como apoyo» (decididos por el equipo):

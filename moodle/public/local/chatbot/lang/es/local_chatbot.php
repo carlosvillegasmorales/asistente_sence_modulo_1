@@ -1283,6 +1283,8 @@ $string['ux_avisosficha'] = 'Módulo 2: avisos antes de validar la ficha';
 $string['ux_avisosficha_desc'] = 'La ficha avisa con reglas fijas (sin IA) de respuestas contradictorias: 3.3 «Parcialmente alineado» con 8.2 «No», tiempo 2.3 mayor o igual que 2.2 y «Otro» sin especificar. Los avisos se ven en la ficha y, al pulsar «Guardar y validar», se muestran y la validación sigue en el mismo clic. Apagado: no hay avisos.';
 $string['ux_descargafinal'] = 'Módulo 2: documento final descargable siempre';
 $string['ux_descargafinal_desc'] = 'En la Fase 3, el documento final se descarga con cualquier puntaje, con el total y su interpretación impresos; los 25 puntos de «aprobado» quedan como información. Apagado: solo se descarga con el diseño aprobado (25 puntos o más).';
+$string['ux_bienvenidam2'] = 'Módulo 2: bienvenida del Prompt Maestro';
+$string['ux_bienvenidam2_desc'] = 'Al comienzo de la ficha de diagnóstico se muestra, textual, el mensaje de bienvenida que pide el Prompt Maestro («Bienvenido/a, soy tu asistente de apoyo en diseño instruccional por competencias…»). Apagado: no se muestra.';
 
 // Modulo 2: varios disenos por persona (el modulo se usa una y otra vez).
 $string['designs_title'] = 'Tus diseños de experiencias de aprendizaje';

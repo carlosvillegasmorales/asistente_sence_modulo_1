@@ -60,7 +60,7 @@ foreach (['screencontext', 'routebar', 'pdpguide', 'goalorder', 'gapchange', 'su
 
 // --- Menu del curso solo para quien acompana (pedido del 26-10-2026) ---
 local_chatbot_verificar(array_key_exists('navestudiante', ux::DEFAULTS), "la mejora 'navestudiante' tiene interruptor");
-foreach (['iaapoyo', 'avisosficha', 'descargafinal'] as $f) {
+foreach (['iaapoyo', 'avisosficha', 'descargafinal', 'bienvenidam2'] as $f) {
     local_chatbot_verificar(array_key_exists($f, ux::DEFAULTS) && ux::DEFAULTS[$f] === 1, "la mejora '{$f}' (v1.20.6) tiene interruptor, encendido");
 }
 local_chatbot_verificar(output_hook::hide_course_nav(18, 1, false), 'quien cursa no ve el menú del curso');

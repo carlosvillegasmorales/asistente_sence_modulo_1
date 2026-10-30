@@ -57,6 +57,7 @@ class ux {
         'iaapoyo' => 1,         // Modulo 2: «No aprobado» solo por motivo grave citado; en la Fase 3, un 4 sin evidencia es 3 (v1.20.6).
         'avisosficha' => 1,     // Modulo 2: avisos con reglas fijas al validar la ficha (v1.20.6; sin pausa desde v1.20.8).
         'descargafinal' => 1,   // Modulo 2, Fase 3: documento final descargable siempre, con puntaje y banda impresos (v1.20.8).
+        'bienvenidam2' => 1,    // Modulo 2: bienvenida textual del Prompt Maestro al comienzo de la ficha (v1.20.9).
     ];
 
     /**

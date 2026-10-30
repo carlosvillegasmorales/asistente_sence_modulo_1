@@ -357,15 +357,16 @@ class exante {
     }
 
     /**
-     * Campos opcionales de la ficha (las observaciones), con su rotulo para el modelo.
+     * Campos opcionales de la ficha, con su rotulo para el modelo: las observaciones y las preguntas agregadas despues
+     * («reciente»: Nombre del Módulo y Competencia del Módulo), que no son obligatorias. Vacios no bajan ningun item.
      *
-     * @return string[] id => rotulo («2.4 Observaciones ...» o «Sección 3: Observaciones breves»).
+     * @return string[] id => rotulo («2.4 Observaciones ...», «Sección 3: Observaciones breves», «Sección 1: Nombre del Módulo»).
      */
     public static function optional_fields(): array {
         $opcionales = [];
         foreach (self::sections() as $n => $seccion) {
             foreach ($seccion['campos'] as $campo) {
-                if (!empty($campo['opcional'])) {
+                if (!empty($campo['opcional']) || !empty($campo['reciente'])) {
                     $rotulo = rtrim(str_replace(' (opcional)', '', $campo['label']), ':');
                     $opcionales[$campo['id']] = !empty($campo['num']) ? $campo['num'] . ' ' . $rotulo
                         : 'Sección ' . $n . ': ' . $rotulo;
@@ -515,6 +516,24 @@ class exante {
     }
 
     /**
+     * Mensaje de bienvenida del Prompt Maestro, textual («Al iniciar, debes mostrar exactamente el siguiente
+     * mensaje»). Se muestra al comienzo de la ficha.
+     *
+     * @return string[] Los parrafos.
+     */
+    public static function welcome(): array {
+        return [
+            'Bienvenido/a, soy tu asistente de apoyo en diseño instruccional por competencias.',
+            'Te puedo ayudar a analizar fichas de diagnóstico (evaluación ex-ante), diseñar experiencias de aprendizaje, '
+                . 'construir secuencias instruccionales, proponer materiales de apoyo y desarrollar planes e instrumentos '
+                . 'de evaluación.',
+            'Comienza completando tu ficha de diagnóstico. Opcionalmente, puedes cargar también el Plan de Formación para '
+                . 'el cual estás diseñando la experiencia de aprendizaje y/o el Perfil Ocupacional, al cual tributa el Plan '
+                . 'de Formación, lo que permitirá enriquecer el análisis y mejorar la precisión del diseño.',
+        ];
+    }
+
+    /**
      * Avisos antes de validar, con reglas fijas (sin IA, sin gastar un intento). Son avisos: no impiden validar.
      *
      * @param array $data Ficha ya limpia.
@@ -583,17 +602,22 @@ class exante {
      * ficha (con el motivo «plan» la cita puede venir del Plan Formativo adjunto, que aqui no se puede comparar).
      *
      * El modelo tiene que haber propuesto «No aprobado»: un motivo que acompana a otra condicion no detiene la ficha.
+     * El motivo «plan» exige que se haya adjuntado el Plan Formativo (sin el, no hay contra que comparar).
      *
      * @param array|null $motivo ['codigo' => string, 'cita' => string] tal como salio de parse_report().
      * @param string $fichatexto La ficha tal como se le entrego al modelo (seudonimizada).
      * @param string|null $modelo Condicion que propuso el modelo.
+     * @param bool $conplan Si la validacion llevo el Plan Formativo adjunto.
      * @return array|null El motivo, o null si no se sostiene.
      */
-    public static function valid_reason(?array $motivo, string $fichatexto, ?string $modelo): ?array {
+    public static function valid_reason(?array $motivo, string $fichatexto, ?string $modelo, bool $conplan = false): ?array {
         $codigo = (string) ($motivo['codigo'] ?? '');
         $cita = trim((string) ($motivo['cita'] ?? ''));
         if ($modelo !== self::NO_APROBADO || !isset(self::serious_reasons()[$codigo])
                 || \core_text::strlen($cita) < self::CITA_MIN) {
+            return null;
+        }
+        if ($codigo === 'plan' && !$conplan) {
             return null;
         }
         if ($codigo !== 'plan' && strpos(self::compare_text($fichatexto), self::compare_text($cita)) === false) {
@@ -647,7 +671,8 @@ class exante {
                             $valor = '(registrado)';
                         }
                         if ($valor === '') {
-                            $valor = !empty($campo['opcional']) ? '(opcional, sin información)' : $sin;
+                            $valor = !empty($campo['opcional']) || !empty($campo['reciente'])
+                                ? '(opcional, sin información)' : $sin;
                         }
                 }
                 $lineas[] = '- ' . $rotulo . ': ' . $valor;
@@ -749,10 +774,12 @@ class exante {
             '- El tiempo asignado a la experiencia (2.3) debe ser menor que el tiempo total disponible (2.2).',
             '- Una opción "Otro" u "Otra" marcada debe venir especificada.',
             '- Detecta vacíos de información y repórtalos. Propón soluciones viables sin alterar el plan formativo.',
-            '- Los campos de observaciones son opcionales (' . implode('; ', self::optional_fields()) . '). Si traen '
-                . 'información, considérala como aporte a la ficha. Si vienen vacíos ("opcional, sin información"), '
-                . 'no es un vacío de información: no lo menciones en observaciones, debilidades ni sugerencias, y no '
-                . 'bajes por eso la evaluación de ningún ítem.',
+            '- Los campos de observaciones son opcionales, y también los campos opcionales de la sección 1 ('
+                . implode('; ', self::optional_fields()) . '). Si traen información, considérala como aporte a la '
+                . 'ficha. Si vienen vacíos ("opcional, sin información"), no es un vacío de información: no lo menciones '
+                . 'en observaciones, debilidades ni sugerencias, y no bajes por eso la evaluación de ningún ítem; en '
+                . 'particular, el ítem c1_1 (datos administrativos) no deja de cumplirse porque falten el Nombre del '
+                . 'Módulo o la Competencia del Módulo.',
             '- La ficha en línea no incluye la tabla de validación del documento (fechas y responsables de la '
                 . 'revisión, de la validación con el equipo y de la aprobación final): no la reportes como faltante. '
                 . 'Los ítems de la sección 9 del checklist se evalúan sobre la ficha completa.',
@@ -1562,7 +1589,8 @@ class exante {
 
         $informe['adjuntos'] = $nombres;
         // Un motivo grave solo cuenta si es uno de los cuatro y su cita esta en la ficha que vio el modelo.
-        $motivo = self::valid_reason($informe['motivo'], $fichatexto, $informe['condicion_modelo']);
+        $motivo = self::valid_reason($informe['motivo'], $fichatexto, $informe['condicion_modelo'],
+            isset($nombres[self::ADJUNTOS['exante_plan']]));
         $informe['motivo'] = $motivo;
         $condicion = self::decide($informe['items'], $informe['condicion_modelo'], $motivo, !ux::on('iaapoyo'));
         return [self::LISTO, [

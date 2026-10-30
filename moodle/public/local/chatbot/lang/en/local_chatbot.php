@@ -1281,6 +1281,8 @@ $string['ux_avisosficha'] = 'Module 2: notices before validating the form';
 $string['ux_avisosficha_desc'] = 'The form warns with fixed rules (no AI) about contradictory answers: 3.3 «Partially aligned» with 8.2 «No», time 2.3 greater than or equal to 2.2, and «Other» not specified. The notices are shown on the form and, when pressing «Save and validate», they are shown and the validation goes ahead in the same click. Off: no notices.';
 $string['ux_descargafinal'] = 'Module 2: final document always downloadable';
 $string['ux_descargafinal_desc'] = 'In Phase 3, the final document can be downloaded with any score, showing the total and its interpretation; the 25 points for «approved» remain as information. Off: it can only be downloaded with the design approved (25 points or more).';
+$string['ux_bienvenidam2'] = 'Module 2: Master Prompt welcome';
+$string['ux_bienvenidam2_desc'] = 'At the top of the diagnostic form, the welcome message required by the Master Prompt is shown verbatim (in Spanish). Off: it is not shown.';
 
 // Module 2: several designs per person (the module is used again and again).
 $string['designs_title'] = 'Your learning experience designs';
