@@ -212,6 +212,16 @@ class modulo2_setup {
         $tarjetas3 = substr($tramo, 0, $cierre);
         $viejas = strpos($tarjetas3, '<!-- MATERIAL 4 -->');
         if ($viejas !== false) {
+            // Si ya enlazan a las URL recibidas no se rehacen: el editor de Moodle las reformatea al guardar y el
+            // cliente puede haber ajustado su texto.
+            $actuales = substr($tarjetas3, $viejas);
+            $aldia = true;
+            foreach ($urls as $url) {
+                $aldia = $aldia && ($url === '' || strpos($actuales, 'href="' . htmlspecialchars($url, ENT_QUOTES) . '"') !== false);
+            }
+            if ($aldia) {
+                return $html;
+            }
             $tarjetas3 = substr($tarjetas3, 0, $viejas);
         }
         // La tarjeta 3 era la ultima y no traia separacion inferior.
@@ -240,6 +250,47 @@ class modulo2_setup {
                 . '</div>' . "\n";
         }
         return substr($html, 0, $ini) . $tarjetas3 . $nuevas . substr($tramo, $cierre) . substr($html, $sig);
+    }
+
+    /**
+     * Da a las tarjetas de «Revisa los criterios antes de enviar tu ficha» (bloque «CHECKLIST») el formato de las
+     * tarjetas de «¿Que informacion debes considerar?»: fondo y borde de color, marca en un circulo y titulo y texto
+     * del mismo tamano (pedido del 29-10-2026). Solo cambia el estilo: titulos y textos quedan como estan.
+     * Idempotente: una tarjeta ya convertida no vuelve a coincidir.
+     *
+     * @param string $html Resumen de la seccion «Completa y valida el formulario».
+     * @return string
+     */
+    public static function style_review_cards(string $html): string {
+        $ini = strpos($html, '<!-- CHECKLIST -->');
+        if ($ini === false) {
+            return $html;
+        }
+        $sig = strpos($html, '<!--', $ini + strlen('<!-- CHECKLIST -->'));
+        $fin = $sig === false ? strlen($html) : $sig;
+        // Fondo, borde, color del circulo y del titulo, en el orden de las tarjetas de la seccion de diagnostico.
+        $paleta = [
+            ['#e8f4fc', '#d2e8f7', '#20639b', '#173f5f'],
+            ['#edf6ed', '#d7e9d6', '#397a46', '#285b32'],
+            ['#fff5df', '#f4e4b9', '#c28a00', '#795600'],
+            ['#f1edfc', '#e0d9f7', '#6650a4', '#49377f'],
+            ['#eaf5ef', '#d3e9dc', '#16734a', '#145638'],
+        ];
+        $n = 0;
+        $bloque = preg_replace_callback('/<div style="flex: 1 1 260px;[^"]*">\s*<div style="[^"]*">\s*✓\s*<\/div>\s*'
+                . '<h4\b[^>]*>(.*?)<\/h4>\s*<p\b[^>]*>(.*?)<\/p>\s*<\/div>/su',
+            static function($m) use ($paleta, &$n) {
+                [$fondo, $borde, $circulo, $titulo] = $paleta[$n++ % count($paleta)];
+                return '<div style="box-sizing: border-box; flex: 1 1 245px; background: ' . $fondo . '; border: 1px solid '
+                    . $borde . '; border-radius: 11px; padding: 20px;">' . "\n"
+                    . '<div style="width: 42px; height: 42px; line-height: 42px; background: ' . $circulo . '; color: #ffffff; '
+                    . 'border-radius: 50%; text-align: center; font-weight: bold; font-size: 20px; margin-bottom: 12px;">✓</div>' . "\n"
+                    . '<h4 style="margin: 0 0 8px 0; color: ' . $titulo . '; font-size: 17px; line-height: 1.4; text-align: left;">'
+                    . $m[1] . '</h4>' . "\n"
+                    . '<p style="margin: 0; font-size: 14px; text-align: justify;">' . $m[2] . '</p>' . "\n"
+                    . '</div>';
+            }, substr($html, $ini, $fin - $ini));
+        return substr($html, 0, $ini) . $bloque . substr($html, $fin);
     }
 
     /**

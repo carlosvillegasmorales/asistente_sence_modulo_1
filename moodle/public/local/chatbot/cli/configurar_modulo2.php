@@ -188,6 +188,10 @@ foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') 
         $despues = modulo2_setup::remove_material_note($despues);
         $despues = modulo2_setup::add_catalog_cards($despues, $catalogos);
     }
+    if (strpos($antes, '<!-- CHECKLIST -->') !== false) {
+        // Las tarjetas de «Revisa los criterios...» con el formato de las de la seccion de diagnostico (29-10-2026).
+        $despues = modulo2_setup::style_review_cards($despues);
+    }
     if (strpos($antes, 'Consultar y descargar el checklist') !== false) {
         $despues = modulo2_setup::center_conditions($despues);
         // El boton lleva al recurso del checklist (oculto), como los materiales (pedido del 26-10-2026). El checklist

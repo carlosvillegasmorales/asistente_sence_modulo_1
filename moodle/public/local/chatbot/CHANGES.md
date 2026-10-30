@@ -1,5 +1,32 @@
 # Changelog
 
+## M1-v1.20.7 (2026-10-29)
+
+**Criterios de evaluación sin máximo** (ajuste del cliente sobre la ficha ex-ante)
+
+- El texto explicativo va arriba de «Criterio de evaluación 1», con la redacción del cliente: «Registre los criterios
+  de evaluación tal como están definidos en el plan formativo. Se necesitan al menos 3 y no existe un número máximo…
+  Agregue todos los que sean necesarios para completar los que se establecen en el Plan Formativo».
+- La ficha muestra 3 criterios de partida y el botón «Agregar criterio de evaluación» agrega uno más cada vez, con el
+  mismo formato (tope técnico `exante::CRITERIOS_MAX` = 30). Una ficha con más criterios guardados los muestra todos.
+- Se quita el «máximo 5» de la validación (Fase 1) y de las etapas (Fase 2): se trabaja con todos los criterios del plan.
+- Huellas intactas: las casillas 1 a 5 se guardan siempre, como antes, y del 6 en adelante solo si traen texto; las
+  fichas ya validadas siguen vigentes. Los criterios agregados vacíos no viajan al modelo.
+
+**Sección 1 de la ficha** (ajustes del cliente al formulario de diagnóstico, 1 a 3): «Plan formativo» pasa a
+«Nombre del Plan Formativo» y a continuación van dos preguntas nuevas, «Nombre del Módulo» y «Competencia del Módulo»
+(párrafo). Viajan al modelo con el resto de la ficha. No son obligatorias para validar. Se guardan solo si traen texto
+(marca `reciente` en `exante::sections()`), así las fichas ya validadas conservan su huella y siguen vigentes.
+
+**«Revisa los criterios antes de enviar tu ficha» con mejor presentación** (pestaña Fase 1, «Completa y valida el
+formulario»): las 8 tarjetas toman el formato de las de «¿Qué información debes considerar?» — fondo y borde de color
+por tarjeta, la marca ✓ en un círculo de color y título y texto del mismo tamaño que allá
+(`modulo2_setup::style_review_cards()`, aplicado por `cli/configurar_modulo2.php`). Solo cambia el estilo: títulos y
+textos quedan como los dejó el cliente (distintos en cada curso). Idempotente.
+
+`modulo2_setup::add_catalog_cards()` ya no rehace las tarjetas 4 y 5 si enlazan a las URL correctas: el editor de Moodle
+las reformatea al guardar la sección (lo que hacía que el guion las reescribiera) y el cliente puede ajustar su texto.
+
 ## M1-v1.20.6 (2026-10-29)
 
 **La IA como apoyo real en el Módulo 2** (propuesta del 29-10: la validación castigaba donde no debía y era complaciente

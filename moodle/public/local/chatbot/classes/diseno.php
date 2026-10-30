@@ -457,7 +457,7 @@ class diseno {
             : 'No se adjuntaron el Plan Formativo ni el Perfil Ocupacional: continúa y señala cuando una decisión podría '
                 . 'beneficiarse de ellos.');
         $l[] = '- No inventes aprendizajes esperados ni criterios de evaluación: transcríbelos tal como están en la ficha.';
-        $l[] = '- No utilices menos de 3 ni más de 5 criterios de evaluación en el diseño.';
+        $l[] = '- Trabaja con todos los criterios de evaluación que registra la ficha (al menos 3; no hay un número máximo).';
         $l[] = '- No utilices en los aprendizajes o criterios conceptos que remitan a juicios de valor, como '
             . '"adecuadamente". Si la ficha los trae, no alteres el plan formativo: señálalo en una observación.';
         $l[] = '- Mantén la alineación constructiva con las etapas ya aceptadas y con los criterios de evaluación.';

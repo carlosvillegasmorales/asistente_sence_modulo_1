@@ -81,8 +81,17 @@ class exante {
     const LARGO_TEXTO = 255;
     const LARGO_PARRAFO = 4000;
 
-    /** @var int Criterios de evaluacion que exige el Prompt Maestro (minimo; el maximo son las 5 casillas). */
+    /** @var int Criterios de evaluacion que se piden como minimo; la ficha muestra estos de partida. */
     const CRITERIOS_MIN = 3;
+
+    /**
+     * @var int Tope tecnico de criterios de evaluacion. El cliente no fija un maximo («Agregue todos los que sean
+     * necesarios», 29-10-2026): la persona agrega de a uno; el tope solo acota lo que se guarda.
+     */
+    const CRITERIOS_MAX = 30;
+
+    /** @var int Casillas de criterio que se guardan siempre, aunque esten vacias (antes eran 5 fijas). */
+    const CRITERIOS_FIJOS = 5;
 
     /**
      * Secciones de la ficha, con el texto del documento del cliente.
@@ -95,10 +104,28 @@ class exante {
      */
     public static function sections(): array {
         $mo = ['bajo' => 'Bajo', 'medio' => 'Medio', 'alto' => 'Alto'];
+        // Criterios de evaluacion: 3 de partida y los que la persona agregue, sin maximo (ajuste del 29-10-2026).
+        $criterios = [];
+        for ($i = 1; $i <= self::CRITERIOS_MAX; $i++) {
+            $criterio = ['id' => 'criterio' . $i, 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación ' . $i];
+            if ($i === 1) {
+                $criterio['antes'] = 'Registre los criterios de evaluación tal como están definidos en el plan formativo. '
+                    . 'Se necesitan al menos 3 y no existe un número máximo de criterios de evaluación definidos por '
+                    . 'aprendizaje esperado. Agregue todos los que sean necesarios para completar los que se establecen '
+                    . 'en el Plan Formativo.';
+            }
+            if ($i > self::CRITERIOS_MIN) {
+                $criterio['adicional'] = true;
+            }
+            $criterios[] = $criterio;
+        }
         return [
             1 => ['titulo' => 'Identificación general', 'campos' => [
                 ['id' => 'organismo', 'tipo' => self::T_TEXTO, 'label' => 'Organismo ejecutor de capacitación'],
-                ['id' => 'plan', 'tipo' => self::T_TEXTO, 'label' => 'Plan formativo'],
+                ['id' => 'plan', 'tipo' => self::T_TEXTO, 'label' => 'Nombre del Plan Formativo'],
+                // Preguntas agregadas a pedido del cliente (29-10-2026); «reciente»: ver clean().
+                ['id' => 'modulo', 'tipo' => self::T_TEXTO, 'label' => 'Nombre del Módulo', 'reciente' => true],
+                ['id' => 'competencia', 'tipo' => self::T_PARRAFO, 'label' => 'Competencia del Módulo', 'reciente' => true],
                 ['id' => 'nivel', 'tipo' => self::T_TEXTO, 'label' => 'Nivel de cualificación',
                     'ayuda' => 'Según el Marco Nacional de Cualificaciones.'],
                 ['id' => 'facilitador', 'tipo' => self::T_TEXTO, 'label' => 'Nombre del facilitador o facilitadora'],
@@ -107,17 +134,10 @@ class exante {
                 ['id' => 'participantes', 'tipo' => self::T_NUMERO, 'label' => 'Nº de participantes',
                     'ayuda' => 'Total de participantes matriculados en el curso.'],
             ]],
-            2 => ['titulo' => 'Aprendizaje esperado y criterios de evaluación del plan formativo', 'campos' => [
+            2 => ['titulo' => 'Aprendizaje esperado y criterios de evaluación del plan formativo', 'campos' => array_merge([
                 ['id' => 'aprendizaje', 'tipo' => self::T_PARRAFO, 'num' => '2.1', 'label' => 'Aprendizaje esperado',
                     'ayuda' => 'Transcriba el aprendizaje esperado completo tal como está formulado en el plan formativo.'],
-                ['id' => 'criterio1', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 1',
-                    'ayuda' => 'Registre los criterios de evaluación tal como están definidos en el plan formativo. '
-                        . 'Se necesitan al menos 3 y como máximo 5; si el aprendizaje esperado tiene menos de cinco, '
-                        . 'deje en blanco los espacios restantes.'],
-                ['id' => 'criterio2', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 2'],
-                ['id' => 'criterio3', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 3'],
-                ['id' => 'criterio4', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 4'],
-                ['id' => 'criterio5', 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación 5'],
+                ], $criterios, [
                 ['id' => 'tiempo_total', 'tipo' => self::T_NUMERO, 'num' => '2.2',
                     'label' => 'Tiempo total disponible para el desarrollo del aprendizaje (en minutos)',
                     'ayuda' => 'Tiempo total asignado al logro del aprendizaje esperado, considerando las horas '
@@ -130,7 +150,7 @@ class exante {
                     'label' => 'Observaciones sobre la evaluación del aprendizaje esperado',
                     'ayuda' => 'Síntesis de la pertinencia y factibilidad de los criterios de evaluación definidos '
                         . 'en el plan formativo para el aprendizaje esperado.'],
-            ]],
+            ])],
             3 => ['titulo' => 'Perfil ocupacional y plan formativo', 'campos' => [
                 ['id' => 'vinculo', 'tipo' => self::T_UNA, 'num' => '3.1',
                     'label' => 'El aprendizaje esperado se vincula con:',
@@ -407,6 +427,21 @@ class exante {
                     $limpio[$clave] = \core_text::substr($valor, 0, $largo);
             }
         }
+        // Las preguntas agregadas despues de que hubo fichas validadas («reciente») se guardan solo si traen texto:
+        // asi una ficha anterior queda igual y su huella no cambia (sus validaciones siguen vigentes).
+        foreach (self::sections() as $seccion) {
+            foreach ($seccion['campos'] as $campo) {
+                if (!empty($campo['reciente']) && ($limpio[$campo['id']] ?? '') === '') {
+                    unset($limpio[$campo['id']]);
+                }
+            }
+        }
+        // Lo mismo con los criterios agregados (del 6 en adelante).
+        for ($i = self::CRITERIOS_FIJOS + 1; $i <= self::CRITERIOS_MAX; $i++) {
+            if ($limpio['criterio' . $i] === '') {
+                unset($limpio['criterio' . $i]);
+            }
+        }
         // «Otra» sin marcar no guarda texto: la ficha no queda diciendo algo que no se eligio.
         foreach (self::sections() as $seccion) {
             foreach ($seccion['campos'] as $campo) {
@@ -447,8 +482,8 @@ class exante {
         if (self::vacio($data['aprendizaje'] ?? '')) {
             $falta[] = '2.1 Aprendizaje esperado';
         }
-        // Prompt Maestro: «No utilizar menos de 3 o más de 5 criterios de evaluación». El maximo lo pone la ficha
-        // (cinco casillas); el minimo se exige aqui, antes de llamar al modelo.
+        // Al menos 3 criterios, exigidos aqui antes de llamar al modelo. No hay maximo (ajuste del cliente del
+        // 29-10-2026, que reemplaza el «no mas de 5» del Prompt Maestro).
         $criterios = self::criteria_count($data);
         if ($criterios < self::CRITERIOS_MIN) {
             $falta[] = '2.1 Criterios de evaluación (mínimo ' . self::CRITERIOS_MIN . '; la ficha tiene ' . $criterios . ')';
@@ -471,7 +506,7 @@ class exante {
      */
     public static function criteria_count(array $data): int {
         $n = 0;
-        for ($i = 1; $i <= 5; $i++) {
+        for ($i = 1; $i <= self::CRITERIOS_MAX; $i++) {
             if (!self::vacio($data['criterio' . $i] ?? '')) {
                 $n++;
             }
@@ -583,6 +618,10 @@ class exante {
             $lineas[] = $n . '. ' . $seccion['titulo'];
             foreach ($seccion['campos'] as $campo) {
                 $id = $campo['id'];
+                // Los criterios agregados que estan vacios no son un faltante: no viajan.
+                if (!empty($campo['adicional']) && trim((string) ($data[$id] ?? '')) === '') {
+                    continue;
+                }
                 $rotulo = (!empty($campo['num']) ? $campo['num'] . '. ' : '') . rtrim($campo['label'], ':');
                 switch ($campo['tipo']) {
                     case self::T_UNA:
@@ -607,11 +646,7 @@ class exante {
                         if ($id === 'facilitador' && $valor !== '') {
                             $valor = '(registrado)';
                         }
-                        if ($valor === '' && in_array($id, ['criterio4', 'criterio5'], true)
-                                && self::criteria_count($data) >= self::CRITERIOS_MIN) {
-                            // Con 3 o mas criterios registrados, las casillas 4 y 5 vacias son normales.
-                            $valor = '(no se usa: ya hay ' . self::criteria_count($data) . ' criterios registrados, que bastan)';
-                        } else if ($valor === '') {
+                        if ($valor === '') {
                             $valor = !empty($campo['opcional']) ? '(opcional, sin información)' : $sin;
                         }
                 }
@@ -697,13 +732,13 @@ class exante {
             'REGLAS DE GOBERNANZA:',
             '- La ficha es la fuente principal. ' . $complementarios,
             '- No inventes aprendizajes esperados ni criterios de evaluación.',
-            '- El diseño trabajará con no menos de 3 ni más de 5 criterios de evaluación: si la ficha registra '
-                . 'menos de 3, indícalo.',
+            '- El diseño trabajará con todos los criterios de evaluación del plan formativo: al menos 3 y sin un número '
+                . 'máximo. Si la ficha registra menos de 3, indícalo; si registra más de 5, es normal: no lo señales.',
             '- Señala si el aprendizaje esperado o los criterios usan conceptos que remiten a juicios de valor, como '
                 . '"adecuadamente", "clara" o "respetuosa". Si son el texto oficial del plan formativo, no bajes por '
                 . 'eso ningún ítem: anótalo en las sugerencias para precisarlo en la Fase 2 (en la rúbrica).',
-            '- Si una casilla de criterio de evaluación vacía viene como "no se usa", es normal: ya hay criterios '
-                . 'suficientes; no la reportes como faltante.',
+            '- La ficha lista solo los criterios de evaluación que la persona registró: no reportes como faltantes '
+                . 'casillas de criterios que no aparecen.',
             '- Una decisión razonable que la persona no explicó (por ejemplo, usar 4 de los 9 criterios de la '
                 . 'unidad o marcar "Parcialmente alineado") se evalúa "cumple"; puedes sugerir explicarla.',
             '- La sinceridad no se castiga: reconocer una alineación parcial (3.3), una limitación de recursos o un '

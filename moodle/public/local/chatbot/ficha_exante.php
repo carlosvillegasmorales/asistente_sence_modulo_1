@@ -179,10 +179,15 @@ $condclase = [exante::APROBADO => 'success', exante::OBSERVACIONES => 'warning',
  * @param array $data
  * @return void
  */
-function local_chatbot_exante_campo(array $campo, array $data): void {
+function local_chatbot_exante_campo(array $campo, array $data, bool $oculto = false): void {
     $id = $campo['id'];
     $rotulo = (!empty($campo['num']) ? $campo['num'] . '. ' : '') . $campo['label'];
-    echo '<div class="mb-3 pb-3 border-bottom">';
+    // Los criterios agregados llevan su marca; los que aun no se agregan quedan ocultos hasta pulsar «Agregar».
+    echo '<div class="mb-3 pb-3 border-bottom"' . (!empty($campo['adicional']) ? ' data-criterio-adicional="1"' : '')
+        . ($oculto ? ' hidden' : '') . '>';
+    if (!empty($campo['antes'])) {
+        echo '<p class="small text-muted mb-3">' . s($campo['antes']) . '</p>';
+    }
     if (in_array($campo['tipo'], [exante::T_UNA, exante::T_VARIAS], true)) {
         $varias = $campo['tipo'] === exante::T_VARIAS;
         echo '<fieldset><legend class="fs-6 fw-medium mb-1">' . s($rotulo) . '</legend>';
@@ -315,8 +320,24 @@ echo $OUTPUT->header();
                     <?php if ($n === 2): ?>
                         <p class="small text-muted"><?php echo get_string('exante_required_note', 'local_chatbot'); ?></p>
                     <?php endif; ?>
-                    <?php foreach ($seccion['campos'] as $campo) {
-                        local_chatbot_exante_campo($campo, $data);
+                    <?php
+                    // Criterios: los 3 de partida y los agregados hasta el ultimo con texto; el resto, ocultos.
+                    $ultimocriterio = exante::CRITERIOS_MIN;
+                    for ($i = exante::CRITERIOS_MAX; $i > exante::CRITERIOS_MIN; $i--) {
+                        if (trim((string) ($data['criterio' . $i] ?? '')) !== '') {
+                            $ultimocriterio = $i;
+                            break;
+                        }
+                    }
+                    foreach ($seccion['campos'] as $campo) {
+                        $numcriterio = strpos($campo['id'], 'criterio') === 0 ? (int) substr($campo['id'], 8) : 0;
+                        local_chatbot_exante_campo($campo, $data, $numcriterio > $ultimocriterio);
+                        if ($numcriterio === exante::CRITERIOS_MAX) {
+                            echo '<div class="mb-3 pb-3 border-bottom"><button type="button" class="btn btn-outline-primary btn-sm"'
+                                . ' id="exante-agregar-criterio"' . ($ultimocriterio >= exante::CRITERIOS_MAX ? ' hidden' : '') . '>'
+                                . '<i class="fa fa-plus me-1" aria-hidden="true"></i>'
+                                . get_string('exante_add_criterion', 'local_chatbot') . '</button></div>';
+                        }
                     } ?>
                 </div>
             </div>
@@ -510,6 +531,27 @@ echo $OUTPUT->header();
 </div>
 
 <script>
+(function() {
+    // «Agregar criterio de evaluación»: muestra el siguiente criterio oculto, de a uno.
+    var agregar = document.getElementById('exante-agregar-criterio');
+    if (!agregar) {
+        return;
+    }
+    agregar.addEventListener('click', function() {
+        var ocultos = document.querySelectorAll('[data-criterio-adicional][hidden]');
+        if (!ocultos.length) {
+            return;
+        }
+        ocultos[0].hidden = false;
+        var texto = ocultos[0].querySelector('textarea');
+        if (texto) {
+            texto.focus();
+        }
+        if (ocultos.length === 1) {
+            agregar.hidden = true;
+        }
+    });
+})();
 (function() {
     var caja = document.getElementById('exante-validando');
     if (!caja) {

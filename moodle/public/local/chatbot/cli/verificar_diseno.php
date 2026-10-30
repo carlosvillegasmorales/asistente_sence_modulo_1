@@ -118,7 +118,7 @@ local_chatbot_verificar(strpos($p1, guardrails::isolate_user_content($ficha)) !=
 local_chatbot_verificar(strpos($p1, guardrails::injection_clause()) !== false, 'el prompt trae la cláusula contra inyección');
 local_chatbot_verificar(strpos($p1, '- Falta evidencia de desempeño.') !== false
     && strpos($p1, '- Agregar desempeño en 7.3.') !== false, 'las observaciones de la validación viajan');
-foreach (['No inventes aprendizajes esperados ni criterios', 'menos de 3 ni más de 5 criterios', '"adecuadamente"',
+foreach (['No inventes aprendizajes esperados ni criterios', 'al menos 3; no hay un número máximo', '"adecuadamente"',
         'alineación constructiva', 'lenguaje inclusivo', 'sin alterar el plan formativo', 'Verificación de calidad'] as $regla) {
     local_chatbot_verificar(strpos($p1, $regla) !== false, "el prompt trae la regla «{$regla}»");
 }

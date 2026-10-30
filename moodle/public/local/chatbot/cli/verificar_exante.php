@@ -101,7 +101,20 @@ local_chatbot_verificar($limpio['participantes'] === '' && $limpio['tiempo_total
 local_chatbot_verificar(mb_strlen($limpio['aprendizaje']) === exante::LARGO_PARRAFO, 'los párrafos tienen tope');
 local_chatbot_verificar(!isset($limpio['clave_desconocida']), 'una clave desconocida no se guarda');
 local_chatbot_verificar($limpio['organismo'] === '', 'un arreglo en un campo de texto no se guarda');
-local_chatbot_verificar(array_keys(exante::clean([])) === array_keys($claves), 'la ficha vacía tiene todas las claves');
+local_chatbot_verificar(array_keys(exante::clean([])) === array_values(array_filter(array_keys($claves), static function($c) {
+    return (!preg_match('/^criterio(\d+)$/', $c, $m) || (int) $m[1] <= exante::CRITERIOS_FIJOS)
+        && empty(exante::field($c)['reciente']);
+})), 'la ficha vacía tiene todas las claves (las preguntas recientes y los criterios del 6 en adelante, solo si traen texto)');
+// Seccion 1: «Nombre del Plan Formativo», «Nombre del Módulo» y «Competencia del Módulo» (29-10-2026).
+$ids1 = array_column($secciones[1]['campos'], 'id');
+local_chatbot_verificar(array_slice($ids1, 1, 3) === ['plan', 'modulo', 'competencia']
+    && exante::field('plan')['label'] === 'Nombre del Plan Formativo' && exante::field('modulo')['label'] === 'Nombre del Módulo'
+    && exante::field('competencia')['label'] === 'Competencia del Módulo',
+    'sección 1: Nombre del Plan Formativo, y a continuación Nombre del Módulo y Competencia del Módulo');
+$conmodulo = exante::clean(['modulo' => 'Comunicación efectiva', 'competencia' => 'Comunicar información en contextos laborales.']);
+local_chatbot_verificar($conmodulo['modulo'] === 'Comunicación efectiva' && $conmodulo['competencia'] !== ''
+    && !isset(exante::clean([])['modulo']) && !isset(exante::clean([])['competencia']),
+    'las preguntas nuevas se guardan con texto; vacías no cambian la huella de una ficha ya validada');
 
 // --- Ejemplo de llenado del cliente (competencia «Comunicación efectiva en contextos laborales») ---
 $ejemplo = exante::clean([
@@ -152,8 +165,23 @@ local_chatbot_verificar($criterios([1, 2]) === ['2.1 Criterios de evaluación (m
     'con 2 criterios no se valida');
 local_chatbot_verificar($criterios([2, 4, 5]) === [], 'con 3 criterios en cualquier casilla se valida');
 local_chatbot_verificar($criterios([1, 2, 3, 4, 5]) === [], 'con 5 criterios se valida');
+// Criterios sin maximo (ajuste del cliente del 29-10-2026): 3 de partida y se agregan de a uno.
 local_chatbot_verificar(count(exante::field_keys()) === count(array_unique(array_keys(exante::field_keys())))
-    && !isset(exante::field_keys()['criterio6']), 'la ficha no admite más de 5 criterios');
+    && isset(exante::field_keys()['criterio' . exante::CRITERIOS_MAX])
+    && !isset(exante::field_keys()['criterio' . (exante::CRITERIOS_MAX + 1)]), 'la ficha admite criterios más allá de 5');
+$muchos = [];
+for ($i = 1; $i <= 8; $i++) {
+    $muchos['criterio' . $i] = 'Criterio ' . $i;
+}
+$muchoslimpio = exante::clean($muchos);
+local_chatbot_verificar(exante::criteria_count($muchoslimpio) === 8 && $muchoslimpio['criterio8'] === 'Criterio 8'
+    && !isset($muchoslimpio['criterio9']), 'con 8 criterios se guardan los 8, y nada más');
+local_chatbot_verificar($criterios([1, 2, 3, 4, 5, 6, 7]) === [], 'con 7 criterios se valida (no hay máximo)');
+$c1 = exante::field('criterio1');
+local_chatbot_verificar(strpos($c1['antes'] ?? '', 'no existe un número máximo de criterios de evaluación') !== false
+    && empty($c1['ayuda']) && empty($c1['adicional']) && empty(exante::field('criterio3')['adicional'])
+    && !empty(exante::field('criterio4')['adicional']),
+    'el texto del cliente va arriba del criterio 1; del 4 en adelante son criterios agregados');
 $sinsecc4 = $ejemplo;
 $sinsecc4['necesidades'] = [];
 local_chatbot_verificar(exante::missing_inputs($sinsecc4) === ['4.3 Principales necesidades del grupo (marcar todas las que apliquen)'],
@@ -166,12 +194,13 @@ local_chatbot_verificar(strpos($texto, 'Nombre del facilitador o facilitadora: (
     'el modelo sabe que el nombre se registró');
 local_chatbot_verificar(strpos($texto, '3.2. El perfil ocupacional exige desempeño en: Tareas rutinarias; Tareas técnicas; '
     . 'Trabajo colaborativo') !== false, 'las alternativas viajan con su texto');
-local_chatbot_verificar(strpos($texto, '- Criterio de evaluación 5: (no se usa: ya hay ') !== false
-    , 'los criterios 4 y 5 vacíos, con 3 o más registrados, se dicen «no se usa» y no como faltantes');
+local_chatbot_verificar(strpos($texto, '- Criterio de evaluación 4: Mantiene trato respetuoso') !== false
+    && strpos($texto, 'Criterio de evaluación 5') === false && strpos($texto, 'Criterio de evaluación 6') === false,
+    'viajan los criterios registrados; los agregados vacíos no viajan como faltantes');
 $pocos = $ejemplo;
 $pocos['criterio3'] = $pocos['criterio4'] = $pocos['criterio5'] = '';
-local_chatbot_verificar(strpos(exante::to_text($pocos), '- Criterio de evaluación 4: (sin respuesta)') !== false,
-    'con menos de 3 criterios, las casillas vacías sí faltan');
+local_chatbot_verificar(strpos(exante::to_text($pocos), '- Criterio de evaluación 3: (sin respuesta)') !== false,
+    'con menos de 3 criterios, las 3 casillas de partida vacías sí faltan');
 local_chatbot_verificar(strpos($texto, '- 2.4. Observaciones sobre la evaluación del aprendizaje esperado: Los criterios son '
     . 'claros y observables.') !== false, 'una observación con información viaja al modelo');
 local_chatbot_verificar(strpos($texto, '- Observaciones breves (opcional): (opcional, sin información)') !== false
@@ -221,7 +250,8 @@ local_chatbot_verificar(strpos($prompt, 'no adjuntó el Plan Formativo ni el Per
 $prompt1 = exante::build_prompt(['Plan Formativo']);
 local_chatbot_verificar(strpos($prompt1, 'adjuntó: Plan Formativo') !== false
     && strpos($prompt1, 'No adjuntó: Perfil Ocupacional') !== false, 'con un adjunto, dice cuál falta');
-local_chatbot_verificar(strpos($prompt, 'no menos de 3 ni más de 5 criterios') !== false, 'regla de 3 a 5 criterios');
+local_chatbot_verificar(strpos($prompt, 'al menos 3 y sin un número máximo') !== false && strpos($prompt, 'ni más de 5') === false,
+    'regla de criterios: al menos 3, sin máximo');
 local_chatbot_verificar(strpos($prompt, '"adecuadamente"') !== false, 'regla de juicios de valor');
 local_chatbot_verificar(strpos($prompt, 'lenguaje inclusivo') !== false, 'regla de lenguaje inclusivo');
 local_chatbot_verificar(strpos($prompt, 'Los campos de observaciones son opcionales (2.4 Observaciones sobre la evaluación '
@@ -329,7 +359,7 @@ local_chatbot_verificar(strpos($pm, 'MOTIVOS GRAVES') !== false && strpos($pm, '
     && strpos($pm, 'no es un aprendizaje') !== false && strpos($pm, 'no tienen relación con él') !== false
     && strpos($pm, 'ningún ítem "no_cumple" (puede haber ítems "parcial")') !== false,
     'el prompt cierra la regla de «No aprobado» en los cuatro motivos y acepta parciales en «aprobado»');
-local_chatbot_verificar(strpos($pm, 'no se usa') !== false && strpos($pm, '3.3 "Parcialmente alineado" no baja el ítem c3_4') !== false
+local_chatbot_verificar(strpos($pm, 'no reportes como faltantes') !== false && strpos($pm, '3.3 "Parcialmente alineado" no baja el ítem c3_4') !== false
     && strpos($pm, 'no los bajes por algo que ya señalaste') !== false && strpos($pm, '"propuesta"') !== false
     && strpos($pm, 'no adjuntarlos no baja la evaluación') !== false && strpos($pm, 'texto oficial') !== false,
     'el prompt cubre criterios vacíos, sinceridad, sección 9 sin doble castigo, propuestas, adjuntos y texto oficial');
@@ -436,6 +466,33 @@ local_chatbot_verificar(strpos(modulo2_setup::add_catalog_cards($con45, [4 => 'h
 local_chatbot_verificar(modulo2_setup::add_catalog_cards($tres, []) === $tres
     && modulo2_setup::add_catalog_cards('<div>sin materiales</div>', [4 => 'https://x.cl/']) === '<div>sin materiales</div>',
     'sin URL o sin la tarjeta 3 no cambia nada');
+// Reformateadas por el editor de Moodle o con el texto ajustado por el cliente, con las mismas URL: no se rehacen.
+$editadas = str_replace(['href="https://www.sence.cl/plan" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;"',
+    'Buscar y descargar</a>'], ['style="color: inherit; text-decoration: underline;" href="https://www.sence.cl/plan" target="_blank" rel="noopener"',
+    'Busca y descarga</a>'], $con45);
+local_chatbot_verificar($editadas !== $con45 && modulo2_setup::add_catalog_cards($editadas, [4 => 'https://www.sence.cl/plan',
+    5 => 'https://www.chilevalora.cl/perfil']) === $editadas,
+    'tarjetas 4 y 5 ya enlazadas a sus URL no se rehacen aunque el editor las reformatee o el cliente ajuste el texto');
+// Tarjetas de «Revisa los criterios antes de enviar tu ficha» con el formato de la seccion de diagnostico (29-10-2026).
+$tarjeta = static function($t, $p) {
+    return '<div style="flex: 1 1 260px; box-sizing: border-box; background: #f5f9fc; border: 1px solid #d5e4ef; border-radius: 10px; padding: 18px;">'
+        . "\n" . '<div style="color: #20639b; font-size: 22px; margin-bottom: 8px;">✓</div>' . "\n"
+        . '<h4 style="color: #173f5f; margin: 0 0 7px 0;">' . $t . '</h4>' . "\n"
+        . '<p style="margin: 0; text-align: justify;">' . $p . '</p>' . "\n" . '</div>' . "\n";
+};
+$revisa = '<div><!-- CHECKLIST --><h3>Revisa los criterios antes de enviar tu ficha</h3><div style="display: flex;">'
+    . $tarjeta('1. Aprendizaje esperado', 'Texto uno.') . $tarjeta('2. Unidad de competencia', 'Texto <strong>dos</strong>.')
+    . '</div><!-- DOCUMENTACIÓN --><div style="flex: 1 1 260px; x">fuera</div></div>';
+$estilo = modulo2_setup::style_review_cards($revisa);
+local_chatbot_verificar(substr_count($estilo, 'border-radius: 50%') === 2 && strpos($estilo, 'background: #e8f4fc') !== false
+    && strpos($estilo, 'background: #edf6ed') !== false && strpos($estilo, 'font-size: 17px') !== false,
+    'las tarjetas de «Revisa los criterios» toman el formato de la sección de diagnóstico, con un color por tarjeta');
+local_chatbot_verificar(strpos($estilo, '>1. Aprendizaje esperado</h4>') !== false && strpos($estilo, '>Texto <strong>dos</strong>.</p>') !== false
+    && strpos($estilo, '<div style="flex: 1 1 260px; x">fuera</div>') !== false,
+    'títulos y textos quedan como estaban, y lo que está fuera del bloque no se toca');
+local_chatbot_verificar(modulo2_setup::style_review_cards($estilo) === $estilo
+    && modulo2_setup::style_review_cards('<div>sin bloque</div>') === '<div>sin bloque</div>',
+    'el formato de las tarjetas es idempotente y sin el bloque no cambia nada');
 $res = '<div><div style="flex: 1 1 230px; padding: 18px;"><div style="display: inline-block; background: #267a43;">APROBADO</div>'
     . '<h4>Puedes avanzar</h4></div><div style="flex: 1; text-align: center;"><div style="display: inline-block; x">'
     . 'NO APROBADO</div></div><!-- REEMPLAZA # POR LA URL REAL DEL ARCHIVO EN MOODLE --> <a style="y" href="#">'
