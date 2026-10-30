@@ -29,7 +29,8 @@ class gemini_client {
      * @return array Decoded JSON response (or a synthetic ['error' => [...]] on transport failure).
      */
     public static function generate_content(array $contents, int $timeout = 30, int $maxretries = 2,
-            string $model = self::DEFAULT_MODEL, bool $usesearch = false, ?string $apikey = null): array {
+            string $model = self::DEFAULT_MODEL, bool $usesearch = false, ?string $apikey = null,
+            ?float $temperature = null): array {
 
         if (empty($apikey)) {
             $apikey = (string) get_config('local_chatbot', 'gemini_api_key');
@@ -42,6 +43,9 @@ class gemini_client {
             . ':generateContent?key=' . $apikey;
 
         $payloadarr = ['contents' => $contents];
+        if ($temperature !== null) {
+            $payloadarr['generationConfig'] = ['temperature' => $temperature];
+        }
         if ($usesearch) {
             $payloadarr['tools'] = [['google_search' => new \stdClass()]];
         }

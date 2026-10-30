@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $marcas = exante::self_check_clean((array) json_decode((string) get_user_preferences($preferencia, ''), true));
-$resumen = exante::self_check_summary($marcas);
+$resumen = exante::self_check_summary($marcas, !\local_chatbot\ux::on('iaapoyo'));
 
 // Lo que dijo el asistente, si la ficha ya se valido.
 $val = exante::latest_validation($USER->id, $courseid);

@@ -26,7 +26,7 @@ class openai_provider implements ai_provider_interface {
      * @see ai_provider_interface::generate_content()
      */
     public function generate_content(array $contents, int $timeout = 30, int $maxretries = 2,
-            ?string $model = null, bool $usesearch = false): array {
+            ?string $model = null, bool $usesearch = false, ?float $temperature = null): array {
 
         if (empty($this->apikey)) {
             return ['error' => ['code' => 0, 'message' => 'missing_api_key']];
@@ -40,6 +40,9 @@ class openai_provider implements ai_provider_interface {
             'max_tokens' => 4096,
             'messages' => $messages,
         ];
+        if ($temperature !== null) {
+            $payload['temperature'] = $temperature;
+        }
 
         $retrycount = 0;
         $result = null;

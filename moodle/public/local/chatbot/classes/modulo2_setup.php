@@ -33,6 +33,9 @@ class modulo2_setup {
     /** @var string Boton que el cliente puso en la pestana Fase 3 para la rubrica (con «#»), si existe. */
     const BOTON_CLIENTE_RUBRICA = 'Revisar y descargar la rúbrica';
 
+    /** @var string Texto del boton que lleva al comienzo de la Fase 1 desde el final de la bienvenida. */
+    const BOTON_FASE1 = 'Ir a la Fase 1: Diagnóstico y Validación';
+
     /** @var string Texto del boton a las etapas 7 y 8 del asistente. */
     const BOTON_VALIDACION = 'Ir a la consolidación y evaluación del diseño · Fase 3';
 
@@ -156,6 +159,90 @@ class modulo2_setup {
     }
 
     /**
+     * Enlaces URL (catalogos externos) de la Fase 1 por su nombre en el curso.
+     *
+     * @param string[] $nombres cmid => nombre de la actividad URL.
+     * @return array 4 (Plan Formativo) y 5 (Perfil Ocupacional) => cmid (solo los que se encontraron).
+     */
+    public static function match_urls(array $nombres): array {
+        $salida = [];
+        foreach ($nombres as $cmid => $nombre) {
+            $n = \core_text::strtolower((string) $nombre);
+            if (strpos($n, 'plan formativo') !== false) {
+                $clave = 4;
+            } else if (strpos($n, 'perfil ocupacional') !== false) {
+                $clave = 5;
+            } else {
+                continue;
+            }
+            if (!isset($salida[$clave])) {
+                $salida[$clave] = (int) $cmid;
+            }
+        }
+        return $salida;
+    }
+
+    /**
+     * Agrega las tarjetas 4 y 5 (Plan Formativo y Perfil Ocupacional) a continuacion de la tarjeta «MATERIAL 3», con
+     * el mismo formato que las anteriores y un boton «Buscar y descargar» al catalogo externo. Idempotente: si ya
+     * estan, las rehace con las URL recibidas.
+     *
+     * @param string $html Resumen de la seccion de diagnostico.
+     * @param string[] $urls 4 y 5 => URL externa del catalogo (las que falten no se agregan).
+     * @return string
+     */
+    public static function add_catalog_cards(string $html, array $urls): string {
+        $tarjetas = [
+            4 => ['Plan Formativo', 'Catálogo Nacional de Planes Formativos (SENCE)', '#20639b', '#173f5f'],
+            5 => ['Perfil Ocupacional', 'Catálogo de Perfiles Laborales (ChileValora)', '#397a46', '#285b32'],
+        ];
+        $ini = strpos($html, '<!-- MATERIAL 3 -->');
+        if ($ini === false || !array_intersect_key($urls, $tarjetas)) {
+            return $html;
+        }
+        // La seccion de tarjetas llega hasta el siguiente comentario que no sea una tarjeta nuestra; su ultimo
+        // «</div>» cierra el contenedor de las tarjetas.
+        $desde = $ini + strlen('<!-- MATERIAL 3 -->');
+        $sig = preg_match('/<!--(?! MATERIAL [45] -->)/', $html, $m, PREG_OFFSET_CAPTURE, $desde) ? $m[0][1] : strlen($html);
+        $tramo = substr($html, $ini, $sig - $ini);
+        $cierre = strrpos($tramo, '</div>');
+        if ($cierre === false) {
+            return $html;
+        }
+        $tarjetas3 = substr($tramo, 0, $cierre);
+        $viejas = strpos($tarjetas3, '<!-- MATERIAL 4 -->');
+        if ($viejas !== false) {
+            $tarjetas3 = substr($tarjetas3, 0, $viejas);
+        }
+        // La tarjeta 3 era la ultima y no traia separacion inferior.
+        $tarjetas3 = str_replace('padding: 19px 20px;">', 'padding: 19px 20px; margin-bottom: 12px;">', $tarjetas3);
+        $nuevas = '';
+        foreach ($tarjetas as $n => [$titulo, $descripcion, $color, $colortitulo]) {
+            if (empty($urls[$n])) {
+                continue;
+            }
+            $href = 'href="' . htmlspecialchars($urls[$n], ENT_QUOTES) . '" target="_blank" rel="noopener"';
+            $ultima = ($n === 5 || empty($urls[5]));
+            $nuevas .= '<!-- MATERIAL ' . $n . ' -->' . "\n"
+                . '<div style="display: flex; align-items: flex-start; gap: 15px; background: #ffffff; border: 1px solid '
+                . '#dce3e8; border-radius: 10px; padding: 19px 20px;' . ($ultima ? '' : ' margin-bottom: 12px;') . '">' . "\n"
+                . '<div style="flex: 0 0 42px; width: 42px; height: 42px; line-height: 42px; background: ' . $color
+                . '; color: #ffffff; border-radius: 9px; text-align: center; font-size: 19px; font-weight: bold;">' . $n
+                . '</div>' . "\n"
+                . '<div style="flex: 1; min-width: 0;">' . "\n"
+                . '<h4 style="margin: 0 0 5px 0; color: ' . $colortitulo . '; font-size: 17px;"><a ' . $href
+                . ' style="color: inherit; text-decoration: underline;">' . $titulo . '</a></h4>' . "\n"
+                . '<p style="margin: 0; font-size: 14px; text-align: justify;">' . $descripcion . '</p>'
+                . '<p style="margin: 10px 0 0 0;"><a ' . $href . ' style="display: inline-block; background: ' . $color
+                . '; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 7px 14px; '
+                . 'border-radius: 7px;">Buscar y descargar</a></p>' . "\n"
+                . '</div>' . "\n"
+                . '</div>' . "\n";
+        }
+        return substr($html, 0, $ini) . $tarjetas3 . $nuevas . substr($tramo, $cierre) . substr($html, $sig);
+    }
+
+    /**
      * Quita la nota provisional «Los documentos deben estar enlazados o adjuntos en Moodle...».
      *
      * @param string $html
@@ -223,6 +310,37 @@ class modulo2_setup {
             return self::link_anchor($html, self::BOTON_CLIENTE_FASE2, $url);
         }
         return self::add_button($html, $url, self::BOTON_DISENO, 'ASISTENTE FASE 2');
+    }
+
+    /**
+     * Agrega al final de la bienvenida el boton que lleva al comienzo de la pestana «Fase 1», si no esta.
+     *
+     * @param string $html Resumen de la seccion (puede venir vacio).
+     * @param string $url
+     * @return string
+     */
+    public static function add_phase1_button(string $html, string $url): string {
+        return self::add_button($html, $url, self::BOTON_FASE1, 'IR A FASE 1');
+    }
+
+    /**
+     * Ultima seccion de la bienvenida: la que va justo antes de la pestana «Fase 1» (con pestanas, la ultima
+     * subseccion de la pestana de bienvenida; ahi termina «Trabajo con el Asistente IA»).
+     *
+     * @param array $secciones numero => ['name' => string, 'level' => int].
+     * @return int|null null si no hay pestana «Fase 1» o nada antes de ella.
+     */
+    public static function welcome_last_section(array $secciones): ?int {
+        $fase1 = exante::phase_section(array_map(static function($s) {
+            return $s['name'];
+        }, $secciones), 1);
+        if ($fase1 === null) {
+            return null;
+        }
+        $antes = array_filter(array_keys($secciones), static function($num) use ($fase1) {
+            return $num < $fase1;
+        });
+        return $antes ? (int) max($antes) : null;
     }
 
     /**

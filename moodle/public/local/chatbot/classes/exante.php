@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 class exante {
 
     /** @var string Version del prompt de validacion: se guarda con cada informe (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F1-checklist-v1';
+    const PROMPT_VERSION = 'M2-F1-checklist-v2';
 
     /** Tipos de campo de la ficha. */
     const T_TEXTO = 'texto';
@@ -51,6 +51,11 @@ class exante {
     const LISTO = 'listo';
     const ERROR = 'error';
 
+    /** Resultado de borrar un diseno. */
+    const DELETED = 'borrado';
+    const MISSING = 'inexistente';
+    const VALIDATING = 'validando';
+
     /** @var int Una validacion en proceso por mas de esto se da por caida. */
     const PROCESO_MAX = 360;
 
@@ -63,8 +68,14 @@ class exante {
         'exante_perfil' => 'Perfil Ocupacional',
     ];
 
-    /** @var string[] Items criticos: si alguno no se cumple, la ficha no se aprueba. */
+    /** @var string[] Items que la autorrevision marca como criticos. Ya no dejan «No aprobado» por si solos: eso lo hacen los motivos graves. */
     const CRITICOS = ['c2_1', 'c2_2', 'c2_3', 'c2_5', 'c9_2'];
+
+    /** @var float Temperatura de la validacion: baja, para que la misma ficha de el mismo resultado. */
+    const TEMPERATURA = 0.1;
+
+    /** @var int Largo minimo de la cita de la ficha que prueba un motivo grave. */
+    const CITA_MIN = 12;
 
     /** @var int Largo maximo de cada tipo de texto. */
     const LARGO_TEXTO = 255;
@@ -469,6 +480,94 @@ class exante {
     }
 
     /**
+     * Avisos antes de validar, con reglas fijas (sin IA, sin gastar un intento). Son avisos: no impiden validar.
+     *
+     * @param array $data Ficha ya limpia.
+     * @return string[] Un texto por aviso.
+     */
+    public static function form_warnings(array $data): array {
+        $avisos = [];
+        // La Guia de llenado: «parcialmente alineado» (3.3) y «no necesita ajustes» (8.2) se contradicen.
+        if (($data['alineacion'] ?? '') === 'parcial' && ($data['ajustes'] ?? '') === 'no') {
+            $avisos[] = 'En 3.3 marcaste «Parcialmente alineado» y en 8.2 «No» necesita ajustes. Según la Guía de llenado '
+                . 'esas dos respuestas se contradicen: revisa si en 8.2 corresponde «Sí» y anota qué ajustes hacen falta.';
+        }
+        $total = trim((string) ($data['tiempo_total'] ?? ''));
+        $experiencia = trim((string) ($data['tiempo_experiencia'] ?? ''));
+        if ($total !== '' && $experiencia !== '' && (int) $experiencia >= (int) $total) {
+            $avisos[] = 'El tiempo de la experiencia (2.3) debe ser menor que el tiempo total disponible (2.2): '
+                . 'tras la implementación se necesitan ajustes o acciones remediales.';
+        }
+        foreach (self::sections() as $seccion) {
+            foreach ($seccion['campos'] as $campo) {
+                if (empty($campo['otro'])) {
+                    continue;
+                }
+                $elegido = (array) ($data[$campo['id']] ?? []);
+                if (in_array($campo['otro'], $elegido, true) && trim((string) ($data[$campo['id'] . '_otro'] ?? '')) === '') {
+                    $avisos[] = 'En ' . $campo['num'] . ' marcaste «' . rtrim($campo['opciones'][$campo['otro']], ':')
+                        . '» sin especificar cuál.';
+                }
+            }
+        }
+        return $avisos;
+    }
+
+    /**
+     * Los motivos graves, los unicos que dejan una ficha en «No aprobado» (cierre de la regla del Prompt Maestro:
+     * «problemas en aprendizaje esperado, criterios de evaluacion, coherencia general»).
+     *
+     * @return string[] codigo => descripcion.
+     */
+    public static function serious_reasons(): array {
+        return [
+            'tema' => 'El aprendizaje esperado no es un aprendizaje: es un tema, un contenido o una frase sin desempeño '
+                . 'observable.',
+            'criterios' => 'Los criterios de evaluación no evalúan ese aprendizaje: no tienen relación con él.',
+            'plan' => 'El aprendizaje esperado o los criterios no corresponden al Plan Formativo adjunto (por ejemplo, '
+                . 'son de otro plan o de otra materia).',
+            'contradiccion' => 'Hay una contradicción de fondo que impide diseñar; por ejemplo, un aprendizaje práctico '
+                . 'que se evalúa solo con criterios teóricos inventados. Si los criterios son los oficiales del plan, '
+                . 'eso va como sugerencia, no como motivo grave.',
+        ];
+    }
+
+    /**
+     * Texto sin tildes ni signos y en minusculas, para comparar una cita con la ficha.
+     *
+     * @param string $texto
+     * @return string
+     */
+    private static function compare_text(string $texto): string {
+        $t = \core_text::strtolower(\core_text::specialtoascii($texto));
+        return trim(preg_replace('/[^a-z0-9]+/', ' ', $t));
+    }
+
+    /**
+     * Motivo grave que propuso el modelo, solo si se sostiene: es uno de los cuatro y trae una cita que esta en la
+     * ficha (con el motivo «plan» la cita puede venir del Plan Formativo adjunto, que aqui no se puede comparar).
+     *
+     * El modelo tiene que haber propuesto «No aprobado»: un motivo que acompana a otra condicion no detiene la ficha.
+     *
+     * @param array|null $motivo ['codigo' => string, 'cita' => string] tal como salio de parse_report().
+     * @param string $fichatexto La ficha tal como se le entrego al modelo (seudonimizada).
+     * @param string|null $modelo Condicion que propuso el modelo.
+     * @return array|null El motivo, o null si no se sostiene.
+     */
+    public static function valid_reason(?array $motivo, string $fichatexto, ?string $modelo): ?array {
+        $codigo = (string) ($motivo['codigo'] ?? '');
+        $cita = trim((string) ($motivo['cita'] ?? ''));
+        if ($modelo !== self::NO_APROBADO || !isset(self::serious_reasons()[$codigo])
+                || \core_text::strlen($cita) < self::CITA_MIN) {
+            return null;
+        }
+        if ($codigo !== 'plan' && strpos(self::compare_text($fichatexto), self::compare_text($cita)) === false) {
+            return null;
+        }
+        return ['codigo' => $codigo, 'cita' => $cita, 'corregir' => (string) ($motivo['corregir'] ?? '')];
+    }
+
+    /**
      * La ficha como texto para el modelo, en el orden y con los rotulos del documento.
      *
      * El nombre de la persona facilitadora no viaja: el checklist solo necesita saber si esta.
@@ -508,7 +607,11 @@ class exante {
                         if ($id === 'facilitador' && $valor !== '') {
                             $valor = '(registrado)';
                         }
-                        if ($valor === '') {
+                        if ($valor === '' && in_array($id, ['criterio4', 'criterio5'], true)
+                                && self::criteria_count($data) >= self::CRITERIOS_MIN) {
+                            // Con 3 o mas criterios registrados, las casillas 4 y 5 vacias son normales.
+                            $valor = '(no se usa: ya hay ' . self::criteria_count($data) . ' criterios registrados, que bastan)';
+                        } else if ($valor === '') {
                             $valor = !empty($campo['opcional']) ? '(opcional, sin información)' : $sin;
                         }
                 }
@@ -561,11 +664,16 @@ class exante {
         $complementarios = $adjuntos
             ? 'La persona adjuntó: ' . implode(' y ', $adjuntos) . '. Úsalos solo para validar coherencia, '
                 . 'profundidad y alineación; ante una diferencia, prioriza la ficha y señálalo.'
-            : 'La persona no adjuntó el Plan Formativo ni el Perfil Ocupacional. Continúa con la ficha y señala '
-                . 'en la observación cuando un ítem podría beneficiarse de esos documentos.';
+            : 'La persona no adjuntó el Plan Formativo ni el Perfil Ocupacional. Continúa con la ficha: no adjuntarlos '
+                . 'no baja la evaluación de ningún ítem. Sugiere adjuntarlos solo cuando un ítem realmente se '
+                . 'beneficiaría de esos documentos.';
         $faltan = array_diff(['Plan Formativo', 'Perfil Ocupacional'], $adjuntos);
         if ($adjuntos && $faltan) {
-            $complementarios .= ' No adjuntó: ' . implode(' ni ', $faltan) . '.';
+            $complementarios .= ' No adjuntó: ' . implode(' ni ', $faltan) . ' (no baja ningún ítem).';
+        }
+        $motivos = [];
+        foreach (self::serious_reasons() as $codigo => $texto) {
+            $motivos[] = '  "' . $codigo . '": ' . $texto;
         }
 
         return implode("\n", [
@@ -581,15 +689,28 @@ class exante {
             '',
             'Evalúa cada ítem con uno de estos valores: "cumple" (✔ Cumple), "parcial" (⚠ Cumple parcialmente) o '
                 . '"no_cumple" (❌ No cumple). Agrega una observación breve y específica, que se refiera a lo '
-                . 'registrado en la ficha; es obligatoria cuando el ítem no es "cumple".',
+                . 'registrado en la ficha; es obligatoria cuando el ítem no es "cumple". Cuando el ítem no es '
+                . '"cumple", agrega además una "propuesta": una mejora concreta con la frase lista para copiar en la '
+                . 'ficha, indicando en qué campo va (por ejemplo: "En 8.2 marca Sí y anota: conectividad irregular → '
+                . 'materiales descargables").',
             '',
             'REGLAS DE GOBERNANZA:',
             '- La ficha es la fuente principal. ' . $complementarios,
             '- No inventes aprendizajes esperados ni criterios de evaluación.',
             '- El diseño trabajará con no menos de 3 ni más de 5 criterios de evaluación: si la ficha registra '
                 . 'menos de 3, indícalo.',
-            '- Señala si el aprendizaje esperado o los criterios usan conceptos que remiten a juicios de valor, '
-                . 'como "adecuadamente" u otros.',
+            '- Señala si el aprendizaje esperado o los criterios usan conceptos que remiten a juicios de valor, como '
+                . '"adecuadamente", "clara" o "respetuosa". Si son el texto oficial del plan formativo, no bajes por '
+                . 'eso ningún ítem: anótalo en las sugerencias para precisarlo en la Fase 2 (en la rúbrica).',
+            '- Si una casilla de criterio de evaluación vacía viene como "no se usa", es normal: ya hay criterios '
+                . 'suficientes; no la reportes como faltante.',
+            '- Una decisión razonable que la persona no explicó (por ejemplo, usar 4 de los 9 criterios de la '
+                . 'unidad o marcar "Parcialmente alineado") se evalúa "cumple"; puedes sugerir explicarla.',
+            '- La sinceridad no se castiga: reconocer una alineación parcial (3.3), una limitación de recursos o un '
+                . 'grupo heterogéneo no baja otros ítems (por ejemplo, 3.3 "Parcialmente alineado" no baja el ítem '
+                . 'c3_4) mientras la ficha sea coherente consigo misma.',
+            '- Los ítems de la sección 9 resumen lo ya evaluado: no los bajes por algo que ya señalaste en otro ítem; '
+                . 'evalúalos solo sobre lo que sigue sin resolver.',
             '- El tiempo asignado a la experiencia (2.3) debe ser menor que el tiempo total disponible (2.2).',
             '- Una opción "Otro" u "Otra" marcada debe venir especificada.',
             '- Detecta vacíos de información y repórtalos. Propón soluciones viables sin alterar el plan formativo.',
@@ -607,19 +728,29 @@ class exante {
             implode("\n", $checklist),
             '',
             'REGLA DE DECISIÓN:',
-            '- Si hay incumplimientos críticos en el aprendizaje esperado, en los criterios de evaluación o en la '
-                . 'coherencia general: "no_aprobado" (debe corregirse antes de diseñar).',
-            '- "aprobado": el diagnóstico es suficiente para diseñar.',
-            '- "observaciones": aprobado con observaciones; puede avanzar, pero requiere ajustes menores.',
+            '- Tu apoyo es ayudar a que el diagnóstico sirva para diseñar, no a detener a la persona. La ficha se '
+                . 'detiene ("no_aprobado") únicamente por uno de estos MOTIVOS GRAVES, y debes nombrarlo en '
+                . '"motivo_grave" con su código y citar, textual, el fragmento de la ficha que lo prueba:',
+            implode("\n", $motivos),
+            '- Cualquier otra debilidad (ítems "parcial" o "no_cumple" que no son uno de esos cuatro motivos) nunca '
+                . 'deja la ficha en "no_aprobado".',
+            '- "aprobado": ningún ítem "no_cumple" (puede haber ítems "parcial"). El diagnóstico es suficiente para '
+                . 'diseñar.',
+            '- "observaciones": al menos un ítem "no_cumple" que no es un motivo grave. La persona puede avanzar; '
+                . 'las sugerencias le ayudarán en el diseño.',
+            '- "no_aprobado": solo con un motivo grave, citado de la ficha. Sin motivo grave no uses "no_aprobado".',
             '',
             guardrails::injection_clause(),
             '',
             'FORMATO DE RESPUESTA: únicamente un objeto JSON válido, sin texto antes ni después y sin bloques de '
                 . 'código, con esta forma:',
-            '{"items": {"c1_1": {"estado": "cumple|parcial|no_cumple", "observacion": "..."}, ... un elemento por '
-                . 'cada id del checklist ...}, "condicion": "aprobado|observaciones|no_aprobado", '
+            '{"items": {"c1_1": {"estado": "cumple|parcial|no_cumple", "observacion": "...", "propuesta": "frase lista '
+                . 'para copiar (vacía si cumple)"}, ... un elemento por cada id del checklist ...}, '
+                . '"condicion": "aprobado|observaciones|no_aprobado", '
+                . '"motivo_grave": null, o {"codigo": "tema|criterios|plan|contradiccion", "cita": "fragmento textual de '
+                . 'la ficha que lo prueba", "corregir": "cómo corregirlo"}, '
                 . '"debilidades": ["principales debilidades, máximo 6"], '
-                . '"sugerencias": ["sugerencias de mejora concretas para la ficha, máximo 6"]}',
+                . '"sugerencias": ["sugerencias de mejora concretas para enriquecer el diseño, máximo 6"]}',
         ]);
     }
 
@@ -645,9 +776,10 @@ class exante {
      * asistente (decide), sin condicion propuesta por el modelo.
      *
      * @param string[] $marcas Resultado de self_check_clean().
+     * @param bool $estricto Regla anterior a v1.20.6 (interruptor «iaapoyo» apagado), como en decide().
      * @return array cumple, parcial, no_cumple, sin_marcar (int), condicion (string|null), criticos (ids criticos en ❌).
      */
-    public static function self_check_summary(array $marcas): array {
+    public static function self_check_summary(array $marcas, bool $estricto = false): array {
         $cuenta = array_count_values($marcas);
         $total = count(self::checklist_ids());
         $items = [];
@@ -659,7 +791,7 @@ class exante {
             'parcial' => $cuenta[self::PARCIAL] ?? 0,
             'no_cumple' => $cuenta[self::NO_CUMPLE] ?? 0,
             'sin_marcar' => $total - count($marcas),
-            'condicion' => count($marcas) === $total ? self::decide($items, null) : null,
+            'condicion' => count($marcas) === $total ? self::decide($items, null, null, $estricto) : null,
             'criticos' => array_values(array_filter(self::CRITICOS, static function($id) use ($marcas) {
                 return ($marcas[$id] ?? '') === self::NO_CUMPLE;
             })),
@@ -749,11 +881,21 @@ class exante {
             $items[$id] = [
                 'estado' => $estado,
                 'observacion' => self::short_text($item['observacion'] ?? '', 600),
+                'propuesta' => $estado === self::CUMPLE ? '' : self::short_text($item['propuesta'] ?? '', 600),
             ];
+        }
+
+        $motivo = null;
+        if (isset($json['motivo_grave']) && is_array($json['motivo_grave'])) {
+            $codigo = self::short_text($json['motivo_grave']['codigo'] ?? '', 30);
+            $motivo = ['codigo' => \core_text::strtolower($codigo),
+                'cita' => self::short_text($json['motivo_grave']['cita'] ?? '', 600),
+                'corregir' => self::short_text($json['motivo_grave']['corregir'] ?? '', 600)];
         }
 
         return [
             'items' => $items,
+            'motivo' => $motivo,
             'condicion_modelo' => self::normalize_condition($json['condicion'] ?? null),
             'debilidades' => self::text_list($json['debilidades'] ?? []),
             'sugerencias' => self::text_list($json['sugerencias'] ?? []),
@@ -810,31 +952,49 @@ class exante {
     }
 
     /**
-     * Condicion final: la mas estricta entre la del modelo y la regla del checklist.
+     * Condicion final. La ultima palabra la tiene esta regla fija y no la variacion del modelo:
      *
-     * Un item critico que no se cumple deja la ficha no aprobada. Con todo cumplido, manda el modelo
-     * (puede ser mas exigente, nunca mas laxo). Con algo parcial o no cumplido, a lo mas «Aprobado con
-     * observaciones».
+     *  - «No aprobado» solo con un motivo grave sostenido (uno de los cuatro, con cita de la ficha). Ni un item critico
+     *    sin cumplir ni que el modelo lo proponga lo dejan asi sin motivo: pasa a «Aprobado con observaciones».
+     *  - Un item «no cumple» (sin motivo grave) deja «Aprobado con observaciones».
+     *  - «Aprobado» se acepta aunque haya items «parcial», si no hay ningun «no cumple» y el modelo no pidio observaciones.
      *
      * @param array $items id => ['estado' => ...].
      * @param string|null $modelo Condicion que propuso el modelo.
+     * Con $estricto (interruptor «iaapoyo» apagado) vuelve la regla anterior a v1.20.6: un item critico que no se
+     * cumple o un «No aprobado» del modelo dejan la ficha no aprobada, y algo parcial deja observaciones.
+     *
+     * @param array|null $motivo Motivo grave ya comprobado con valid_reason(); null si no hay.
+     * @param bool $estricto Regla anterior.
      * @return string
      */
-    public static function decide(array $items, ?string $modelo): string {
-        foreach (self::CRITICOS as $id) {
-            if (($items[$id]['estado'] ?? self::NO_CUMPLE) === self::NO_CUMPLE) {
+    public static function decide(array $items, ?string $modelo, ?array $motivo = null, bool $estricto = false): string {
+        if ($estricto) {
+            foreach (self::CRITICOS as $id) {
+                if (($items[$id]['estado'] ?? self::NO_CUMPLE) === self::NO_CUMPLE) {
+                    return self::NO_APROBADO;
+                }
+            }
+            if ($modelo === self::NO_APROBADO) {
                 return self::NO_APROBADO;
             }
+            foreach ($items as $item) {
+                if ($item['estado'] !== self::CUMPLE) {
+                    return self::OBSERVACIONES;
+                }
+            }
+            return $modelo === self::OBSERVACIONES ? self::OBSERVACIONES : self::APROBADO;
         }
-        if ($modelo === self::NO_APROBADO) {
+        if ($motivo !== null && isset(self::serious_reasons()[$motivo['codigo'] ?? ''])) {
             return self::NO_APROBADO;
         }
         foreach ($items as $item) {
-            if ($item['estado'] !== self::CUMPLE) {
+            if ($item['estado'] === self::NO_CUMPLE) {
                 return self::OBSERVACIONES;
             }
         }
-        return $modelo === self::OBSERVACIONES ? self::OBSERVACIONES : self::APROBADO;
+        // Un «no aprobado» del modelo sin motivo grave queda como observaciones: puede avanzar con sugerencias.
+        return in_array($modelo, [self::OBSERVACIONES, self::NO_APROBADO], true) ? self::OBSERVACIONES : self::APROBADO;
     }
 
     /**
@@ -987,6 +1147,67 @@ class exante {
         $DB->set_field('local_chatbot_exante', 'activa', 0, ['userid' => $userid, 'courseid' => $courseid]);
         $DB->set_field('local_chatbot_exante', 'activa', 1, ['id' => $fichaid]);
         return true;
+    }
+
+    /**
+     * Diseno que queda en uso al borrar otro: si se borra el que estaba en uso, el mas reciente de los que quedan;
+     * si se borra otro, el de uso no cambia. Funcion pura.
+     *
+     * @param int[] $ids Ids de los disenos de la persona en el curso, antes de borrar.
+     * @param int $borrado
+     * @param int $enuso Id del que estaba en uso (0 si ninguno).
+     * @return int|null Id del que debe quedar en uso; null si no queda ninguno.
+     */
+    public static function next_in_use(array $ids, int $borrado, int $enuso): ?int {
+        $quedan = array_values(array_filter(array_map('intval', $ids), static function($id) use ($borrado) {
+            return $id !== $borrado;
+        }));
+        if (!$quedan) {
+            return null;
+        }
+        if ($enuso !== $borrado && in_array($enuso, $quedan, true)) {
+            return $enuso;
+        }
+        return max($quedan);
+    }
+
+    /**
+     * Borra un diseno de la persona (uno solo): su ficha, sus validaciones, sus etapas, sus adjuntos y su
+     * autorrevision. Los demas no se tocan. Si era el que estaba en uso, pasa a usarse el mas reciente de los que quedan.
+     * No se borra mientras se esta validando: la validacion terminaria escribiendo sobre algo que ya no existe.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @param int $fichaid
+     * @return string DELETED, MISSING o VALIDATING.
+     */
+    public static function delete_ficha(int $userid, int $courseid, int $fichaid): string {
+        global $DB;
+        $ficha = $DB->get_record('local_chatbot_exante', ['id' => $fichaid, 'userid' => $userid, 'courseid' => $courseid]);
+        if (!$ficha) {
+            return self::MISSING;
+        }
+        $ultima = self::latest_validation_for($fichaid);
+        if ($ultima && in_array($ultima->estado, [self::PENDIENTE, self::PROCESANDO], true)) {
+            return self::VALIDATING;
+        }
+        $ids = array_keys($DB->get_records('local_chatbot_exante', ['userid' => $userid, 'courseid' => $courseid], '', 'id'));
+        $siguiente = self::next_in_use($ids, $fichaid, (int) $ficha->activa === 1 ? $fichaid : 0);
+
+        $tx = $DB->start_delegated_transaction();
+        $DB->delete_records('local_chatbot_diseno', ['fichaid' => $fichaid]);
+        $DB->delete_records('local_chatbot_exante_val', ['fichaid' => $fichaid]);
+        $DB->delete_records('local_chatbot_exante', ['id' => $fichaid]);
+        $tx->allow_commit();
+
+        foreach (array_keys(self::ADJUNTOS) as $area) {
+            self::set_attachment($fichaid, $area, null);
+        }
+        unset_user_preference('local_chatbot_autocheck_' . $courseid . '_' . $fichaid, $userid);
+        if ($siguiente !== null && (int) $ficha->activa === 1) {
+            self::activate($userid, $courseid, $siguiente);
+        }
+        return self::DELETED;
     }
 
     /**
@@ -1254,6 +1475,24 @@ class exante {
     }
 
     /**
+     * Pide una respuesta al modelo con temperatura baja: la misma ficha debe dar el mismo resultado. Si el modelo no
+     * admite el parametro, se repite el pedido sin el.
+     *
+     * @param array $contenido Contenido canonico del pedido.
+     * @param int $timeout Segundos.
+     * @param string|null $modelo
+     * @return array Respuesta con forma de Gemini, o ['error' => ...].
+     */
+    public static function generate_steady(array $contenido, int $timeout, ?string $modelo): array {
+        $proveedor = ai\provider_factory::get();
+        $resultado = $proveedor->generate_content($contenido, $timeout, 2, $modelo, false, self::TEMPERATURA);
+        if (isset($resultado['error']) && stripos((string) json_encode($resultado['error']), 'temperature') !== false) {
+            $resultado = $proveedor->generate_content($contenido, $timeout, 2, $modelo);
+        }
+        return $resultado;
+    }
+
+    /**
      * Llama al modelo con la ficha de la validacion y sus adjuntos.
      *
      * @param \stdClass $val
@@ -1267,15 +1506,16 @@ class exante {
 
         [$partes, , $nombres] = self::attachment_parts((int) $val->fichaid);
 
+        $fichatexto = pseudonymizer::scrub(self::to_text($data));
         $prompt = self::build_prompt(array_keys($nombres)) . "\n\nFICHA DE DIAGNÓSTICO:\n"
-            . guardrails::isolate_user_content(pseudonymizer::scrub(self::to_text($data)));
+            . guardrails::isolate_user_content($fichatexto);
         $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes)]];
 
         $modelo = ai\provider_factory::get_configured_model();
         $informe = null;
         // Un segundo intento solo si la respuesta no se pudo leer: el checklist va entero o no va.
         for ($intento = 0; $intento < 2 && $informe === null; $intento++) {
-            $resultado = ai\provider_factory::get()->generate_content($contenido, 150, 2, $modelo);
+            $resultado = self::generate_steady($contenido, 150, $modelo);
             if (isset($resultado['error'])) {
                 return [self::ERROR, ['error' => 'servicio']];
             }
@@ -1286,7 +1526,10 @@ class exante {
         }
 
         $informe['adjuntos'] = $nombres;
-        $condicion = self::decide($informe['items'], $informe['condicion_modelo']);
+        // Un motivo grave solo cuenta si es uno de los cuatro y su cita esta en la ficha que vio el modelo.
+        $motivo = self::valid_reason($informe['motivo'], $fichatexto, $informe['condicion_modelo']);
+        $informe['motivo'] = $motivo;
+        $condicion = self::decide($informe['items'], $informe['condicion_modelo'], $motivo, !ux::on('iaapoyo'));
         return [self::LISTO, [
             'condicion' => $condicion,
             'informe' => json_encode($informe, JSON_UNESCAPED_UNICODE),

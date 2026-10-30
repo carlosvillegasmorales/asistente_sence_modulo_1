@@ -1,5 +1,75 @@
 # Changelog
 
+## M1-v1.20.6 (2026-10-29)
+
+**La IA como apoyo real en el Módulo 2** (propuesta del 29-10: la validación castigaba donde no debía y era complaciente
+donde debía ayudar). En los dos VPS desde el 29-10; el punto 14 (descarga final siempre disponible) queda
+pendiente de la confirmación de Interfases.
+
+Fase 1, validación de la ficha (`classes/exante.php`, prompt `M2-F1-checklist-v2`):
+- **Solo se detiene por un motivo grave** (`exante::serious_reasons()`): el aprendizaje esperado no es un aprendizaje,
+  los criterios no lo evalúan, no corresponden al plan formativo adjunto, o una contradicción de fondo. Para dejar
+  «No aprobado» el modelo nombra el motivo y cita la ficha; el código lo comprueba (`valid_reason()`: código válido y
+  cita presente en la ficha) y, si no se sostiene, queda «Aprobado con observaciones». Ni los ítems críticos ni el
+  modelo lo dejan en «No aprobado» por sí solos (`decide()`).
+- «Aprobado» se acepta aunque haya ítems «parcial»; con algún «no cumple» (sin motivo grave), «con observaciones».
+- El prompt ya no castiga lo que no corresponde: la sección 9 no baja dos veces lo ya señalado; las observaciones
+  vacías, las decisiones razonables sin explicar, el texto oficial del plan («clara», «respetuosa»), la sinceridad
+  (3.3 «parcial» no baja c3_4) y no adjuntar plan o perfil no bajan ítems. Las casillas 4 y 5 de criterios vacías con 3
+  o más registrados llegan como «no se usa».
+- Cada ítem que no cumple trae una **propuesta** concreta («Cómo mejorarlo»). El resultado separa «Para avanzar debes
+  corregir» (solo con motivo grave) de las sugerencias para enriquecer el diseño. Tono nuevo: «Puedes avanzar. Estas
+  sugerencias te ayudarán en el diseño».
+- **Avisos antes de validar**, sin IA y con reglas fijas (`form_warnings()`): 3.3 «parcial» con 8.2 «No», tiempo 2.3 mayor
+  o igual que 2.2, «Otro» sin especificar. Con avisos, «Guardar y validar» guarda y los muestra antes de gastar la
+  validación; «Validar de todos modos» valida igual.
+- **Temperatura baja** (0,1) en la validación y en la evaluación: `ai_provider_interface::generate_content()` recibe
+  `$temperature` (Gemini, OpenAI/Azure, Anthropic). Si el modelo no admite el parámetro, se repite sin él.
+
+- Un motivo grave solo cuenta si el modelo propuso «No aprobado» y su cita está en la ficha tal como la vio el modelo
+  (seudonimizada).
+- **Interruptores** (`ux::DEFAULTS`, encendidos): `iaapoyo` (regla de motivos graves y, en la Fase 3, el 4 sin
+  evidencia; apagado vuelve la regla anterior en el código, las instrucciones al modelo no cambian) y `avisosficha`
+  (avisos antes de validar).
+
+Fase 3, evaluación (`classes/diseno.php`, prompt `M2-F2-etapas-v2`): se evalúa con ojo crítico (diseño hecho con apoyo
+de IA); un puntaje 4 sin evidencia citada en la justificación baja a 3 (`supported_score()`); se piden al menos 2
+recomendaciones aunque el total sea 36 (se reintenta una vez); antes de dar un 4 se comprueban uno por uno los
+elementos del descriptor del nivel 4. La rúbrica y los 32 ítems siguen textuales.
+
+Probado con la IA real en el VPS propio (3 corridas por caso): ejemplo del cliente con y sin la observación 2.4 →
+Aprobado las 6 veces; aprendizaje que es un tema, criterios sin relación y plan adjunto de otra materia → No aprobado
+con su motivo las 9 veces; evaluación de un diseño real de la Fase 3 → 33 a 34 de 36 (antes 36 siempre).
+
+## M1-v1.20.5 (2026-10-29)
+
+**Fase 1: enlaces 4 y 5 en los materiales de apoyo** (Interfases, ajuste 1)
+
+- Después de las tres tarjetas de materiales, dos tarjetas más con el mismo formato: «4 · Plan Formativo»
+  (Catálogo Nacional de Planes Formativos, SENCE) y «5 · Perfil Ocupacional» (Catálogo de Perfiles Laborales,
+  ChileValora), cada una con su botón «Buscar y descargar» al catálogo, que se abre en otra pestaña.
+- `cli/configurar_modulo2.php` toma la URL de las actividades URL del curso («Busca y descarga aquí tu Plan
+  Formativo» / «… el Perfil Ocupacional», ya configuradas) y arma las tarjetas con `modulo2_setup::add_catalog_cards()`;
+  idempotente: si cambia la URL, rehace la tarjeta sin duplicarla. Sin la actividad URL, no agrega esa tarjeta.
+
+## M1-v1.20.4 (2026-10-27)
+
+**Borrar diseños** (Interfases: que se pueda borrar del registro un diseño que ya no se necesita o no quedó
+satisfactorio, para que no se apilen; uno por uno, para quedarse con los que sirven)
+
+- En «Tus diseños» de la ficha, cada diseño tiene su botón «Borrar», con confirmación. Borra solo ese diseño: su ficha,
+  sus validaciones, sus etapas, sus adjuntos y su autorrevisión del checklist. Los demás no se tocan; no hay «borrar
+  todos». Si era el que estaba en uso, pasa a usarse el más reciente de los que quedan (`exante::next_in_use()`), y
+  si era el único, la ficha queda en blanco. No se borra mientras se está validando.
+- Los indicadores del Módulo 2 dejan de contar el diseño borrado.
+
+## M1-v1.20.3 (2026-10-27)
+
+- `configurar_modulo2.php`: al final de la pestaña de bienvenida (debajo de «Prepárate para comenzar», en la última
+  subsección, «Trabajo con el Asistente IA…») va el botón «Ir a la Fase 1: Diagnóstico y Validación», que abre la
+  pestaña de la Fase 1 en su primera parte. La sección y el destino se buscan por el nombre «Fase 1», no por número;
+  idempotente.
+
 ## M1-v1.20.2 (2026-10-26)
 
 - En los cursos, quien cursa ya no ve la franja Curso / Participantes / Calificaciones / Actividades / Más. La

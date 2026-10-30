@@ -67,8 +67,16 @@ if ($action === 'ejecutar' || $action === 'estado') {
 }
 
 // --- Varios disenos: abrir uno guardado o empezar otro (el modulo se usa una y otra vez) ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['abrir', 'nuevo'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['abrir', 'nuevo', 'borrar'], true)) {
     require_sesskey();
+    if ($action === 'borrar') {
+        // Uno a la vez: quien lo pide elige cual se va y se queda con los que le sirven.
+        $resultado = exante::delete_ficha($USER->id, $courseid, required_param('id', PARAM_INT));
+        $mensajes = [exante::DELETED => ['designs_deleted', \core\output\notification::NOTIFY_SUCCESS],
+            exante::VALIDATING => ['designs_delete_busy', \core\output\notification::NOTIFY_WARNING],
+            exante::MISSING => ['designs_delete_missing', \core\output\notification::NOTIFY_WARNING]];
+        redirect($pageurl, get_string($mensajes[$resultado][0], 'local_chatbot'), null, $mensajes[$resultado][1]);
+    }
     if ($action === 'abrir') {
         exante::activate($USER->id, $courseid, required_param('id', PARAM_INT));
         redirect($pageurl, get_string('designs_opened', 'local_chatbot'), null, \core\output\notification::NOTIFY_SUCCESS);
@@ -119,6 +127,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
             // Control de entrada del Prompt Maestro: no se avanza y se pide lo que falta, en concreto.
             $tipo = \core\output\notification::NOTIFY_WARNING;
             $mensaje = get_string('exante_missing', 'local_chatbot', implode(' · ', $falta));
+        } else if (\local_chatbot\ux::on('avisosficha') && ($avisosform = exante::form_warnings($data))
+                && !optional_param('ignorar', 0, PARAM_BOOL)) {
+            // Avisos con reglas fijas, antes de gastar un intento de validacion: se guarda y se muestran.
+            $tipo = \core\output\notification::NOTIFY_WARNING;
+            $mensaje = get_string('exante_warn_stop', 'local_chatbot', implode(' · ', $avisosform));
         } else if (!\local_chatbot\ai\provider_factory::is_configured()) {
             $tipo = \core\output\notification::NOTIFY_ERROR;
             $mensaje = get_string('exante_error_sinclave', 'local_chatbot');
@@ -257,6 +270,16 @@ echo $OUTPUT->header();
                                         echo get_string('designs_open', 'local_chatbot'); ?></button>
                                 </form>
                             <?php endif; ?>
+                            <form method="post" action="<?php echo $pageurl->out(false); ?>" class="m-0"
+                                  onsubmit="return confirm(this.dataset.confirm);"
+                                  data-confirm="<?php echo s(get_string('designs_delete_confirm', 'local_chatbot')); ?>">
+                                <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                <input type="hidden" name="id" value="<?php echo (int) $d->id; ?>">
+                                <button type="submit" name="action" value="borrar" class="btn btn-sm btn-outline-danger"
+                                        aria-label="<?php echo s(get_string('designs_delete_for', 'local_chatbot',
+                                            $nombre !== '' ? $nombre : get_string('designs_untitled', 'local_chatbot'))); ?>"><i
+                                        class="fa fa-trash me-1"></i><?php echo get_string('designs_delete', 'local_chatbot'); ?></button>
+                            </form>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -332,6 +355,16 @@ echo $OUTPUT->header();
         <p class="small mb-2"><i class="fa fa-list-check me-1"></i><a href="<?php echo (new moodle_url('/local/chatbot/checklist_exante.php',
             ['courseid' => $courseid]))->out(false); ?>"><?php echo get_string('autocheck_link', 'local_chatbot'); ?></a></p>
         <p class="small text-muted"><?php echo get_string('exante_privacy', 'local_chatbot'); ?></p>
+        <?php $avisosform = \local_chatbot\ux::on('avisosficha') ? exante::form_warnings($data) : []; ?>
+        <?php if ($avisosform): ?>
+            <div class="alert alert-warning small" role="alert">
+                <strong><?php echo get_string('exante_warn_title', 'local_chatbot'); ?></strong>
+                <ul class="mb-1">
+                    <?php foreach ($avisosform as $aviso): ?><li><?php echo s($aviso); ?></li><?php endforeach; ?>
+                </ul>
+                <?php echo get_string('exante_warn_note', 'local_chatbot'); ?>
+            </div>
+        <?php endif; ?>
         <div class="d-flex flex-wrap gap-2 mb-4">
             <button type="submit" name="action" value="validar" class="btn btn-primary px-4 py-2 shadow-sm"
                     data-espera="<?php echo s(get_string('exante_saving', 'local_chatbot')); ?>">
@@ -341,6 +374,13 @@ echo $OUTPUT->header();
                     data-espera="<?php echo s(get_string('exante_saving', 'local_chatbot')); ?>">
                 <i class="fa fa-save me-1"></i> <?php echo get_string('exante_save', 'local_chatbot'); ?>
             </button>
+            <?php if ($avisosform): ?>
+                <button type="submit" name="action" value="validar" class="btn btn-outline-secondary px-4 py-2"
+                        formaction="<?php echo s((new moodle_url($pageurl, ['ignorar' => 1]))->out(false)); ?>"
+                        data-espera="<?php echo s(get_string('exante_saving', 'local_chatbot')); ?>">
+                    <?php echo get_string('exante_validate_anyway', 'local_chatbot'); ?>
+                </button>
+            <?php endif; ?>
         </div>
     </form>
 
@@ -395,7 +435,12 @@ echo $OUTPUT->header();
                                 <td class="small"><?php echo s($texto); ?></td>
                                 <td><span class="badge text-bg-<?php echo $estadoclase[$item['estado']]; ?>"><?php
                                     echo get_string('exante_status_' . $item['estado'], 'local_chatbot'); ?></span></td>
-                                <td class="small"><?php echo s($item['observacion']); ?></td>
+                                <td class="small"><?php echo s($item['observacion']); ?>
+                                    <?php if (!empty($item['propuesta'])): ?>
+                                        <div class="mt-1 text-success-emphasis"><strong><?php
+                                            echo get_string('exante_report_howto', 'local_chatbot'); ?></strong> <?php
+                                            echo s($item['propuesta']); ?></div>
+                                    <?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endforeach; ?>
@@ -408,6 +453,19 @@ echo $OUTPUT->header();
                     <strong><?php echo get_string('exante_cond_' . $val->condicion, 'local_chatbot'); ?></strong>.
                     <?php echo get_string('exante_cond_' . $val->condicion . '_desc', 'local_chatbot'); ?>
                 </div>
+                <?php if (!empty($informe['motivo'])): ?>
+                    <div class="alert alert-danger mb-4">
+                        <h6 class="mb-2"><?php echo get_string('exante_report_mustfix', 'local_chatbot'); ?></h6>
+                        <p class="mb-1"><strong><?php
+                            echo get_string('exante_reason_' . $informe['motivo']['codigo'], 'local_chatbot'); ?></strong></p>
+                        <p class="small mb-1"><?php echo get_string('exante_report_quote', 'local_chatbot'); ?> «<?php
+                            echo s($informe['motivo']['cita']); ?>»</p>
+                        <?php if (!empty($informe['motivo']['corregir'])): ?>
+                            <p class="small mb-0"><strong><?php echo get_string('exante_report_howto', 'local_chatbot'); ?></strong> <?php
+                                echo s($informe['motivo']['corregir']); ?></p>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
 
                 <h5 class="mb-2">c) <?php echo get_string('exante_report_suggest', 'local_chatbot'); ?></h5>
                 <?php if (!empty($informe['debilidades'])): ?>

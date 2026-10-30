@@ -166,8 +166,12 @@ local_chatbot_verificar(strpos($texto, 'Nombre del facilitador o facilitadora: (
     'el modelo sabe que el nombre se registró');
 local_chatbot_verificar(strpos($texto, '3.2. El perfil ocupacional exige desempeño en: Tareas rutinarias; Tareas técnicas; '
     . 'Trabajo colaborativo') !== false, 'las alternativas viajan con su texto');
-local_chatbot_verificar(strpos($texto, '- Criterio de evaluación 5: (sin respuesta)') !== false,
-    'lo vacío se dice explícitamente');
+local_chatbot_verificar(strpos($texto, '- Criterio de evaluación 5: (no se usa: ya hay ') !== false
+    , 'los criterios 4 y 5 vacíos, con 3 o más registrados, se dicen «no se usa» y no como faltantes');
+$pocos = $ejemplo;
+$pocos['criterio3'] = $pocos['criterio4'] = $pocos['criterio5'] = '';
+local_chatbot_verificar(strpos(exante::to_text($pocos), '- Criterio de evaluación 4: (sin respuesta)') !== false,
+    'con menos de 3 criterios, las casillas vacías sí faltan');
 local_chatbot_verificar(strpos($texto, '- 2.4. Observaciones sobre la evaluación del aprendizaje esperado: Los criterios son '
     . 'claros y observables.') !== false, 'una observación con información viaja al modelo');
 local_chatbot_verificar(strpos($texto, '- Observaciones breves (opcional): (opcional, sin información)') !== false
@@ -276,17 +280,85 @@ local_chatbot_verificar(exante::decide($todo, exante::APROBADO) === exante::APRO
 local_chatbot_verificar(exante::decide($todo, null) === exante::APROBADO, 'todo cumple sin condición del modelo: aprobado');
 local_chatbot_verificar(exante::decide($todo, exante::OBSERVACIONES) === exante::OBSERVACIONES,
     'el modelo puede ser más exigente que la regla');
-local_chatbot_verificar(exante::decide($todo, exante::NO_APROBADO) === exante::NO_APROBADO, 'el modelo puede no aprobar');
-local_chatbot_verificar(exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO) === exante::OBSERVACIONES,
-    'con un ítem parcial no se aprueba sin observaciones');
+// Regla nueva: «No aprobado» solo con un motivo grave sostenido; un «parcial» no impide aprobar.
+local_chatbot_verificar(exante::decide($todo, exante::NO_APROBADO) === exante::OBSERVACIONES,
+    'el modelo no puede dejar «No aprobado» sin un motivo grave: queda con observaciones');
+local_chatbot_verificar(exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO) === exante::APROBADO,
+    'un ítem parcial no impide el Aprobado que propone el modelo');
+local_chatbot_verificar(exante::decide($con(['c6_1' => exante::PARCIAL, 'c2_1' => exante::PARCIAL]), null) === exante::APROBADO,
+    'varios parciales, sin ningún «no cumple»: aprobado');
+local_chatbot_verificar(exante::decide($con(['c6_1' => exante::PARCIAL]), exante::OBSERVACIONES) === exante::OBSERVACIONES,
+    'si el modelo pide observaciones, se respetan');
 local_chatbot_verificar(exante::decide($con(['c6_1' => exante::NO_CUMPLE]), exante::APROBADO) === exante::OBSERVACIONES,
-    'un incumplimiento no crítico deja observaciones');
+    'un «no cumple» deja observaciones');
 foreach (exante::CRITICOS as $id) {
-    local_chatbot_verificar(exante::decide($con([$id => exante::NO_CUMPLE]), exante::APROBADO) === exante::NO_APROBADO,
-        "incumplir {$id} (crítico) no se aprueba aunque el modelo apruebe");
+    local_chatbot_verificar(exante::decide($con([$id => exante::NO_CUMPLE]), exante::NO_APROBADO) === exante::OBSERVACIONES,
+        "incumplir {$id} sin motivo grave no deja «No aprobado», ni aunque el modelo lo pida");
 }
-local_chatbot_verificar(exante::decide($con(['c2_1' => exante::PARCIAL]), exante::APROBADO) === exante::OBSERVACIONES,
-    'un crítico parcial deja observaciones');
+$ficha4 = "- 2.1. Aprendizaje esperado: Conocer la historia de la computación\n- Criterio de evaluación 1: Lista fechas";
+$tema = ['codigo' => 'tema', 'cita' => 'Conocer la historia de la computación', 'corregir' => 'Redáctalo como desempeño'];
+$val = exante::valid_reason($tema, $ficha4, exante::NO_APROBADO);
+local_chatbot_verificar($val !== null && $val['codigo'] === 'tema'
+    && exante::decide($con(['c2_1' => exante::NO_CUMPLE]), exante::NO_APROBADO, $val) === exante::NO_APROBADO,
+    'un motivo grave con su cita deja «No aprobado»');
+local_chatbot_verificar(exante::decide($todo, exante::APROBADO, $val) === exante::NO_APROBADO, 'el motivo grave manda sobre el modelo');
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'tema', 'cita' => '', 'corregir' => 'x'], $ficha4, exante::NO_APROBADO) === null,
+    'sin cita no hay motivo grave');
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'tema', 'cita' => 'Texto que no está en la ficha', 'corregir' => ''], $ficha4, exante::NO_APROBADO) === null,
+    'una cita que no está en la ficha no sostiene el motivo');
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'otro', 'cita' => 'Conocer la historia de la computación'], $ficha4, exante::NO_APROBADO) === null,
+    'un código fuera de los cuatro motivos no cuenta');
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'tema', 'cita' => 'conocer la HISTORIA de la computacion'], $ficha4, exante::NO_APROBADO) !== null,
+    'la cita se compara sin tildes, mayúsculas ni signos');
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'plan', 'cita' => 'El plan adjunto habla de cuidados de pacientes'], $ficha4, exante::NO_APROBADO) !== null,
+    'con el motivo «plan» la cita puede venir del Plan Formativo adjunto');
+local_chatbot_verificar(exante::valid_reason($tema, $ficha4, exante::APROBADO) === null
+    && exante::valid_reason($tema, $ficha4, exante::OBSERVACIONES) === null,
+    'un motivo que acompaña a otra condición del modelo no detiene la ficha');
+// Interruptor «iaapoyo» apagado: vuelve la regla anterior.
+local_chatbot_verificar(exante::decide($con(['c2_1' => exante::NO_CUMPLE]), exante::APROBADO, null, true) === exante::NO_APROBADO
+    && exante::decide($todo, exante::NO_APROBADO, null, true) === exante::NO_APROBADO
+    && exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO, null, true) === exante::OBSERVACIONES
+    && exante::decide($todo, exante::APROBADO, null, true) === exante::APROBADO,
+    'con el interruptor apagado vuelve la regla anterior (críticos y «No aprobado» del modelo detienen; parcial deja observaciones)');
+local_chatbot_verificar(array_keys(exante::serious_reasons()) === ['tema', 'criterios', 'plan', 'contradiccion'],
+    'los motivos graves son cuatro, fijos');
+local_chatbot_verificar(exante::TEMPERATURA <= 0.2, 'la validación usa temperatura baja');
+$pm = exante::build_prompt([]);
+local_chatbot_verificar(strpos($pm, 'MOTIVOS GRAVES') !== false && strpos($pm, '"motivo_grave"') !== false
+    && strpos($pm, 'no es un aprendizaje') !== false && strpos($pm, 'no tienen relación con él') !== false
+    && strpos($pm, 'ningún ítem "no_cumple" (puede haber ítems "parcial")') !== false,
+    'el prompt cierra la regla de «No aprobado» en los cuatro motivos y acepta parciales en «aprobado»');
+local_chatbot_verificar(strpos($pm, 'no se usa') !== false && strpos($pm, '3.3 "Parcialmente alineado" no baja el ítem c3_4') !== false
+    && strpos($pm, 'no los bajes por algo que ya señalaste') !== false && strpos($pm, '"propuesta"') !== false
+    && strpos($pm, 'no adjuntarlos no baja la evaluación') !== false && strpos($pm, 'texto oficial') !== false,
+    'el prompt cubre criterios vacíos, sinceridad, sección 9 sin doble castigo, propuestas, adjuntos y texto oficial');
+$informe = exante::parse_report(json_encode(['items' => array_map(static function($id) {
+    return ['estado' => 'parcial', 'observacion' => 'o', 'propuesta' => 'En 8.2 marca Sí y anota: conectividad irregular'];
+}, array_combine(exante::checklist_ids(), exante::checklist_ids())), 'condicion' => 'aprobado',
+    'motivo_grave' => ['codigo' => 'TEMA', 'cita' => 'Conocer la historia', 'corregir' => 'c']]));
+local_chatbot_verificar($informe['items']['c1_1']['propuesta'] === 'En 8.2 marca Sí y anota: conectividad irregular'
+    && $informe['motivo']['codigo'] === 'tema' && $informe['motivo']['cita'] === 'Conocer la historia',
+    'el informe trae la propuesta de cada ítem y el motivo grave');
+$sinmotivo = exante::parse_report(json_encode(['items' => array_map(static function($id) {
+    return ['estado' => 'cumple', 'observacion' => '', 'propuesta' => 'no debería quedar'];
+}, array_combine(exante::checklist_ids(), exante::checklist_ids())), 'condicion' => 'aprobado', 'motivo_grave' => null]));
+local_chatbot_verificar($sinmotivo['motivo'] === null && $sinmotivo['items']['c1_1']['propuesta'] === '',
+    'sin motivo grave no hay motivo, y un ítem que cumple no lleva propuesta');
+// Avisos antes de validar (sin IA, no bloquean).
+$base = exante::clean([]);
+local_chatbot_verificar(exante::form_warnings($base) === [], 'una ficha vacía no da avisos');
+local_chatbot_verificar(count(exante::form_warnings(['alineacion' => 'parcial', 'ajustes' => 'no'] + $base)) === 1
+    && exante::form_warnings(['alineacion' => 'parcial', 'ajustes' => 'si'] + $base) === [],
+    'aviso: 3.3 parcial con 8.2 «No» es contradictorio');
+local_chatbot_verificar(count(exante::form_warnings(['tiempo_total' => '60', 'tiempo_experiencia' => '60'] + $base)) === 1
+    && count(exante::form_warnings(['tiempo_total' => '60', 'tiempo_experiencia' => '90'] + $base)) === 1
+    && exante::form_warnings(['tiempo_total' => '60', 'tiempo_experiencia' => '45'] + $base) === [],
+    'aviso: el tiempo 2.3 debe ser menor que el 2.2');
+$otro = exante::form_warnings(['necesidades' => ['practico', 'otra'], 'necesidades_otro' => ''] + $base);
+local_chatbot_verificar(count($otro) === 1 && strpos($otro[0], '4.3') !== false
+    && exante::form_warnings(['necesidades' => ['otra'], 'necesidades_otro' => 'Idioma'] + $base) === [],
+    'aviso: «Otro» marcado sin especificar');
 local_chatbot_verificar(exante::can_advance(exante::APROBADO) && exante::can_advance(exante::OBSERVACIONES)
     && !exante::can_advance(exante::NO_APROBADO) && !exante::can_advance(null), 'solo se avanza aprobado o con observaciones');
 
@@ -340,6 +412,30 @@ local_chatbot_verificar(strpos($con, 'background: #20639b; color: #ffffff') !== 
     'el botón del material usa el color de su número, no el blanco de la tarjeta');
 local_chatbot_verificar(strpos($con, 'deben estar enlazados') === false, 'se quita la nota provisional de los materiales');
 local_chatbot_verificar(modulo2_setup::link_materials($con, [1 => 'u1', 2 => 'u2']) === $con, 'enlazar materiales es idempotente');
+// Tarjetas 4 (Plan Formativo) y 5 (Perfil Ocupacional) con boton al catalogo externo (pedido del 29-10-2026).
+local_chatbot_verificar(modulo2_setup::match_urls([7 => 'Busca y descarga aquí el Perfil Ocupacional', 8 => 'Busca y descarga aquí tu Plan Formativo',
+    9 => 'Otro enlace']) === [5 => 7, 4 => 8], 'los enlaces URL se reconocen por el nombre: 4 plan formativo, 5 perfil ocupacional');
+$tres = '<div><h3>Materiales</h3><!-- MATERIAL 3 --><div style="display: flex; padding: 19px 20px;"><div>3</div><h4>Ejemplo</h4>'
+    . '<p>T</p></div><p style="m">Los documentos deben estar enlazados o adjuntos en Moodle.</p></div><!-- AVISO --><div>Aviso</div>';
+$con45 = modulo2_setup::add_catalog_cards(modulo2_setup::remove_material_note($tres),
+    [4 => 'https://www.sence.cl/plan', 5 => 'https://www.chilevalora.cl/perfil']);
+local_chatbot_verificar(strpos($con45, '<!-- MATERIAL 4 -->') !== false && strpos($con45, '<!-- MATERIAL 5 -->') !== false
+    && strpos($con45, 'Catálogo Nacional de Planes Formativos (SENCE)') !== false
+    && strpos($con45, 'Catálogo de Perfiles Laborales (ChileValora)') !== false, 'tarjetas 4 y 5 con su título y descripción');
+local_chatbot_verificar(substr_count($con45, 'Buscar y descargar</a>') === 2
+    && substr_count($con45, 'href="https://www.sence.cl/plan"') === 2
+    && substr_count($con45, 'href="https://www.chilevalora.cl/perfil"') === 2, 'cada tarjeta enlaza su título y su botón a su catálogo');
+local_chatbot_verificar(strpos($con45, 'padding: 19px 20px; margin-bottom: 12px;"><div>3') !== false
+    && strpos($con45, '<!-- AVISO -->') > strpos($con45, '<!-- MATERIAL 5 -->'),
+    'la tarjeta 3 recibe separación y las nuevas quedan dentro de los materiales, antes del aviso');
+local_chatbot_verificar(modulo2_setup::add_catalog_cards($con45, [4 => 'https://www.sence.cl/plan',
+    5 => 'https://www.chilevalora.cl/perfil']) === $con45, 'agregar las tarjetas es idempotente');
+local_chatbot_verificar(strpos(modulo2_setup::add_catalog_cards($con45, [4 => 'https://otra.cl/', 5 => 'https://www.chilevalora.cl/perfil']),
+    'https://otra.cl/') !== false && substr_count(modulo2_setup::add_catalog_cards($con45, [4 => 'https://otra.cl/',
+    5 => 'https://www.chilevalora.cl/perfil']), '<!-- MATERIAL 4 -->') === 1, 'si cambia la URL, la tarjeta se rehace sin duplicarse');
+local_chatbot_verificar(modulo2_setup::add_catalog_cards($tres, []) === $tres
+    && modulo2_setup::add_catalog_cards('<div>sin materiales</div>', [4 => 'https://x.cl/']) === '<div>sin materiales</div>',
+    'sin URL o sin la tarjeta 3 no cambia nada');
 $res = '<div><div style="flex: 1 1 230px; padding: 18px;"><div style="display: inline-block; background: #267a43;">APROBADO</div>'
     . '<h4>Puedes avanzar</h4></div><div style="flex: 1; text-align: center;"><div style="display: inline-block; x">'
     . 'NO APROBADO</div></div><!-- REEMPLAZA # POR LA URL REAL DEL ARCHIVO EN MOODLE --> <a style="y" href="#">'
@@ -378,10 +474,11 @@ local_chatbot_verificar($res['cumple'] === 1 && $res['parcial'] === 1 && $res['n
 $todas = array_fill_keys(exante::checklist_ids(), exante::CUMPLE);
 local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::APROBADO, 'todo cumple: aprobado');
 $todas['c6_1'] = exante::PARCIAL;
-local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::OBSERVACIONES, 'algo parcial: con observaciones');
+local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::APROBADO, 'algo parcial: sigue aprobado');
 $todas['c9_2'] = exante::NO_CUMPLE;
-local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::NO_APROBADO,
-    'un crítico que no cumple: no aprobado, con la misma regla del asistente');
+local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::OBSERVACIONES
+    && exante::self_check_summary($todas)['criticos'] === ['c9_2'],
+    'un ítem clave que no cumple: con observaciones (sin motivo grave no hay «No aprobado»), y se avisa');
 $enlazado = modulo2_setup::link_checklist('<a style="y" href="http://x/local/chatbot/checklist_exante.php?courseid=4"> '
     . 'Consultar y descargar el checklist </a>', 'http://x/mod/resource/view.php?id=606');
 local_chatbot_verificar(strpos($enlazado, 'href="http://x/mod/resource/view.php?id=606"') !== false

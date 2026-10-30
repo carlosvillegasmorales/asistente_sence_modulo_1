@@ -86,6 +86,18 @@ local_chatbot_verificar(exante::design_label(['aprendizaje' => "Comunicar\ninfor
 local_chatbot_verificar(exante::design_label(['aprendizaje' => '', 'plan' => 'Plan X']) === 'Plan X'
     && exante::design_label([]) === '', 'luego por el plan formativo, y vacío si no hay nada');
 local_chatbot_verificar(mb_strlen(exante::design_label(['aprendizaje' => str_repeat('palabra ', 30)])) <= 90, 'un nombre largo se acorta');
+
+// --- Borrar un diseno: uno solo, y queda en uso el que corresponde ---
+local_chatbot_verificar(exante::next_in_use([5, 9, 12], 5, 12) === 12 && exante::next_in_use([5, 9, 12], 9, 12) === 12,
+    'borrar uno que no estaba en uso no cambia el que está en uso');
+local_chatbot_verificar(exante::next_in_use([5, 9, 12], 12, 12) === 9 && exante::next_in_use([12, 9, 5], 12, 12) === 9,
+    'borrar el que estaba en uso deja en uso el más reciente de los que quedan');
+local_chatbot_verificar(exante::next_in_use([7], 7, 7) === null && exante::next_in_use([], 7, 0) === null,
+    'borrar el único diseño no deja ninguno en uso');
+local_chatbot_verificar(exante::next_in_use([5, 9], 5, 0) === 9, 'sin uno en uso, queda el más reciente');
+local_chatbot_verificar(array_sum(array_map(static function($c) {
+    return strpos($c, 'borrado') === false ? 0 : 1;
+}, [exante::DELETED, exante::MISSING, exante::VALIDATING])) === 1, 'los tres resultados de borrar son distintos');
 local_chatbot_verificar(ruta_m2::design_status(['ficha' => ruta_m2::FICHA_SIN])[0] === 'r2_status_fase1'
     && ruta_m2::design_status(['ficha' => ruta_m2::FICHA_OK, 'aceptadas' => [1, 2]]) === ['r2_status_fase2', 2]
     && ruta_m2::design_status(['ficha' => ruta_m2::FICHA_OK, 'aceptadas' => range(1, 6)])[0] === 'r2_status_fase3'
@@ -205,6 +217,20 @@ unset($curso[7]);
 local_chatbot_verificar(modulo2_setup::tab_last_section($curso, 2) === 6, 'una pestaña sin subsecciones usa su propia sección');
 local_chatbot_verificar(modulo2_setup::tab_last_section($curso, 4) === null, 'sin la fase no hay sección');
 
+// --- Boton al final de la bienvenida: lleva al comienzo de la Fase 1 ---
+$real = [0 => ['name' => 'Bienvenida e Instrucciones Generales', 'level' => 0], 1 => ['name' => 'Descripción', 'level' => 2],
+    2 => ['name' => 'Trabajo con Asisistente IA', 'level' => 2], 3 => ['name' => 'Fase 1: Diagnóstico y Validación', 'level' => 0],
+    4 => ['name' => 'Diagnóstico (evaluación ex-ante)', 'level' => 2]];
+local_chatbot_verificar(modulo2_setup::welcome_last_section($real) === 2, 'el final de la bienvenida es la subsección anterior a la Fase 1');
+local_chatbot_verificar(modulo2_setup::welcome_last_section([3 => ['name' => 'Fase 1: X', 'level' => 0]]) === null
+    && modulo2_setup::welcome_last_section([0 => ['name' => 'Bienvenida', 'level' => 0]]) === null,
+    'sin pestaña Fase 1 o sin nada antes de ella no hay sección');
+$b = modulo2_setup::add_phase1_button('<div><p>Texto</p></div>', 'uf1');
+local_chatbot_verificar(strpos($b, 'href="uf1"') !== false && strpos($b, modulo2_setup::BOTON_FASE1) !== false
+    && substr($b, -6) === '</div>' && strpos($b, '<!-- IR A FASE 1 -->') !== false,
+    'el botón a la Fase 1 queda al final, dentro del contenedor');
+local_chatbot_verificar(modulo2_setup::add_phase1_button($b, 'uf1') === $b, 'agregar el botón a la Fase 1 es idempotente');
+
 // --- Fase 3: rubrica, consolidacion y evaluacion ---
 $rub = diseno::rubrica();
 local_chatbot_verificar(array_keys($rub) === ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'], 'la rúbrica tiene sus 9 criterios');
@@ -224,11 +250,22 @@ local_chatbot_verificar(diseno::band(31)['texto'] === 'Aprobado con ajustes meno
 
 $respuesta = ['criterios' => [], 'total' => 99, 'fortalezas' => ['F1'], 'debilidades' => [], 'recomendaciones' => ['R1', '']];
 foreach (array_keys($rub) as $i => $id) {
-    $respuesta['criterios'][$id] = ['puntaje' => $i < 4 ? 4 : 3, 'justificacion' => 'Porque <b>sí</b>'];
+    $respuesta['criterios'][$id] = ['puntaje' => $i < 4 ? 4 : 3, 'justificacion' => 'Porque <b>sí</b>: el diseño cita la evidencia concreta en la etapa 3 y en la actividad 2.'];
 }
 $ev = diseno::parse_eval(json_encode($respuesta));
 local_chatbot_verificar($ev !== null && $ev['total'] === 31, 'el total lo suma el código (31), no el que diga el modelo');
 local_chatbot_verificar($ev['banda']['clave'] === 'menores' && $ev['recomendaciones'] === ['R1'], 'banda y listas limpias');
+// Evaluacion honesta (Fase 3): un 4 sin evidencia citada baja a 3; el prompt pide ojo critico y 2 recomendaciones.
+local_chatbot_verificar(diseno::supported_score(4, 'Bien') === 3 && diseno::supported_score(4, $respuesta['criterios']['r1']['justificacion']) === 4
+    && diseno::supported_score(3, 'Bien') === 3 && diseno::supported_score(2, '') === 2, 'un puntaje 4 sin evidencia citada baja a 3');
+$sinevidencia = $respuesta;
+$sinevidencia['criterios']['r1']['justificacion'] = 'Bien';
+local_chatbot_verificar(diseno::parse_eval(json_encode($sinevidencia))['total'] === 30, 'el total ya descuenta el 4 sin evidencia');
+local_chatbot_verificar(diseno::parse_eval(json_encode($sinevidencia), false)['total'] === 31,
+    'con el interruptor «iaapoyo» apagado el 4 sin evidencia se respeta');
+local_chatbot_verificar(strpos(diseno::build_eval_prompt('D', 'F', []), 'OJO CRÍTICO') !== false
+    && strpos(diseno::build_eval_prompt('D', 'F', []), 'al menos 2 recomendaciones concretas') !== false,
+    'la evaluación pide ojo crítico, evidencia en cada 4 y 2 recomendaciones aunque sea 36');
 local_chatbot_verificar(diseno::parse_eval("```json\n" . json_encode($respuesta) . "\n```") !== null, 'se lee entre bloques de código');
 $malo = $respuesta;
 unset($malo['criterios']['r5']);

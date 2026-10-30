@@ -25,9 +25,9 @@ class gemini_provider implements ai_provider_interface {
      * @see ai_provider_interface::generate_content()
      */
     public function generate_content(array $contents, int $timeout = 30, int $maxretries = 2,
-            ?string $model = null, bool $usesearch = false): array {
+            ?string $model = null, bool $usesearch = false, ?float $temperature = null): array {
         $model = $model ?? gemini_client::DEFAULT_MODEL;
-        return gemini_client::generate_content($contents, $timeout, $maxretries, $model, $usesearch, $this->apikey);
+        return gemini_client::generate_content($contents, $timeout, $maxretries, $model, $usesearch, $this->apikey, $temperature);
     }
 }
 

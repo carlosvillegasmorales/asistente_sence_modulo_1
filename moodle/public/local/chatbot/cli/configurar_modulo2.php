@@ -61,6 +61,24 @@ $url = static function(int $cmid) use ($CFG) {
     return $CFG->wwwroot . '/mod/resource/view.php?id=' . $cmid;
 };
 
+// Enlaces a los catalogos externos (Plan Formativo y Perfil Ocupacional): actividades URL ya configuradas en el curso.
+$nombresurl = [];
+foreach ($modinfo->get_instances_of('url') as $cm) {
+    $nombresurl[$cm->id] = $cm->name;
+}
+$catalogos = [];
+foreach (modulo2_setup::match_urls($nombresurl) as $n => $cmid) {
+    $externa = trim((string) $DB->get_field('url', 'externalurl', ['id' => $modinfo->get_cm($cmid)->instance]));
+    if ($externa !== '' && preg_match('#^https?://#i', $externa)) {
+        $catalogos[$n] = $externa;
+    }
+}
+foreach ([4 => 'Plan Formativo', 5 => 'Perfil Ocupacional'] as $n => $nombre) {
+    if (!isset($catalogos[$n])) {
+        echo "  (sin enlace URL de «{$nombre}» en el curso: la tarjeta {$n} no se agrega)\n";
+    }
+}
+
 if (!isset($recursos['rubrica'])) {
     echo "  (sin recurso de la rubrica: la pestana Fase 3 queda sin ese enlace)\n";
 }
@@ -142,10 +160,19 @@ foreach ($modinfo->get_section_info_all() as $info) {
 $fase2 = modulo2_setup::tab_last_section($secciones, 2);
 $fase3 = modulo2_setup::tab_last_section($secciones, 3);
 $validacionurl = (new moodle_url('/local/chatbot/diseno.php', ['courseid' => $cursoid, 'etapa' => 7]))->out(false);
+// Al final de la bienvenida, el boton que lleva al comienzo de la pestana «Fase 1».
+$bienvenida = modulo2_setup::welcome_last_section($secciones);
+$fase1 = \local_chatbot\exante::phase_section(array_map(static function($s) {
+    return $s['name'];
+}, $secciones), 1);
+$fase1url = $fase1 === null ? '' : (new moodle_url('/course/view.php', ['id' => $cursoid, 'section' => $fase1]))->out(false);
 $cambios = 0;
 foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') as $seccion) {
     $antes = (string) $seccion->summary;
     $despues = $antes;
+    if ($bienvenida !== null && $fase1url !== '' && (int) $seccion->section === $bienvenida) {
+        $despues = modulo2_setup::add_phase1_button($despues, $fase1url);
+    }
     if ($fase2 !== null && (int) $seccion->section === $fase2) {
         $despues = modulo2_setup::add_design_button($despues, $disenourl);
     } else {
@@ -159,6 +186,7 @@ foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') 
         $despues = modulo2_setup::link_materials($despues, [1 => $url($recursos['material1']),
             2 => $url($recursos['material2']), 3 => $url($recursos['material3'])]);
         $despues = modulo2_setup::remove_material_note($despues);
+        $despues = modulo2_setup::add_catalog_cards($despues, $catalogos);
     }
     if (strpos($antes, 'Consultar y descargar el checklist') !== false) {
         $despues = modulo2_setup::center_conditions($despues);

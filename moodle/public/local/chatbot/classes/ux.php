@@ -54,6 +54,8 @@ class ux {
         'pdfvisor' => 1,        // Recursos PDF incrustados: visor sin panel de miniaturas y ajustado al ancho (v1.19.17).
         'disenofase2' => 1,     // Modulo 2, Fases 2 y 3: hojas de trabajo de las etapas 1 a 8 del diseno (v1.18.0, v1.19.0).
         'navestudiante' => 1,   // Sin la franja Curso / Participantes / Calificaciones / ... para quien cursa (v1.20.2).
+        'iaapoyo' => 1,         // Modulo 2: «No aprobado» solo por motivo grave citado; en la Fase 3, un 4 sin evidencia es 3 (v1.20.6).
+        'avisosficha' => 1,     // Modulo 2: avisos con reglas fijas antes de validar la ficha (v1.20.6).
     ];
 
     /**

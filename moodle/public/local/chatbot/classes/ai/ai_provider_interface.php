@@ -32,8 +32,10 @@ interface ai_provider_interface {
      * @param string|null $model Provider-specific model name; null uses the provider's own default.
      * @param bool $usesearch Web-search grounding. Only Gemini implements this; other
      *        providers accept and silently ignore it so callers don't need per-provider branching.
+     * @param float|null $temperature Temperatura de muestreo; null deja la del proveedor. Las validaciones y evaluaciones
+     *        piden una baja para que la misma ficha dé el mismo resultado.
      * @return array Gemini-shaped response, see class docblock.
      */
     public function generate_content(array $contents, int $timeout = 30, int $maxretries = 2,
-        ?string $model = null, bool $usesearch = false): array;
+        ?string $model = null, bool $usesearch = false, ?float $temperature = null): array;
 }

@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 class diseno {
 
     /** @var string Version del prompt de diseno: se guarda con cada producto (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F2-etapas-v1';
+    const PROMPT_VERSION = 'M2-F2-etapas-v2';
 
     /** Estado del producto. */
     const BORRADOR = 'borrador';
@@ -71,6 +71,12 @@ class diseno {
 
     /** @var int Puntaje desde el que el diseño queda aprobado (rubrica: 25 a 31 «Aprobado con ajustes menores»). */
     const APROBADO_DESDE = 25;
+
+    /** @var int Recomendaciones que se piden siempre, aunque el total sea 36. */
+    const RECOMENDACIONES_MIN = 2;
+
+    /** @var int Largo minimo de la justificacion de un puntaje 4: sin evidencia citada, baja a 3. */
+    const EVIDENCIA_MIN = 60;
 
     /**
      * Las etapas de la Fase 3: consolidacion (no editable) y evaluacion con la rubrica.
@@ -251,6 +257,14 @@ class diseno {
             'Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género. Evalúas el '
                 . 'diseño, no a la persona.',
             '',
+            'EVALÚA CON OJO CRÍTICO: este diseño se elaboró con apoyo de una IA, así que no lo des por bueno porque '
+                . 'esté bien redactado: revísalo como lo haría una persona revisora externa. Cada puntaje 4 debe '
+                . 'citar, en la justificación, la evidencia concreta del diseño que lo prueba (el elemento o fragmento '
+                . 'textual); si no puedes citarla, el puntaje es 3. Antes de dar un 4, comprueba uno por uno los elementos del '
+                . 'descriptor del nivel 4 contra el diseño: si falta alguno, el puntaje es 3 y la justificación dice cuál '
+                . 'falta. El 4 es el nivel de excelencia: no es el valor por defecto. Aunque el total llegue a 36, entrega al menos 2 '
+                . 'recomendaciones concretas de mejora.',
+            '',
             'RÚBRICA (id. criterio):',
             implode("\n", $rubrica),
             '',
@@ -274,9 +288,10 @@ class diseno {
      * interpretacion los calcula el codigo, no el modelo.
      *
      * @param string|null $texto
+     * @param bool $exigeevidencia Un 4 sin evidencia citada cuenta como 3 (interruptor «iaapoyo»).
      * @return array|null criterios (id => [puntaje, justificacion]), total, banda, fortalezas, debilidades, recomendaciones.
      */
-    public static function parse_eval(?string $texto): ?array {
+    public static function parse_eval(?string $texto, bool $exigeevidencia = true): ?array {
         $json = exante::decode_json($texto);
         if (!$json || !isset($json['criterios']) || !is_array($json['criterios'])) {
             return null;
@@ -289,8 +304,9 @@ class diseno {
             if ($p < 1 || $p > 4 || (float) $c['puntaje'] !== (float) $p) {
                 return null;
             }
-            $criterios[$id] = ['puntaje' => $p,
-                'justificacion' => \core_text::substr(trim((string) ($c['justificacion'] ?? '')), 0, 800)];
+            $justificacion = \core_text::substr(trim((string) ($c['justificacion'] ?? '')), 0, 800);
+            $p = $exigeevidencia ? self::supported_score($p, $justificacion) : $p;
+            $criterios[$id] = ['puntaje' => $p, 'justificacion' => $justificacion];
             $total += $p;
         }
         $lista = static function($v) {
@@ -306,6 +322,17 @@ class diseno {
         return ['criterios' => $criterios, 'total' => $total, 'banda' => self::band($total),
             'fortalezas' => $lista($json['fortalezas'] ?? []), 'debilidades' => $lista($json['debilidades'] ?? []),
             'recomendaciones' => $lista($json['recomendaciones'] ?? [])];
+    }
+
+    /**
+     * Un puntaje 4 necesita la evidencia del diseno citada en la justificacion; sin ella baja a 3.
+     *
+     * @param int $puntaje
+     * @param string $justificacion
+     * @return int
+     */
+    public static function supported_score(int $puntaje, string $justificacion): int {
+        return $puntaje === 4 && \core_text::strlen(trim($justificacion)) < self::EVIDENCIA_MIN ? 3 : $puntaje;
     }
 
     /**
@@ -998,14 +1025,24 @@ class diseno {
         $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes)]];
         $modelo = ai\provider_factory::get_configured_model();
         $informe = null;
+        $primero = null;
         // Un segundo intento solo si la respuesta no se pudo leer: la rubrica va entera o no va.
         for ($intento = 0; $intento < 2 && $informe === null; $intento++) {
-            $resultado = ai\provider_factory::get()->generate_content($contenido, 240, 2, $modelo);
+            $resultado = exante::generate_steady($contenido, 240, $modelo);
             if (isset($resultado['error'])) {
+                if ($primero !== null) {
+                    break;
+                }
                 return [exante::ERROR, ['error' => 'servicio']];
             }
-            $informe = self::parse_eval(gemini_client::extract_text($resultado));
+            $informe = self::parse_eval(gemini_client::extract_text($resultado), ux::on('iaapoyo'));
+            // Con menos de 2 recomendaciones se pide una vez mas; si sigue igual, se conserva la lectura valida.
+            if ($informe !== null && count($informe['recomendaciones']) < self::RECOMENDACIONES_MIN && $intento === 0) {
+                $primero = $informe;
+                $informe = null;
+            }
         }
+        $informe = $informe ?? $primero;
         if ($informe === null) {
             return [exante::ERROR, ['error' => 'ilegible']];
         }
