@@ -127,11 +127,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
             // Control de entrada del Prompt Maestro: no se avanza y se pide lo que falta, en concreto.
             $tipo = \core\output\notification::NOTIFY_WARNING;
             $mensaje = get_string('exante_missing', 'local_chatbot', implode(' · ', $falta));
-        } else if (\local_chatbot\ux::on('avisosficha') && ($avisosform = exante::form_warnings($data))
-                && !optional_param('ignorar', 0, PARAM_BOOL)) {
-            // Avisos con reglas fijas, antes de gastar un intento de validacion: se guarda y se muestran.
-            $tipo = \core\output\notification::NOTIFY_WARNING;
-            $mensaje = get_string('exante_warn_stop', 'local_chatbot', implode(' · ', $avisosform));
         } else if (!\local_chatbot\ai\provider_factory::is_configured()) {
             $tipo = \core\output\notification::NOTIFY_ERROR;
             $mensaje = get_string('exante_error_sinclave', 'local_chatbot');
@@ -139,6 +134,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
             exante::start_validation(exante::get_ficha($USER->id, $courseid));
             $mensaje = '';
             $destino = new moodle_url($pageurl, [], 'informe');
+            // Avisos con reglas fijas: se muestran y la validacion sigue (pedido del 29-10-2026).
+            $avisosform = \local_chatbot\ux::on('avisosficha') ? exante::form_warnings($data) : [];
+            if ($avisosform) {
+                $tipo = \core\output\notification::NOTIFY_WARNING;
+                $mensaje = get_string('exante_warn_validating', 'local_chatbot', implode(' · ', $avisosform));
+            }
         }
     }
     if ($avisos) {
@@ -395,13 +396,7 @@ echo $OUTPUT->header();
                     data-espera="<?php echo s(get_string('exante_saving', 'local_chatbot')); ?>">
                 <i class="fa fa-save me-1"></i> <?php echo get_string('exante_save', 'local_chatbot'); ?>
             </button>
-            <?php if ($avisosform): ?>
-                <button type="submit" name="action" value="validar" class="btn btn-outline-secondary px-4 py-2"
-                        formaction="<?php echo s((new moodle_url($pageurl, ['ignorar' => 1]))->out(false)); ?>"
-                        data-espera="<?php echo s(get_string('exante_saving', 'local_chatbot')); ?>">
-                    <?php echo get_string('exante_validate_anyway', 'local_chatbot'); ?>
-                </button>
-            <?php endif; ?>
+
         </div>
     </form>
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## M1-v1.20.8 (2026-10-29)
+
+Cierre de los puntos 12 y 14 de la propuesta «la IA como apoyo» (decididos por el equipo):
+
+- **Punto 14 — documento final descargable siempre.** En la Fase 3 el documento final se descarga con cualquier
+  puntaje; lleva impresos el total y su interpretación (subtítulo y anexo de evaluación). Bajo 25 puntos la pantalla
+  sigue diciendo que el diseño aún no queda aprobado y cómo mejorarlo, y ofrece igual la descarga. Los 25 puntos quedan
+  como información (`diseno::can_download()`). Interruptor `descargafinal` (apagado: solo con 25 o más, como antes).
+- **Punto 12 — aviso y validación en el mismo clic.** «Guardar y validar» ya no se detiene con los avisos: valida y
+  muestra los avisos (3.3 con 8.2, tiempos, «Otro» sin especificar) mientras se valida. Se quita «Validar de todos modos».
+
 ## M1-v1.20.7 (2026-10-29)
 
 **Criterios de evaluación sin máximo** (ajuste del cliente sobre la ficha ex-ante)

@@ -246,6 +246,11 @@ foreach ([36 => 'alto', 32 => 'alto', 31 => 'menores', 25 => 'menores', 24 => 'i
     local_chatbot_verificar(diseno::band($puntaje)['clave'] === $clave, "{$puntaje} puntos es «{$clave}», como dice la rúbrica");
 }
 local_chatbot_verificar(diseno::band(25)['aprobado'] && !diseno::band(24)['aprobado'], 'se aprueba desde 25 puntos');
+// Punto 14 (29-10-2026): el documento final se descarga siempre que haya evaluacion; los 25 puntos quedan como informacion.
+local_chatbot_verificar(diseno::can_download(['banda' => diseno::band(12)], true) && diseno::can_download(['banda' => diseno::band(30)], true)
+    && !diseno::can_download(null, true), 'con el interruptor, el documento final se descarga con cualquier puntaje (no sin evaluación)');
+local_chatbot_verificar(!diseno::can_download(['banda' => diseno::band(24)], false) && diseno::can_download(['banda' => diseno::band(25)], false),
+    'con el interruptor apagado, solo desde 25 puntos, como antes');
 local_chatbot_verificar(diseno::band(31)['texto'] === 'Aprobado con ajustes menores', 'la interpretación va con el texto de la rúbrica');
 
 $respuesta = ['criterios' => [], 'total' => 99, 'fortalezas' => ['F1'], 'debilidades' => [], 'recomendaciones' => ['R1', '']];

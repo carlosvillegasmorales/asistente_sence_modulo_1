@@ -93,7 +93,7 @@ class diseno {
                 'incluye' => ['Puntaje por criterio', 'Puntaje total (máx 36)', 'Fortalezas', 'Debilidades',
                     'Recomendaciones'],
                 'nota' => 'El asistente aplica la rúbrica de validación técnica del diseño. Con 25 puntos o más el '
-                    . 'diseño queda aprobado y puedes descargar el documento final.'],
+                    . 'diseño queda aprobado. El documento final lleva impresos el puntaje y su interpretación.'],
         ];
     }
 
@@ -322,6 +322,22 @@ class diseno {
         return ['criterios' => $criterios, 'total' => $total, 'banda' => self::band($total),
             'fortalezas' => $lista($json['fortalezas'] ?? []), 'debilidades' => $lista($json['debilidades'] ?? []),
             'recomendaciones' => $lista($json['recomendaciones'] ?? [])];
+    }
+
+    /**
+     * Si se puede descargar el documento final. Con el interruptor «descargafinal» (punto 14, 29-10-2026), siempre que
+     * haya una evaluacion vigente: el documento lleva impresos el puntaje y la banda, y los 25 puntos quedan como
+     * informacion. Apagado, solo con el diseno aprobado (25 puntos o mas), como antes.
+     *
+     * @param array|null $evaluacion Evaluacion vigente (current_evaluation()).
+     * @param bool $siempre Interruptor «descargafinal».
+     * @return bool
+     */
+    public static function can_download(?array $evaluacion, bool $siempre): bool {
+        if ($evaluacion === null) {
+            return false;
+        }
+        return $siempre || !empty($evaluacion['banda']['aprobado']);
     }
 
     /**

@@ -77,6 +77,7 @@ $abierta = diseno::can_open($etapa, (bool) $fase1, $aceptadas);
 $fila = $filas[$etapa] ?? null;
 $evaluacion = diseno::current_evaluation($filas);
 $aprobado = $evaluacion && !empty($evaluacion['banda']['aprobado']);
+$descargable = diseno::can_download($evaluacion, \local_chatbot\ux::on('descargafinal'));
 
 // --- Descarga en Word ---
 if ($action === 'word' && $abierta && !$fase3 && $fila && $fila->contenido) {
@@ -90,8 +91,8 @@ if ($action === 'word' && $abierta && !$fase3 && $fila && $fila->contenido) {
     throw new moodle_exception('diseno_word_error', 'local_chatbot');
 }
 
-// --- Documento final: el diseno consolidado con su evaluacion, solo si quedo aprobado ---
-if ($action === 'final' && $fase1 && $aprobado) {
+// --- Documento final: el diseno consolidado con su evaluacion (puntaje y banda impresos) ---
+if ($action === 'final' && $fase1 && $descargable) {
     $ruta = make_request_directory() . '/final.docx';
     $nombre = diseno::experience_name(html_to_text((string) ($filas[2]->contenido ?? ''), 0, false));
     $titulo = $nombre !== '' ? $nombre : get_string('diseno_final_title', 'local_chatbot');

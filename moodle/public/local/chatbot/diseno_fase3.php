@@ -2,7 +2,7 @@
 /**
  * Modulo 2, Fase 3: vista de las etapas 7 (consolidacion) y 8 (evaluacion del diseno). La incluye diseno.php,
  * que ya hizo los controles de acceso y dejo listas sus variables ($etapa, $filas, $aceptadas, $fila,
- * $generando, $evaluacion, $aprobado, $pageurl, $courseid, $context).
+ * $generando, $evaluacion, $aprobado, $descargable, $pageurl, $courseid, $context).
  *
  * El diseno consolidado no es editable (pedido de Interfases): para ajustar algo se vuelve a la etapa de la
  * Fase 2 que corresponda, y entonces hay que confirmar de nuevo la consolidacion y volver a evaluarla.
@@ -114,6 +114,14 @@ foreach (diseno::etapas() as $n => $e) {
             <?php echo get_string('diseno_not_approved', 'local_chatbot'); ?>
             <div class="mt-1"><?php echo implode(' · ', $enlacesfase2); ?></div>
         </div>
+        <?php if ($descargable): ?>
+            <?php // La Fase 3 no bloquea: el documento sale con el puntaje y la banda impresos (punto 14). ?>
+            <div class="alert alert-light border">
+                <?php echo get_string('diseno_final_anyway', 'local_chatbot', s($evaluacion['banda']['texto'])); ?>
+                <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
+                    <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('diseno_final_download', 'local_chatbot'); ?></a></div>
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
 
 <?php else: ?>
