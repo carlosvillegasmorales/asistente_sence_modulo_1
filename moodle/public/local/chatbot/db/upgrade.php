@@ -716,5 +716,18 @@ function xmldb_local_chatbot_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026102601, 'local', 'chatbot');
     }
 
+    if ($oldversion < 2026103002) {
+
+        // Cada documento de la base de conocimiento alimenta a un rol: los que ya estan son del Tutor del Modulo 1 (m1);
+        // la libreria del Asistente de Diseño Instruccional (Modulo 2) se carga con ambito m2.
+        $table = new xmldb_table('local_chatbot_kb_documents');
+        $field = new xmldb_field('ambito', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'm1', 'statusmsg');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026103002, 'local', 'chatbot');
+    }
+
     return true;
 }

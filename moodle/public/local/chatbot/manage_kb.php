@@ -45,7 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['pdf_file']) && confi
             // paginas le toma minutos al proveedor, y el servidor web cortaba la
             // conexion mucho antes; esperar dentro del request nunca iba a andar.
             $filename = format_string($file['name']);
-            $docid = \local_chatbot\kb_store::queue_document($filename);
+            // A que rol alimenta: el Tutor del Modulo 1 o el Asistente de Diseño Instruccional del Modulo 2.
+            $ambito = \local_chatbot\kb_store::normalize_ambito(optional_param('ambito', \local_chatbot\kb_store::AMBITO_M1, PARAM_ALPHANUM));
+            $docid = \local_chatbot\kb_store::queue_document($filename, $ambito);
 
             $fs = get_file_storage();
             $fs->create_file_from_pathname([
@@ -182,6 +184,15 @@ echo $OUTPUT->header();
                             <!-- Bootstrap 5: el input nativo ya muestra el nombre del archivo elegido. -->
                             <input type="file" class="form-control mt-2" id="pdf_file" name="pdf_file" accept=".pdf" required>
                         </div>
+                        <div class="mb-3">
+                            <label for="ambito" class="form-label fw-bold"><?php echo get_string('managekb_scope', 'local_chatbot'); ?></label>
+                            <select class="form-select" id="ambito" name="ambito">
+                                <?php foreach (\local_chatbot\kb_store::ambitos() as $amb): ?>
+                                    <option value="<?php echo $amb; ?>"><?php echo get_string('managekb_scope_' . $amb, 'local_chatbot'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="form-text"><?php echo get_string('managekb_scope_help', 'local_chatbot'); ?></div>
+                        </div>
 
                         <div class="alert alert-warning mt-4 border-warning bg-light">
                             <div class="d-flex">
@@ -256,7 +267,9 @@ echo $OUTPUT->header();
                                             <?php else: ?>
                                                 <strong><?php echo s($doc->filename); ?></strong>
                                             <?php endif; ?>
-                                            <div class="text-muted small"><?php echo round($doc->sizebytes / 1024, 1); ?> KB</div>
+                                            <div class="text-muted small"><?php echo round($doc->sizebytes / 1024, 1); ?> KB
+                                                · <span class="badge text-bg-<?php echo \local_chatbot\kb_store::normalize_ambito($doc->ambito ?? null) === \local_chatbot\kb_store::AMBITO_M2 ? 'primary' : 'secondary'; ?>"><?php
+                                                echo get_string('managekb_scope_' . \local_chatbot\kb_store::normalize_ambito($doc->ambito ?? null), 'local_chatbot'); ?></span></div>
                                         </td>
                                         <td>
                                             <span class="text-muted small">

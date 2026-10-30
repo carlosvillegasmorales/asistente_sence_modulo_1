@@ -1,5 +1,76 @@
 # Changelog
 
+## M1-v1.20.12 (2026-10-30)
+
+**Prompt Maestro del Módulo 2, versión del cliente del 30-10** (amarillo: cambios; rojo: se elimina). Prompts
+`M2-F1-checklist-v4` y `M2-F2-etapas-v4`.
+
+- **Plan Formativo obligatorio y Perfil Ocupacional opcional** (`exante::documents_rule()`): la ficha y el Plan
+  Formativo son la fuente principal; sin Perfil se continúa normalmente y se señala cuándo una decisión se beneficiaría
+  de él. El asistente apoya a «personas facilitadoras».
+- **Regla crítica de operación:** «Este asistente NO trabaja sin ficha y Plan Formativo». La Fase 2 exige el Plan
+  Formativo adjunto (`exante::fase1_ok()`), y el mensaje textual («Para utilizar este asistente de diseño, primero debes
+  completar y validar la ficha de diagnóstico y haber proporcionado el Plan Formativo…») sale al validar con faltantes y
+  al entrar a la Fase 2 sin la Fase 1 cumplida.
+- **Bienvenida textual nueva** («Después de completar la ficha, debes cargar también el Plan de Formación…»).
+- **Regla de decisión nueva:** «No aprobado» solo si el aprendizaje esperado, los criterios de evaluación o la
+  competencia del módulo y el nivel de cualificación de la ficha no corresponden al Plan Formativo, o si hay
+  inconsistencias profundas entre las secciones 1-3 y 5-7 (`serious_reasons()`: aprendizaje, criterios, competencia,
+  coherencia; los tres primeros exigen el plan adjunto). Los informes anteriores conservan sus motivos.
+- **Gobernanza:** se elimina la regla de juicios de valor («adecuadamente»); se agrega «nunca utilizar conceptos
+  relativos a pedagógico o pedagogía», en la validación, las etapas y la evaluación.
+- **Etapas:** etapa 1 con «Nota de uso de documentos complementarios (Plan Formativo y Perfil Ocupacional)»; etapa 3 con
+  «Alcance de cada fase» en lugar de «Objetivos específicos»; etapa 4 con «Alcance» y «Uso didáctico».
+- **Sección 1 con los rótulos del Word del cliente:** «Plan formativo», «Módulo» y «Competencia del módulo» (en lugar de
+  «Nombre del Plan Formativo», «Nombre del Módulo» y «Competencia del Módulo»). Los datos guardados no cambian.
+- **Etapa 7 con el asistente:** «Consolidar con el asistente» reúne las seis etapas «en extenso» en un documento único,
+  sin repetir los campos comunes, en el orden Análisis, Diseño, Secuencia, Materiales, Evaluación, Instrumentos
+  (`diseno::build_consolidation_prompt()`, `consolidate_ai()`). Queda como borrador para revisarla y confirmarla; si la
+  respuesta llega cortada o con menos de la mitad del texto de las etapas (`consolidation_complete()`), no se usa y queda
+  el documento con las etapas tal cual, que también se puede confirmar. Hasta 15 minutos (`CONSOLIDACION_MAX`).
+  Probado con la IA real sobre un diseño real: 138 s, 86 % del texto, «Aprendizaje esperado» de 7 a 2 apariciones, 14
+  tablas. Interruptor `consolidacionia`.
+- **Etapa 8:** consistente con el diagnóstico validado: recibe los ítems de la ficha con observaciones de la validación
+  (`diseno::pending_observations()`) y la regla de que en los criterios de la rúbrica vinculados a ellos el puntaje
+  máximo debiera ser 3.
+
+## M1-v1.20.11 (2026-10-30)
+
+**Formulario de diagnóstico según el Word del cliente (cambios en amarillo) y regla de validación**
+
+- **Regla de validación** (`exante::missing_inputs()`): para validar hay que completar todas las secciones, salvo los
+  campos marcados como opcionales (las observaciones breves de las secciones 3 a 7), con al menos 3 criterios, «Otro»
+  especificado si se marcó, y el **Plan Formativo adjunto (obligatorio)**. El Perfil Ocupacional es opcional. El mensaje
+  dice qué falta, en el orden de la ficha.
+- **2.4** pasa a ser obligatoria («… para el aprendizaje esperado (obligatorio)»).
+- **Sección 3:** la nota del cliente al comienzo («si no existe Perfil Ocupacional, en el Catálogo Nacional ChileValora…»)
+  y la instrucción de sus observaciones breves («señale esto en las observaciones y justifique las respuestas…»).
+- **Observaciones finales (obligatorio)**, con el texto del cliente («Use este espacio para fundamentar brevemente las
+  decisiones…»).
+- «Nombre del Módulo» y «Competencia del Módulo» vuelven a ser obligatorias (en v1.20.9 se trataban como opcionales).
+- Textos de la ficha: Plan Formativo «(obligatorio)» y Perfil Ocupacional «(opcional)» en los adjuntos y en la
+  introducción. Se quita la nota de requisitos que iba bajo el título de la sección 2 (pedido del cliente); quedan las
+  ayudas del aprendizaje esperado y de los criterios. Las validaciones ya hechas no cambian: las etiquetas y lo obligatorio no alteran la huella.
+
+## M1-v1.20.10 (2026-10-30)
+
+**Rol «Asistente de Diseño Instruccional» en el Módulo 2, con librería propia y búsqueda web** (pedido del cliente):
+
+- El asistente del Módulo 2 se presenta como «Asistente de Diseño Instruccional» (`exante::ROL`), distinto del Tutor,
+  el Coach y el Evaluador del Módulo 1: en la validación de la ficha, las etapas del diseño, la evaluación y la
+  bienvenida de la ficha.
+- **Librería de conocimientos del rol:** la base de conocimiento tiene ahora un ámbito por documento (campo `ambito`:
+  `m1` Tutor, `m2` Asistente de Diseño Instruccional; los documentos existentes quedan en `m1`). En «Gestionar base de
+  conocimiento» se elige el ámbito al subir y cada documento muestra el suyo. La librería `m2` va en cada pedido del
+  Módulo 2 y no le llega al Tutor; la del Tutor tampoco le llega al Asistente de Diseño Instruccional.
+- **Regla de fuentes** (`exante::knowledge_rules()`): para todo lo relacionado con el enfoque de competencias, usar
+  preferentemente la librería del rol; para la especialidad técnica de la persona (oficio, procedimientos, equipos,
+  normativa del sector), buscar en la web, sin inventar datos técnicos.
+- **Búsqueda web** con Gemini (`google_search`) en la validación, las etapas y la evaluación. Las fuentes consultadas
+  quedan en el informe de validación y al final de cada etapa. Si la respuesta con búsqueda no se puede leer, el segundo
+  intento va sin búsqueda. `gemini_client::extract_text()` junta todas las partes de texto de la respuesta.
+- Interruptores `libreriam2` y `busquedaweb`.
+
 ## M1-v1.20.9 (2026-10-30)
 
 Revisión del Módulo 2 del 30-10 (puntos 1 a 3):

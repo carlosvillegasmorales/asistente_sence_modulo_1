@@ -211,7 +211,18 @@ class gemini_client {
      * @return string|null
      */
     public static function extract_text(array $result): ?string {
-        return $result['candidates'][0]['content']['parts'][0]['text'] ?? null;
+        // Con la busqueda web la respuesta puede venir en varias partes de texto: se juntan todas.
+        $partes = $result['candidates'][0]['content']['parts'] ?? null;
+        if (!is_array($partes)) {
+            return null;
+        }
+        $texto = null;
+        foreach ($partes as $parte) {
+            if (isset($parte['text']) && empty($parte['thought'])) {
+                $texto = ($texto ?? '') . $parte['text'];
+            }
+        }
+        return $texto;
     }
 
     /**

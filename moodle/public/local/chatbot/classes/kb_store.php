@@ -17,6 +17,62 @@ defined('MOODLE_INTERNAL') || die();
  */
 class kb_store {
 
+    /** @var string Ambito del Tutor del Modulo 1 (y de los documentos anteriores a los ambitos). */
+    const AMBITO_M1 = 'm1';
+
+    /** @var string Ambito del Asistente de Diseño Instruccional (Modulo 2): su libreria de conocimientos. */
+    const AMBITO_M2 = 'm2';
+
+    /**
+     * Ambitos validos, en el orden del panel.
+     *
+     * @return string[]
+     */
+    public static function ambitos(): array {
+        return [self::AMBITO_M1, self::AMBITO_M2];
+    }
+
+    /** @var bool|null Si la tabla ya tiene el campo «ambito» (se averigua una vez por pedido). */
+    private static $conambito = null;
+
+    /**
+     * Si la base ya tiene el campo «ambito». Antes de la migracion (los verificadores corren antes de upgrade.php) no
+     * lo tiene: entonces todo es del Modulo 1 y la libreria del Modulo 2 esta vacia.
+     *
+     * @return bool
+     */
+    private static function has_ambito(): bool {
+        global $DB;
+        if (self::$conambito === null) {
+            self::$conambito = $DB->get_manager()->field_exists('local_chatbot_kb_documents', 'ambito');
+        }
+        return self::$conambito;
+    }
+
+    /**
+     * Condicion de ambito para una consulta: [sql, params]. Sin el campo, el Modulo 1 es todo y el 2 nada.
+     *
+     * @param string $ambito
+     * @return array
+     */
+    private static function ambito_where(string $ambito): array {
+        $ambito = self::normalize_ambito($ambito);
+        if (!self::has_ambito()) {
+            return $ambito === self::AMBITO_M1 ? ['1 = 1', []] : ['1 = 0', []];
+        }
+        return ['ambito = ?', [$ambito]];
+    }
+
+    /**
+     * Ambito valido; cualquier otro valor cae en el del Modulo 1. Funcion pura.
+     *
+     * @param mixed $ambito
+     * @return string
+     */
+    public static function normalize_ambito($ambito): string {
+        return in_array($ambito, self::ambitos(), true) ? $ambito : self::AMBITO_M1;
+    }
+
     /** @var int En cola: el PDF esta guardado pero todavia no se le extrajo el texto. */
     const STATUS_PENDING = 0;
     /** @var int Listo: el texto esta extraido y el documento puede alimentar al asistente. */
@@ -33,7 +89,7 @@ class kb_store {
         global $DB;
         self::migrate_legacy_file();
         return $DB->get_records('local_chatbot_kb_documents', ['active' => 1], 'timecreated DESC',
-            'id, filename, sizebytes, version, timecreated');
+            'id, filename, sizebytes, version, timecreated' . (self::has_ambito() ? ', ambito' : ''));
     }
 
     /**
@@ -59,13 +115,17 @@ class kb_store {
      * extraccion fallida nunca deja al recurso sin ninguna version vigente.
      *
      * @param string $filename Nombre original del PDF.
+     * @param string $ambito Rol al que alimenta (AMBITO_M1 o AMBITO_M2).
      * @return int id de la fila creada.
      */
-    public static function queue_document(string $filename): int {
+    public static function queue_document(string $filename, string $ambito = self::AMBITO_M1): int {
         global $DB;
 
         $record = new \stdClass();
         $record->filename = $filename;
+        if (self::has_ambito()) {
+            $record->ambito = self::normalize_ambito($ambito);
+        }
         $record->content = '';
         $record->sizebytes = 0;
         $record->version = 0;
@@ -172,8 +232,9 @@ class kb_store {
 
         $row = $DB->get_record('local_chatbot_kb_documents', ['id' => $id], '*', MUST_EXIST);
 
-        $previous = $DB->get_record('local_chatbot_kb_documents',
-            ['filename' => $row->filename, 'active' => 1]);
+        // La version anterior es la del mismo nombre en el mismo ambito: un documento del Modulo 2 no retira uno del 1.
+        $previous = $DB->get_record('local_chatbot_kb_documents', ['filename' => $row->filename, 'active' => 1]
+            + (self::has_ambito() ? ['ambito' => self::normalize_ambito($row->ambito ?? null)] : []));
 
         $row->content = $content;
         $row->sizebytes = strlen($content);
@@ -219,9 +280,10 @@ class kb_store {
      *
      * @param string $filename Original PDF filename, for display purposes.
      * @param string $content Extracted plain text.
+     * @param string $ambito Rol al que alimenta (AMBITO_M1 o AMBITO_M2).
      * @return int id of the new record.
      */
-    public static function add_document(string $filename, string $content): int {
+    public static function add_document(string $filename, string $content, string $ambito = self::AMBITO_M1): int {
         global $DB;
 
         // RU-KB-001: el Tutor recibe la base completa en su contexto, y ninguna instruccion
@@ -233,10 +295,11 @@ class kb_store {
                 implode(', ', $markers) . '). Sube una version saneada, sin claves ni alternativas correctas.');
         }
 
-        $previous = $DB->get_record('local_chatbot_kb_documents',
-            ['filename' => $filename, 'active' => 1]);
+        $ambito = self::normalize_ambito($ambito);
+        $conambito = self::has_ambito() ? ['ambito' => $ambito] : [];
+        $previous = $DB->get_record('local_chatbot_kb_documents', ['filename' => $filename, 'active' => 1] + $conambito);
 
-        $record = new \stdClass();
+        $record = (object) $conambito;
         $record->filename = $filename;
         $record->content = $content;
         $record->sizebytes = strlen($content);
@@ -329,23 +392,33 @@ class kb_store {
      * No es la version de un documento sino la del conjunto: con ella se puede
      * saber si dos respuestas se construyeron sobre el mismo material.
      *
+     * @param string $ambito Rol cuya base se pasa (por defecto, la del Tutor del Modulo 1).
      * @return string Por ejemplo '4docs-v1.1.1.2', o cadena vacia si no hay documentos.
      */
-    public static function context_version(): string {
+    public static function context_version(string $ambito = self::AMBITO_M1): string {
         global $DB;
+        [$where, $params] = self::ambito_where($ambito);
         $versiones = $DB->get_fieldset_select('local_chatbot_kb_documents', 'version',
-            'active = 1', null, 'timecreated ASC');
+            'active = 1 AND ' . $where, $params, 'timecreated ASC');
         if (empty($versiones)) {
             return '';
         }
         return count($versiones) . 'docs-v' . implode('.', array_map('intval', $versiones));
     }
 
-    public static function get_combined_context(): string {
+    /**
+     * Texto de los documentos vigentes de un ambito, cada uno con su encabezado.
+     *
+     * @param string $ambito Rol cuya base se pasa (por defecto, la del Tutor del Modulo 1: la libreria del Modulo 2 no
+     *        le llega al Tutor, ni la del Tutor al Asistente de Diseño Instruccional).
+     * @return string '' si no hay documentos.
+     */
+    public static function get_combined_context(string $ambito = self::AMBITO_M1): string {
         global $DB;
         self::migrate_legacy_file();
-        $docs = $DB->get_records('local_chatbot_kb_documents', ['active' => 1], 'timecreated ASC',
-            'id, filename, content, version, timecreated');
+        [$where, $params] = self::ambito_where($ambito);
+        $docs = $DB->get_records_select('local_chatbot_kb_documents', 'active = 1 AND ' . $where, $params,
+            'timecreated ASC', 'id, filename, content, version, timecreated');
         if (empty($docs)) {
             return '';
         }

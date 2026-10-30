@@ -315,6 +315,7 @@
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="status" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="0 en cola de extraccion, 1 listo, 2 fallido. Un documento en cola no esta activo, asi que no alimenta al asistente"/>
         <FIELD NAME="statusmsg" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Motivo por el que la extraccion no prospero, para explicarlo en el panel"/>
+        <FIELD NAME="ambito" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="m1" SEQUENCE="false" COMMENT="A que rol alimenta: m1 Tutor del Modulo 1, m2 Asistente de Diseño Instruccional (Modulo 2)"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

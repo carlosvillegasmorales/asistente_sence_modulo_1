@@ -60,18 +60,18 @@ local_chatbot_verificar(!array_filter(array_keys($claves), static function($c) {
     return strpos($c, 'val') === 0;
 }), 'la ficha ya no guarda la tabla de validación (sección 9)');
 
-// --- Las observaciones son opcionales (Ivan, 26-10-2026) ---
+// --- Opcionales: solo las observaciones breves de las secciones 3 a 7 (formulario del cliente del 30-10-2026) ---
 $opcionales = exante::optional_fields();
-local_chatbot_verificar(array_keys($opcionales) === ['modulo', 'competencia', 'obs_evaluacion', 'obs3', 'obs4', 'obs5', 'obs6',
-    'obs7', 'obs_finales'], 'son opcionales todas las observaciones, el Nombre del Módulo y la Competencia del Módulo, y nada más');
-local_chatbot_verificar($opcionales['modulo'] === 'Sección 1: Nombre del Módulo'
-    && strpos(exante::to_text(exante::clean(['plan' => 'P'])), '- Nombre del Módulo: (opcional, sin información)') !== false
-    && strpos(exante::to_text(exante::clean(['plan' => 'P'])), '- Competencia del Módulo: (opcional, sin información)') !== false,
-    'módulo y competencia vacíos llegan al modelo como opcionales, no como faltantes (revisión del 30-10)');
-local_chatbot_verificar($opcionales['obs_evaluacion'] === '2.4 Observaciones sobre la evaluación del aprendizaje esperado'
-    && $opcionales['obs3'] === 'Sección 3: Observaciones breves'
-    && $opcionales['obs_finales'] === 'Sección 8: Observaciones finales (una línea por criterio relevante)',
-    'cada observación opcional se nombra por su número o su sección');
+local_chatbot_verificar(array_keys($opcionales) === ['obs3', 'obs4', 'obs5', 'obs6', 'obs7'],
+    'son opcionales solo las observaciones breves de las secciones 3 a 7; 2.4 y las observaciones finales son obligatorias');
+local_chatbot_verificar($opcionales['obs3'] === 'Sección 3: Observaciones breves' && $opcionales['obs7'] === 'Sección 7: Observaciones breves',
+    'cada observación opcional se nombra por su sección');
+local_chatbot_verificar(strpos(exante::field('obs_evaluacion')['ayuda'], '(obligatorio)') !== false
+    && exante::field('obs_finales')['label'] === 'Observaciones finales (obligatorio):'
+    && strpos(exante::field('obs_finales')['ayuda'], 'justificar la selección de modalidad y estrategia') !== false
+    && strpos(exante::field('vinculo')['antes'], 'si no existe Perfil Ocupacional, en el Catálogo Nacional ChileValora') !== false
+    && strpos(exante::field('obs3')['ayuda'], 'justifique las respuestas que marcó') !== false,
+    'textos del formulario del cliente: 2.4 y observaciones finales obligatorias, nota de la sección 3 y su instrucción');
 
 // --- El checklist es el del documento del cliente ---
 $checklist = exante::checklist();
@@ -109,12 +109,12 @@ local_chatbot_verificar(array_keys(exante::clean([])) === array_values(array_fil
     return (!preg_match('/^criterio(\d+)$/', $c, $m) || (int) $m[1] <= exante::CRITERIOS_FIJOS)
         && empty(exante::field($c)['reciente']);
 })), 'la ficha vacía tiene todas las claves (las preguntas recientes y los criterios del 6 en adelante, solo si traen texto)');
-// Seccion 1: «Nombre del Plan Formativo», «Nombre del Módulo» y «Competencia del Módulo» (29-10-2026).
+// Seccion 1: «Plan formativo», «Módulo» y «Competencia del módulo», con los rotulos del Word del cliente (30-10-2026).
 $ids1 = array_column($secciones[1]['campos'], 'id');
 local_chatbot_verificar(array_slice($ids1, 1, 3) === ['plan', 'modulo', 'competencia']
-    && exante::field('plan')['label'] === 'Nombre del Plan Formativo' && exante::field('modulo')['label'] === 'Nombre del Módulo'
-    && exante::field('competencia')['label'] === 'Competencia del Módulo',
-    'sección 1: Nombre del Plan Formativo, y a continuación Nombre del Módulo y Competencia del Módulo');
+    && exante::field('plan')['label'] === 'Plan formativo' && exante::field('modulo')['label'] === 'Módulo'
+    && exante::field('competencia')['label'] === 'Competencia del módulo',
+    'sección 1: Plan formativo, y a continuación Módulo y Competencia del módulo (rótulos del Word)');
 $conmodulo = exante::clean(['modulo' => 'Comunicación efectiva', 'competencia' => 'Comunicar información en contextos laborales.']);
 local_chatbot_verificar($conmodulo['modulo'] === 'Comunicación efectiva' && $conmodulo['competencia'] !== ''
     && !isset(exante::clean([])['modulo']) && !isset(exante::clean([])['competencia']),
@@ -123,6 +123,8 @@ local_chatbot_verificar($conmodulo['modulo'] === 'Comunicación efectiva' && $co
 // --- Ejemplo de llenado del cliente (competencia «Comunicación efectiva en contextos laborales») ---
 $ejemplo = exante::clean([
     'organismo' => 'OTEC Formación Integral Ltda.', 'plan' => 'Módulo "Comunicación para el trabajo"',
+    'modulo' => 'Comunicación efectiva', 'competencia' => 'Comunicar información en contextos laborales.',
+    'obs_finales' => 'La simulación permite trabajar con la conectividad intermitente.',
     'nivel' => 'Nivel 3', 'facilitador' => 'María González', 'fechas' => '19 de marzo de 2026', 'participantes' => '24',
     'aprendizaje' => 'Comunicar información de manera clara, respetuosa y pertinente en contextos laborales, adaptando '
         . 'el lenguaje al interlocutor y al propósito comunicativo.',
@@ -146,12 +148,26 @@ $sinobs = $ejemplo;
 foreach (array_keys($opcionales) as $id) {
     $sinobs[$id] = '';
 }
-local_chatbot_verificar(exante::missing_inputs($sinobs) === [], 'sin ninguna observación la ficha igual se valida');
+local_chatbot_verificar(exante::missing_inputs($sinobs) === [], 'sin las observaciones opcionales la ficha igual se valida');
+local_chatbot_verificar(exante::missing_inputs($ejemplo, ['exante_plan']) === []
+    && exante::missing_inputs($ejemplo, ['exante_plan', 'exante_perfil']) === [],
+    'con el Plan Formativo adjunto se valida; el Perfil Ocupacional es opcional');
+local_chatbot_verificar(exante::missing_inputs($ejemplo, []) === ['Plan Formativo (archivo adjunto obligatorio)']
+    && exante::missing_inputs($ejemplo, ['exante_perfil']) === ['Plan Formativo (archivo adjunto obligatorio)'],
+    'sin el Plan Formativo adjunto no se valida (regla del 30-10-2026)');
+$incompleta = $ejemplo;
+$incompleta['modulo'] = $incompleta['obs_evaluacion'] = $incompleta['obs_finales'] = '';
+$incompleta['espacio'] = '';
+$incompleta['riesgo'] = 'otro';
+local_chatbot_verificar(exante::missing_inputs($incompleta) === ['Sección 1: Módulo',
+    '2.4 Observaciones sobre la evaluación del aprendizaje esperado', '6.1 Espacio físico',
+    '8.3 Riesgo principal detectado (especificar «Otro»)', 'Sección 8: Observaciones finales'],
+    'se pide todo lo que no es opcional, en orden, con su número o su sección, y «Otro» sin especificar');
 local_chatbot_verificar(exante::criteria_count($ejemplo) === 4, 'el ejemplo registra 4 criterios');
 
 // --- Control de entrada del Prompt Maestro ---
 $falta = exante::missing_inputs(exante::clean([]));
-local_chatbot_verificar(count($falta) === 10, 'la ficha vacía pide aprendizaje, criterios, sección 4 y sección 5');
+local_chatbot_verificar(count($falta) === 38, 'la ficha vacía pide los 38 campos obligatorios (sin las observaciones opcionales)');
 local_chatbot_verificar(in_array('2.1 Aprendizaje esperado', $falta, true), 'se pide el aprendizaje esperado por su nombre');
 local_chatbot_verificar(in_array('5.2 Estrategia didáctica más pertinente', $falta, true),
     'se pide la estrategia didáctica con el texto de la ficha');
@@ -208,8 +224,8 @@ local_chatbot_verificar(strpos(exante::to_text($pocos), '- Criterio de evaluaci�
 local_chatbot_verificar(strpos($texto, '- 2.4. Observaciones sobre la evaluación del aprendizaje esperado: Los criterios son '
     . 'claros y observables.') !== false, 'una observación con información viaja al modelo');
 local_chatbot_verificar(strpos($texto, '- Observaciones breves (opcional): (opcional, sin información)') !== false
-    && strpos($texto, '- Observaciones finales (una línea por criterio relevante): (opcional, sin información)') !== false,
-    'una observación vacía viaja como opcional, no como «sin respuesta»');
+    && strpos($texto, '- Observaciones finales (obligatorio): La simulación permite') !== false,
+    'una observación opcional vacía viaja como opcional; las observaciones finales viajan con su texto');
 local_chatbot_verificar(strpos($texto, 'Revisión del diagnóstico') === false && strpos($texto, 'Validación con equipo') === false
     && strpos($texto, "\n9. ") === false, 'la sección 9 ya no viaja al modelo');
 $conotro = $ejemplo;
@@ -249,18 +265,27 @@ foreach ($checklist as $seccion) {
     }
 }
 local_chatbot_verificar(strpos($prompt, guardrails::injection_clause()) !== false, 'el prompt trae la cláusula contra inyección');
-local_chatbot_verificar(strpos($prompt, 'no adjuntó el Plan Formativo ni el Perfil Ocupacional') !== false,
-    'sin adjuntos, el prompt lo dice');
+local_chatbot_verificar(strpos($prompt, 'No se adjuntó el Plan Formativo, que es documento de referencia obligatorio') !== false,
+    'sin el Plan Formativo, el prompt lo dice');
 $prompt1 = exante::build_prompt(['Plan Formativo']);
-local_chatbot_verificar(strpos($prompt1, 'adjuntó: Plan Formativo') !== false
-    && strpos($prompt1, 'No adjuntó: Perfil Ocupacional') !== false, 'con un adjunto, dice cuál falta');
-local_chatbot_verificar(strpos($prompt, 'al menos 3 y sin un número máximo') !== false && strpos($prompt, 'ni más de 5') === false,
+local_chatbot_verificar(strpos($prompt1, 'Se adjunta el Plan Formativo, documento de referencia obligatorio') !== false
+    && strpos($prompt1, 'No se adjuntó el Perfil Ocupacional, que es opcional: continúa normalmente') !== false
+    && strpos($prompt1, 'señala cuando alguna decisión podría beneficiarse de ese documento') !== false,
+    'Prompt Maestro del Módulo 2: Plan Formativo obligatorio, Perfil Ocupacional opcional');
+local_chatbot_verificar(strpos(exante::build_prompt(['Plan Formativo', 'Perfil Ocupacional']),
+    'priorizando siempre la información de la ficha de diagnóstico y del Plan Formativo') !== false,
+    'con el Perfil Ocupacional, se prioriza la ficha y el Plan Formativo');
+local_chatbot_verificar(strpos($prompt, 'No se utilizan menos de 3 criterios de evaluación') !== false && strpos($prompt, 'ni más de 5') === false,
     'regla de criterios: al menos 3, sin máximo');
-local_chatbot_verificar(strpos($prompt, '"adecuadamente"') !== false, 'regla de juicios de valor');
+local_chatbot_verificar(strpos($prompt, '"adecuadamente"') === false && strpos($prompt, 'juicios de valor') === false,
+    'se elimina la regla de juicios de valor (en rojo en el Prompt Maestro del 30-10)');
+local_chatbot_verificar(strpos($prompt, 'Nunca utilices conceptos relativos a «pedagógico» o «pedagogía»') !== false
+    && strpos($prompt, 'La ficha de diagnóstico y el Plan Formativo son la fuente principal') !== false
+    && strpos($prompt, 'Apoyas a personas facilitadoras') !== false,
+    'reglas nuevas: sin «pedagogía», ficha y Plan Formativo como fuente principal, personas facilitadoras');
 local_chatbot_verificar(strpos($prompt, 'lenguaje inclusivo') !== false, 'regla de lenguaje inclusivo');
-local_chatbot_verificar(strpos($prompt, 'Sección 1: Nombre del Módulo; Sección 1: Competencia del Módulo; 2.4 Observaciones '
-    . 'sobre la evaluación del aprendizaje esperado; Sección 3: Observaciones breves;') !== false
-    && strpos($prompt, 'el ítem c1_1 (datos administrativos) no deja de cumplirse porque falten el Nombre del Módulo') !== false
+local_chatbot_verificar(strpos($prompt, 'Las observaciones breves de las secciones 3 a 7 son opcionales (Sección 3: Observaciones '
+    . 'breves; Sección 4: Observaciones breves;') !== false && strpos($prompt, 'c1_1 (datos administrativos)') === false
     && strpos($prompt, 'no lo menciones en observaciones, debilidades ni sugerencias') !== false,
     'el prompt dice qué observaciones son opcionales y que vacías no se reportan');
 local_chatbot_verificar(strpos($prompt, 'no incluye la tabla de validación del documento') !== false
@@ -331,24 +356,26 @@ foreach (exante::CRITICOS as $id) {
         "incumplir {$id} sin motivo grave no deja «No aprobado», ni aunque el modelo lo pida");
 }
 $ficha4 = "- 2.1. Aprendizaje esperado: Conocer la historia de la computación\n- Criterio de evaluación 1: Lista fechas";
-$tema = ['codigo' => 'tema', 'cita' => 'Conocer la historia de la computación', 'corregir' => 'Redáctalo como desempeño'];
-$val = exante::valid_reason($tema, $ficha4, exante::NO_APROBADO);
-local_chatbot_verificar($val !== null && $val['codigo'] === 'tema'
+$tema = ['codigo' => 'aprendizaje', 'cita' => 'Conocer la historia de la computación', 'corregir' => 'Transcríbelo del Plan Formativo'];
+$val = exante::valid_reason($tema, $ficha4, exante::NO_APROBADO, true);
+local_chatbot_verificar($val !== null && $val['codigo'] === 'aprendizaje'
     && exante::decide($con(['c2_1' => exante::NO_CUMPLE]), exante::NO_APROBADO, $val) === exante::NO_APROBADO,
     'un motivo grave con su cita deja «No aprobado»');
 local_chatbot_verificar(exante::decide($todo, exante::APROBADO, $val) === exante::NO_APROBADO, 'el motivo grave manda sobre el modelo');
-local_chatbot_verificar(exante::valid_reason(['codigo' => 'tema', 'cita' => '', 'corregir' => 'x'], $ficha4, exante::NO_APROBADO) === null,
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'aprendizaje', 'cita' => '', 'corregir' => 'x'], $ficha4, exante::NO_APROBADO, true) === null,
     'sin cita no hay motivo grave');
-local_chatbot_verificar(exante::valid_reason(['codigo' => 'tema', 'cita' => 'Texto que no está en la ficha', 'corregir' => ''], $ficha4, exante::NO_APROBADO) === null,
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'aprendizaje', 'cita' => 'Texto que no está en la ficha', 'corregir' => ''], $ficha4, exante::NO_APROBADO, true) === null,
     'una cita que no está en la ficha no sostiene el motivo');
-local_chatbot_verificar(exante::valid_reason(['codigo' => 'otro', 'cita' => 'Conocer la historia de la computación'], $ficha4, exante::NO_APROBADO) === null,
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'tema', 'cita' => 'Conocer la historia de la computación'], $ficha4, exante::NO_APROBADO, true) === null,
     'un código fuera de los cuatro motivos no cuenta');
-local_chatbot_verificar(exante::valid_reason(['codigo' => 'tema', 'cita' => 'conocer la HISTORIA de la computacion'], $ficha4, exante::NO_APROBADO) !== null,
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'aprendizaje', 'cita' => 'conocer la HISTORIA de la computacion'], $ficha4, exante::NO_APROBADO, true) !== null,
     'la cita se compara sin tildes, mayúsculas ni signos');
-local_chatbot_verificar(exante::valid_reason(['codigo' => 'plan', 'cita' => 'El plan adjunto habla de cuidados de pacientes'], $ficha4, exante::NO_APROBADO, true) !== null,
-    'con el motivo «plan» la cita puede venir del Plan Formativo adjunto');
-local_chatbot_verificar(exante::valid_reason(['codigo' => 'plan', 'cita' => 'El plan adjunto habla de cuidados de pacientes'], $ficha4, exante::NO_APROBADO) === null,
-    'sin el Plan Formativo adjunto, el motivo «plan» no detiene la ficha (revisión del 30-10)');
+local_chatbot_verificar(exante::valid_reason($tema, $ficha4, exante::NO_APROBADO) === null
+    && exante::valid_reason(['codigo' => 'criterios', 'cita' => 'Criterio de evaluación 1: Lista fechas'], $ficha4, exante::NO_APROBADO) === null
+    && exante::valid_reason(['codigo' => 'competencia', 'cita' => 'Conocer la historia de la computación'], $ficha4, exante::NO_APROBADO) === null,
+    'sin el Plan Formativo adjunto no se sostienen los motivos que comparan con él');
+local_chatbot_verificar(exante::valid_reason(['codigo' => 'coherencia', 'cita' => 'Conocer la historia de la computación'], $ficha4, exante::NO_APROBADO) !== null,
+    'el motivo «coherencia» se sostiene con una cita de la ficha, con o sin plan');
 // Bienvenida del Prompt Maestro, textual (revision del 30-10).
 $bienvenida = exante::welcome();
 local_chatbot_verificar(count($bienvenida) === 3
@@ -365,18 +392,21 @@ local_chatbot_verificar(exante::decide($con(['c2_1' => exante::NO_CUMPLE]), exan
     && exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO, null, true) === exante::OBSERVACIONES
     && exante::decide($todo, exante::APROBADO, null, true) === exante::APROBADO,
     'con el interruptor apagado vuelve la regla anterior (críticos y «No aprobado» del modelo detienen; parcial deja observaciones)');
-local_chatbot_verificar(array_keys(exante::serious_reasons()) === ['tema', 'criterios', 'plan', 'contradiccion'],
-    'los motivos graves son cuatro, fijos');
+local_chatbot_verificar(array_keys(exante::serious_reasons()) === ['aprendizaje', 'criterios', 'competencia', 'coherencia']
+    && exante::plan_reasons() === ['aprendizaje', 'criterios', 'competencia'],
+    'los motivos graves son los cuatro de la regla de decisión del Prompt Maestro del 30-10');
 local_chatbot_verificar(exante::TEMPERATURA <= 0.2, 'la validación usa temperatura baja');
 $pm = exante::build_prompt([]);
 local_chatbot_verificar(strpos($pm, 'MOTIVOS GRAVES') !== false && strpos($pm, '"motivo_grave"') !== false
-    && strpos($pm, 'no es un aprendizaje') !== false && strpos($pm, 'no tienen relación con él') !== false
+    && strpos($pm, 'no hay correspondencia entre el definido en la ficha y el declarado en el Plan Formativo') !== false
+    && strpos($pm, 'secciones 1, 2 y 3 y los recursos, estrategias y decisiones de diseño') !== false
+    && strpos($pm, '"aprendizaje|criterios|competencia|coherencia"') !== false
     && strpos($pm, 'ningún ítem "no_cumple" (puede haber ítems "parcial")') !== false,
     'el prompt cierra la regla de «No aprobado» en los cuatro motivos y acepta parciales en «aprobado»');
 local_chatbot_verificar(strpos($pm, 'no reportes como faltantes') !== false && strpos($pm, '3.3 "Parcialmente alineado" no baja el ítem c3_4') !== false
     && strpos($pm, 'no los bajes por algo que ya señalaste') !== false && strpos($pm, '"propuesta"') !== false
-    && strpos($pm, 'no adjuntarlos no baja la evaluación') !== false && strpos($pm, 'texto oficial') !== false,
-    'el prompt cubre criterios vacíos, sinceridad, sección 9 sin doble castigo, propuestas, adjuntos y texto oficial');
+    && strpos($pm, 'sin bajar por eso ningún ítem') !== false,
+    'el prompt cubre criterios vacíos, sinceridad, sección 9 sin doble castigo, propuestas y el Perfil Ocupacional opcional');
 $informe = exante::parse_report(json_encode(['items' => array_map(static function($id) {
     return ['estado' => 'parcial', 'observacion' => 'o', 'propuesta' => 'En 8.2 marca Sí y anota: conectividad irregular'];
 }, array_combine(exante::checklist_ids(), exante::checklist_ids())), 'condicion' => 'aprobado',
@@ -556,6 +586,22 @@ local_chatbot_verificar(strpos($enlazado, 'href="http://x/mod/resource/view.php?
     && strpos($enlazado, 'checklist_exante.php') === false && strpos($enlazado, 'style="y"') !== false,
     'el botón del checklist cambia de un enlace anterior (el checklist en Moodle) al recurso del checklist');
 
+// --- Rol del Modulo 2 y fuentes de conocimiento (pedido del cliente del 30-10-2026) ---
+local_chatbot_verificar(exante::ROL === 'Asistente de Diseño Instruccional', 'el rol del Módulo 2 es «Asistente de Diseño Instruccional»');
+$reglas = implode("\n", exante::knowledge_rules(true, true));
+local_chatbot_verificar(strpos($reglas, 'usa preferentemente la LIBRERÍA DE CONOCIMIENTOS DEL ASISTENTE DE DISEÑO INSTRUCCIONAL') !== false
+    && strpos($reglas, 'enfoque de competencias') !== false && strpos($reglas, 'busca información actualizada en la web') !== false
+    && strpos($reglas, 'especialidad técnica') !== false && strpos($reglas, 'No inventes datos técnicos') !== false,
+    'regla: la librería para el enfoque de competencias y la web para la especialidad técnica');
+$sinnada = implode("\n", exante::knowledge_rules(false, false));
+local_chatbot_verificar(strpos($sinnada, 'no viene cargada') !== false && strpos($sinnada, 'busca información') === false
+    && strpos($sinnada, 'debe verificar') !== false, 'sin librería ni búsqueda, la regla lo dice y pide verificar lo técnico');
+local_chatbot_verificar(exante::library_parts('') === [] && exante::library_parts('  ') === []
+    && strpos(exante::library_parts('Texto de la guía')[0]['text'], 'LIBRERÍA DE CONOCIMIENTOS DEL ASISTENTE DE DISEÑO INSTRUCCIONAL') === 0,
+    'la librería va como parte del pedido solo si hay documentos');
+$pv = exante::build_prompt([], true, true);
+local_chatbot_verificar(strpos($pv, 'Eres el Asistente de Diseño Instruccional') === 0 && strpos($pv, 'FUENTES DE CONOCIMIENTO:') !== false
+    && strpos(exante::build_prompt([]), 'no viene cargada') !== false, 'la validación habla como el Asistente de Diseño Instruccional, con la regla de fuentes');
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Ficha ex-ante del Módulo 2 conforme: ficha y checklist textuales, control de entrada y regla de decisión.\n";

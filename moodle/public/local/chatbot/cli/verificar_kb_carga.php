@@ -171,6 +171,11 @@ foreach ($casos as $caso) {
 }
 $total += 1 + (count($traducciones) * 2) + 1 + 1;
 
+// --- Ambitos de la base de conocimiento (30-10-2026): Tutor del Modulo 1 y Asistente de Diseño Instruccional ---
+local_chatbot_verificar(kb_store::ambitos() === ['m1', 'm2'], 'hay dos ámbitos: m1 (Tutor) y m2 (Asistente de Diseño Instruccional)');
+local_chatbot_verificar(kb_store::normalize_ambito('m2') === 'm2' && kb_store::normalize_ambito('m1') === 'm1'
+    && kb_store::normalize_ambito('otro') === 'm1' && kb_store::normalize_ambito(null) === 'm1',
+    'un ámbito desconocido o vacío cae en el del Módulo 1 (los documentos anteriores siguen con el Tutor)');
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 
 if ($fallidos === 0) {

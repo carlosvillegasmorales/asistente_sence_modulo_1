@@ -50,7 +50,8 @@ if ($action === 'ejecutar' || $action === 'estado') {
         require_sesskey();
         \core\session\manager::write_close();
         ignore_user_abort(true);
-        core_php_time_limit::raise(360);
+        // La consolidacion con el asistente (etapa 7) es un documento largo: puede tardar mas que una etapa.
+        core_php_time_limit::raise(diseno::CONSOLIDACION_MAX);
         $estado = diseno::run($id, $USER->id);
     } else {
         diseno::get_all($USER->id, $courseid);
@@ -109,16 +110,27 @@ if ($action === 'final' && $fase1 && $descargable) {
 }
 
 // --- Fase 3: confirmar la consolidacion y pedir la evaluacion ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $fase3 && in_array($action, ['confirmar', 'evaluar'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $fase3 && in_array($action, ['confirmar', 'evaluar', 'consolidar'], true)) {
     require_sesskey();
     $destino = new moodle_url($pageurl, [], 'producto');
+    if ($action === 'consolidar' && $etapa === diseno::CONSOLIDACION && \local_chatbot\ux::on('consolidacionia')) {
+        if (!\local_chatbot\ai\provider_factory::is_configured()) {
+            redirect($destino, get_string('exante_error_sinclave', 'local_chatbot'), null,
+                \core\output\notification::NOTIFY_ERROR);
+        }
+        diseno::request($USER->id, $courseid, diseno::CONSOLIDACION, (int) $fase1->id);
+        redirect($destino);
+    }
     if ($action === 'confirmar' && $etapa === diseno::CONSOLIDACION) {
         $contenidos = [];
         foreach (array_keys(diseno::etapas()) as $n) {
             $contenidos[$n] = (string) $filas[$n]->contenido;
         }
-        diseno::confirm_consolidation($USER->id, $courseid, diseno::consolidate($contenidos),
-            diseno::stages_fingerprint($filas));
+        // Se confirma lo que se muestra: la consolidacion del asistente si esta al dia, o la completa por codigo.
+        $huellaetapas = diseno::stages_fingerprint($filas);
+        [$html, $porasistente] = diseno::consolidation_shown($filas[diseno::CONSOLIDACION] ?? null, $contenidos, $huellaetapas);
+        diseno::confirm_consolidation($USER->id, $courseid, $html, $huellaetapas,
+            $porasistente ? (string) $filas[diseno::CONSOLIDACION]->promptversion : null);
         redirect(new moodle_url($pageurl, ['etapa' => diseno::EVALUACION]), get_string('diseno_confirmed', 'local_chatbot'),
             null, \core\output\notification::NOTIFY_SUCCESS);
     }

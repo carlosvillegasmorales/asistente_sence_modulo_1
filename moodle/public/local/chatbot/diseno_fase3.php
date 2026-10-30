@@ -26,19 +26,42 @@ foreach (diseno::etapas() as $n => $e) {
     foreach (array_keys(diseno::etapas()) as $n) {
         $contenidos[$n] = (string) ($filas[$n]->contenido ?? '');
     }
-    // Lo que se muestra es siempre lo de las etapas hoy: si se confirma, eso queda guardado y se evalua.
-    $documento = diseno::consolidate($contenidos); ?>
+    // Lo que se muestra corresponde siempre a las etapas de hoy: la consolidacion del asistente (sin repetir campos
+    // comunes) si esta al dia, o la completa por codigo. Si se confirma, eso queda guardado y se evalua.
+    [$documento, $porasistente] = diseno::consolidation_shown($fila, $contenidos, diseno::stages_fingerprint($filas));
+    $consolidaia = \local_chatbot\ux::on('consolidacionia'); ?>
 
     <?php if ($fila && $fila->estado === diseno::ACEPTADO && !$vigente): ?>
         <div class="alert alert-warning"><?php echo get_string('diseno_consolidation_stale', 'local_chatbot'); ?></div>
     <?php endif; ?>
 
+    <?php if ($generando): ?>
+        <div class="card shadow-sm border-0 mb-4" id="diseno-generando" role="status"
+             data-id="<?php echo (int) $fila->id; ?>" data-estado="<?php echo s($fila->generacion); ?>"
+             data-url="<?php echo s((new moodle_url('/local/chatbot/diseno.php', ['courseid' => $courseid]))->out(false)); ?>"
+             data-sesskey="<?php echo sesskey(); ?>"
+             data-volver="<?php echo s((new moodle_url($pageurl, ['g' => time()], 'producto'))->out(false)); ?>">
+            <div class="card-body">
+                <h5 class="mb-2"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span><?php
+                    echo get_string('diseno_consolidating', 'local_chatbot'); ?></h5>
+                <p class="small text-muted mb-0"><?php echo get_string('diseno_consolidating_long', 'local_chatbot'); ?></p>
+            </div>
+        </div>
+    <?php elseif (!$vigente && $fila && $fila->generacion === exante::ERROR): ?>
+        <div class="alert alert-warning"><?php echo get_string('exante_error_' . ($fila->error ?: 'servicio'), 'local_chatbot'); ?></div>
+    <?php endif; ?>
+
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
         <h5 class="mb-0"><?php echo get_string('diseno_consolidated', 'local_chatbot'); ?></h5>
+        <div class="d-flex flex-wrap gap-1">
+        <?php if ($porasistente): ?>
+            <span class="badge text-bg-info"><?php echo get_string('diseno_consolidated_ai', 'local_chatbot'); ?></span>
+        <?php endif; ?>
         <?php if ($vigente): ?>
             <span class="badge text-bg-success"><?php echo get_string('diseno_status_confirmed', 'local_chatbot',
                 userdate($fila->timeaccepted, get_string('strftimedatetimeshort', 'langconfig'))); ?></span>
         <?php endif; ?>
+        </div>
     </div>
     <div class="alert alert-info small">
         <?php echo get_string('diseno_consolidated_help', 'local_chatbot'); ?>
@@ -49,14 +72,24 @@ foreach (diseno::etapas() as $n => $e) {
             <?php echo format_text($documento, FORMAT_HTML, ['context' => $context]); ?>
         </div>
     </div>
-    <?php if (!$vigente): ?>
-        <form method="post" action="<?php echo $pageurl->out(false); ?>" class="mb-4">
+    <?php if (!$vigente && !$generando): ?>
+        <form method="post" action="<?php echo $pageurl->out(false); ?>" class="mb-4 d-flex flex-wrap gap-2">
             <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+            <?php if ($consolidaia && !$porasistente): ?>
+                <?php // Prompt Maestro: consolidar «en extenso», sin repetir los campos comunes (lo hace el asistente). ?>
+                <button type="submit" name="action" value="consolidar" class="btn btn-primary px-4"
+                        data-espera="<?php echo s(get_string('diseno_consolidating', 'local_chatbot')); ?>">
+                    <i class="fa fa-magic me-1"></i> <?php echo get_string('diseno_consolidate_ai', 'local_chatbot'); ?>
+                </button>
+            <?php endif; ?>
             <button type="submit" name="action" value="confirmar" class="btn btn-success px-4"
                     data-espera="<?php echo s(get_string('exante_saving', 'local_chatbot')); ?>">
                 <i class="fa fa-check me-1"></i> <?php echo get_string('diseno_confirm', 'local_chatbot'); ?>
             </button>
         </form>
+        <?php if ($consolidaia && !$porasistente): ?>
+            <p class="small text-muted"><?php echo get_string('diseno_consolidate_ai_help', 'local_chatbot'); ?></p>
+        <?php endif; ?>
     <?php endif; ?>
 
 <?php elseif ($generando): ?>

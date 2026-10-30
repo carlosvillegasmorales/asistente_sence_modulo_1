@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
     $mensaje = get_string('exante_saved', 'local_chatbot');
     $destino = $pageurl;
     if ($action === 'validar') {
-        $falta = exante::missing_inputs($data);
+        $falta = exante::missing_inputs($data, array_keys(exante::attachments($fichaid)));
         if ($falta) {
             // Control de entrada del Prompt Maestro: no se avanza y se pide lo que falta, en concreto.
             $tipo = \core\output\notification::NOTIFY_WARNING;
@@ -254,6 +254,8 @@ echo $OUTPUT->header();
                 <div aria-hidden="true" style="flex: 0 0 42px; width: 42px; height: 42px; line-height: 42px; border-radius: 50%;
                     background: #20639b; color: #ffffff; text-align: center; font-size: 20px;"><i class="fa fa-comments"></i></div>
                 <div>
+                    <div class="small text-uppercase fw-bold mb-1" style="color: #20639b; letter-spacing: .5px;"><?php
+                        echo s(exante::ROL); ?></div>
                     <?php foreach (exante::welcome() as $i => $parrafo): ?>
                         <p class="<?php echo $i === 0 ? 'fw-bold mb-2' : 'mb-2'; ?>"><?php echo s($parrafo); ?></p>
                     <?php endforeach; ?>
@@ -333,9 +335,6 @@ echo $OUTPUT->header();
             <div class="card shadow-sm border-0 mb-3">
                 <div class="card-body">
                     <h5 class="mb-3 fw-bold text-dark border-bottom pb-2"><?php echo $n . '. ' . s($seccion['titulo']); ?></h5>
-                    <?php if ($n === 2): ?>
-                        <p class="small text-muted"><?php echo get_string('exante_required_note', 'local_chatbot'); ?></p>
-                    <?php endif; ?>
                     <?php
                     // Criterios: los 3 de partida y los agregados hasta el ultimo con texto; el resto, ocultos.
                     $ultimocriterio = exante::CRITERIOS_MIN;
@@ -518,6 +517,12 @@ echo $OUTPUT->header();
                         static function($etiqueta, $nombre) {
                             return $etiqueta . ' (' . $nombre . ')';
                         }, array_keys($informe['adjuntos']), $informe['adjuntos'])))); ?></p>
+                <?php if (!empty($informe['fuentes_web'])): ?>
+                    <p class="small text-muted mb-1"><?php echo get_string('exante_report_websources', 'local_chatbot'); ?>
+                        <?php echo implode(', ', array_map(static function($f) {
+                            return html_writer::link($f['uri'], s($f['title'] ?: $f['uri']), ['target' => '_blank', 'rel' => 'noopener']);
+                        }, $informe['fuentes_web'])); ?></p>
+                <?php endif; ?>
                 <p class="small text-muted mb-0"><?php echo get_string('exante_report_note', 'local_chatbot'); ?></p>
             </div>
         </div>

@@ -58,6 +58,9 @@ class ux {
         'avisosficha' => 1,     // Modulo 2: avisos con reglas fijas al validar la ficha (v1.20.6; sin pausa desde v1.20.8).
         'descargafinal' => 1,   // Modulo 2, Fase 3: documento final descargable siempre, con puntaje y banda impresos (v1.20.8).
         'bienvenidam2' => 1,    // Modulo 2: bienvenida textual del Prompt Maestro al comienzo de la ficha (v1.20.9).
+        'libreriam2' => 1,      // Modulo 2: la libreria del Asistente de Diseño Instruccional va en cada pedido a la IA (v1.20.10).
+        'busquedaweb' => 1,     // Modulo 2: busqueda web (Gemini) para la especialidad tecnica de la persona (v1.20.10).
+        'consolidacionia' => 1, // Modulo 2, etapa 7: consolidacion con el asistente, en extenso y sin repetir campos comunes (v1.20.12).
     ];
 
     /**

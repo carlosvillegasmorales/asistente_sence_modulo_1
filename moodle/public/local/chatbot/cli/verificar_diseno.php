@@ -118,12 +118,15 @@ local_chatbot_verificar(strpos($p1, guardrails::isolate_user_content($ficha)) !=
 local_chatbot_verificar(strpos($p1, guardrails::injection_clause()) !== false, 'el prompt trae la cláusula contra inyección');
 local_chatbot_verificar(strpos($p1, '- Falta evidencia de desempeño.') !== false
     && strpos($p1, '- Agregar desempeño en 7.3.') !== false, 'las observaciones de la validación viajan');
-foreach (['No inventes aprendizajes esperados ni criterios', 'al menos 3; no hay un número máximo', '"adecuadamente"',
+local_chatbot_verificar(strpos($p1, '"adecuadamente"') === false && strpos($p1, 'Nunca utilices conceptos relativos a «pedagógico»') !== false
+    && strpos($p1, 'Usa como fuente principal la ficha de diagnóstico y el Plan Formativo') !== false,
+    'Prompt Maestro del 30-10: sin la regla de juicios de valor, sin «pedagogía» y con el Plan Formativo como fuente principal');
+foreach (['No inventes aprendizajes esperados ni criterios', 'al menos 3; no hay un número máximo',
         'alineación constructiva', 'lenguaje inclusivo', 'sin alterar el plan formativo', 'Verificación de calidad'] as $regla) {
     local_chatbot_verificar(strpos($p1, $regla) !== false, "el prompt trae la regla «{$regla}»");
 }
-local_chatbot_verificar(strpos($p1, 'No se adjuntaron el Plan Formativo ni el Perfil Ocupacional') !== false,
-    'sin adjuntos el prompt lo dice');
+local_chatbot_verificar(strpos($p1, 'No se adjuntó el Plan Formativo, que es documento de referencia obligatorio') !== false,
+    'sin el Plan Formativo el prompt lo dice');
 local_chatbot_verificar(strpos($p1, 'AJUSTES QUE PIDE') === false, 'sin ajustes no hay sección de ajustes');
 local_chatbot_verificar(strpos($p1, '## Etapa 1: Análisis diagnóstico') !== false, 'el producto empieza con el título de la etapa');
 
@@ -133,7 +136,22 @@ local_chatbot_verificar(strpos($p3, 'PRODUCTO ACEPTADO DE LA ETAPA 1 (Análisis 
     && strpos($p3, 'PRODUCTO ACEPTADO DE LA ETAPA 2 (Diseño de la experiencia)') !== false,
     'las etapas aceptadas viajan con su nombre');
 local_chatbot_verificar(strpos($p3, $etapas[3]['nota']) !== false, 'la secuencia se ajusta al tiempo de la ficha (2.3)');
-local_chatbot_verificar(strpos($p3, 'Se adjuntan Plan Formativo') !== false, 'con adjuntos el prompt los nombra');
+local_chatbot_verificar(strpos($p3, 'Se adjunta el Plan Formativo, documento de referencia obligatorio') !== false,
+    'con el Plan Formativo el prompt lo usa como referencia obligatoria');
+$et = diseno::etapas();
+local_chatbot_verificar(in_array('Nota de uso de documentos complementarios (Plan Formativo y Perfil Ocupacional)', $et[1]['incluye'], true)
+    && strpos(implode(' ', $et[3]['incluye']), 'Alcance de cada fase') !== false && !in_array('Objetivos específicos', $et[3]['incluye'], true)
+    && in_array('Uso didáctico', $et[4]['incluye'], true) && strpos(implode(' ', $et[4]['incluye']), 'pedagóg') === false
+    && strpos(implode(' ', $et[4]['incluye']), 'Alcance') !== false,
+    'etapas 1, 3 y 4 con los textos del Prompt Maestro del 30-10 (alcance, uso didáctico)');
+$pend = diseno::pending_observations(['items' => ['c2_4' => ['estado' => 'parcial', 'observacion' => 'Tiempo justo'],
+    'c1_1' => ['estado' => 'cumple', 'observacion' => '']]]);
+local_chatbot_verificar(strpos($pend, 'c2_4') !== false && strpos($pend, 'Tiempo justo') !== false && strpos($pend, 'c1_1') === false
+    && diseno::pending_observations([]) === 'La validación de la ficha no dejó observaciones pendientes.',
+    'la evaluación recibe los ítems de la ficha con observaciones de la validación');
+$pe8 = diseno::build_eval_prompt('D', 'F', [], false, false, ['items' => ['c2_4' => ['estado' => 'no_cumple', 'observacion' => 'x']]]);
+local_chatbot_verificar(strpos($pe8, 'el puntaje máximo debiera ser 3') !== false && strpos($pe8, 'c2_4') !== false,
+    'etapa 8: consistente con el diagnóstico (máximo 3 donde hubo observaciones no resueltas)');
 local_chatbot_verificar(strpos($p3, guardrails::isolate_user_content('Agregar una actividad de cierre')) !== false
     && strpos($p3, guardrails::isolate_user_content('Versión anterior')) !== false
     && strpos($p3, 'entrega el producto completo de la etapa') !== false,
@@ -375,6 +393,38 @@ $r = ruta_m2::model(['ficha' => ruta_m2::FICHA_OK, 'aceptadas' => range(1, 7), '
 local_chatbot_verificar($r['pasos'][3]['done'] && $r['siguiente'][0] === 'r2_next_final' && $r['resumen'][0] === 'r2_summary_done',
     'aprobado: las tres fases completas y el paso es el documento final');
 
+// --- Rol del Modulo 2 y fuentes de conocimiento (30-10-2026) ---
+$pe2 = diseno::build_prompt(1, 'FICHA', [], [], [], '', '', true, true);
+local_chatbot_verificar(strpos($pe2, 'Eres el Asistente de Diseño Instruccional') === 0 && strpos($pe2, 'FUENTES DE CONOCIMIENTO:') !== false
+    && strpos($pe2, 'busca información actualizada en la web') !== false, 'las etapas hablan como el Asistente de Diseño Instruccional, con la regla de fuentes');
+$pev = diseno::build_eval_prompt('D', 'F', [], true, false);
+local_chatbot_verificar(strpos($pev, 'Eres el Asistente de Diseño Instruccional') === 0 && strpos($pev, 'LIBRERÍA DE CONOCIMIENTOS') !== false
+    && strpos($pev, 'busca información') === false, 'la evaluación también, y sin búsqueda no la promete');
+$md = diseno::sources_markdown([['title' => 'sence.cl', 'uri' => 'https://sence.cl/x'], ['title' => 'malo', 'uri' => 'javascript:alert(1)'],
+    ['title' => 'a [b]', 'uri' => 'http://ej.cl']]);
+local_chatbot_verificar(strpos($md, '- [sence.cl](https://sence.cl/x)') !== false && strpos($md, 'javascript') === false
+    && strpos($md, '- [a b](http://ej.cl)') !== false && diseno::sources_markdown([]) === '',
+    'las fuentes web van al final de la etapa, solo con enlaces http(s)');
+// --- Etapa 7 con el asistente: en extenso, sin repetir campos comunes (Prompt Maestro del 30-10-2026) ---
+$pc = diseno::build_consolidation_prompt([1 => '<p>Análisis X</p>', 2 => '<p>Diseño Y</p>']);
+local_chatbot_verificar(strpos($pc, 'ETAPA 7: CONSOLIDACIÓN') !== false && strpos($pc, '"en extenso"') !== false
+    && strpos($pc, 'sin repetir aquellos campos que puedan ser comunes') !== false
+    && strpos($pc, 'Análisis, Diseño, Secuencia, Materiales, Evaluación, Instrumentos') !== false
+    && strpos($pc, 'No resumas ni acortes') !== false && strpos($pc, guardrails::isolate_user_content('<p>Diseño Y</p>')) !== false,
+    'la consolidación pide el documento en extenso, sin repetir campos comunes, con las etapas aisladas');
+$et7 = [1 => str_repeat('palabra ', 500), 2 => str_repeat('otra ', 500)];
+local_chatbot_verificar(diseno::consolidation_complete(str_repeat('palabra ', 400) . str_repeat('otra ', 300), $et7, 'STOP')
+    && !diseno::consolidation_complete(str_repeat('corto ', 100), $et7, 'STOP')
+    && !diseno::consolidation_complete(str_repeat('palabra ', 900), $et7, 'MAX_TOKENS'),
+    'una consolidación cortada o mucho más corta que las etapas no se usa');
+$c7 = (object) ['contenido' => '<p>Del asistente</p>', 'huella' => 'h1', 'promptversion' => 'M2-F2-etapas-v4'];
+local_chatbot_verificar(diseno::consolidation_shown($c7, [1 => '<p>E1</p>'], 'h1') === ['<p>Del asistente</p>', true]
+    && diseno::consolidation_shown($c7, [1 => '<p>E1</p>'], 'h2')[1] === false
+    && strpos(diseno::consolidation_shown($c7, [1 => '<p>E1</p>'], 'h2')[0], 'E1') !== false
+    && diseno::consolidation_shown(null, [1 => '<p>E1</p>'], 'h1')[1] === false,
+    'se muestra la consolidación del asistente solo si está al día; si no, la completa por código');
+local_chatbot_verificar(diseno::max_seconds(diseno::CONSOLIDACION) === diseno::CONSOLIDACION_MAX && diseno::max_seconds(3) === exante::PROCESO_MAX,
+    'la consolidación tiene más tiempo que una etapa');
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Fases 2 y 3 del Módulo 2 conformes: etapas del Prompt Maestro, sin saltos, rúbrica textual y Word válido.\n";

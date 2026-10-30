@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 class diseno {
 
     /** @var string Version del prompt de diseno: se guarda con cada producto (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F2-etapas-v2';
+    const PROMPT_VERSION = 'M2-F2-etapas-v4';
 
     /** Estado del producto. */
     const BORRADOR = 'borrador';
@@ -35,7 +35,7 @@ class diseno {
         return [
             1 => ['titulo' => 'Análisis diagnóstico', 'archivo' => 'Etapa_1_Analisis_diagnostico',
                 'incluye' => ['Síntesis diagnóstica', 'Prioridades de diseño', 'Restricciones', 'Oportunidades',
-                    'Recomendación didáctica', 'Nota de uso de documentos complementarios (si fueron proporcionados)'],
+                    'Recomendación didáctica', 'Nota de uso de documentos complementarios (Plan Formativo y Perfil Ocupacional)'],
                 'nota' => ''],
             2 => ['titulo' => 'Diseño de la experiencia', 'archivo' => 'Etapa_2_Diseno_de_la_experiencia',
                 'incluye' => ['Nombre de la experiencia de aprendizaje', 'Propósito', 'Aprendizaje esperado',
@@ -44,13 +44,14 @@ class diseno {
                 'nota' => 'El nombre de la experiencia debe ser claro, breve y representativo del desempeño esperado, '
                     . 'estar alineado con el aprendizaje esperado y ser utilizable como título formal del diseño.'],
             3 => ['titulo' => 'Secuencia instruccional', 'archivo' => 'Etapa_3_Secuencia_instruccional',
-                'incluye' => ['Inicio / Desarrollo / Cierre', 'Objetivos específicos',
+                'incluye' => ['Inicio / Desarrollo / Cierre',
+                    'Alcance de cada fase (lo que se espera lograr en ella; no lo llames «objetivos específicos»)',
                     'Actividades (facilitador / participantes)', 'Recursos', 'Tiempo estimado', 'Evidencias parciales'],
                 'nota' => 'La suma de los tiempos estimados debe ajustarse al tiempo asignado a la experiencia de '
                     . 'aprendizaje en la ficha (2.3).'],
             4 => ['titulo' => 'Materiales instruccionales de apoyo al aprendizaje',
                 'archivo' => 'Etapa_4_Materiales_instruccionales',
-                'incluye' => ['Materiales por fase', 'Objetivo', 'Contenidos', 'Formato', 'Uso pedagógico',
+                'incluye' => ['Materiales por fase', 'Alcance (en lugar de «objetivo»)', 'Contenidos', 'Formato', 'Uso didáctico',
                     'Evidencias asociadas', 'Tabla de síntesis', 'Factibilidad', 'Vacíos y soluciones'],
                 'nota' => 'No incluye instrumentos de evaluación: se desarrollan en la etapa 6.'],
             5 => ['titulo' => 'Plan de evaluación', 'archivo' => 'Etapa_5_Plan_de_evaluacion',
@@ -71,6 +72,12 @@ class diseno {
 
     /** @var int Puntaje desde el que el diseño queda aprobado (rubrica: 25 a 31 «Aprobado con ajustes menores»). */
     const APROBADO_DESDE = 25;
+
+    /** @var int Segundos que puede tardar la consolidacion con el asistente (un documento largo, en extenso). */
+    const CONSOLIDACION_MAX = 900;
+
+    /** @var float Parte minima del texto de las etapas que debe conservar la consolidacion para darla por completa. */
+    const CONSOLIDACION_MIN = 0.5;
 
     /** @var int Recomendaciones que se piden siempre, aunque el total sea 36. */
     const RECOMENDACIONES_MIN = 2;
@@ -235,9 +242,14 @@ class diseno {
      * @param string $diseno Diseno consolidado como texto.
      * @param string $ficha Ficha como texto.
      * @param string[] $adjuntos
+     * @param bool $conlibreria Si la libreria del rol viene en el pedido.
+     * @param bool $conbusqueda Si el modelo puede buscar en la web.
+     * @param array $validacion Informe de la validacion de la ficha (items con estado y observacion), para que la
+     *        evaluacion sea consistente con la calidad del diagnostico.
      * @return string
      */
-    public static function build_eval_prompt(string $diseno, string $ficha, array $adjuntos): string {
+    public static function build_eval_prompt(string $diseno, string $ficha, array $adjuntos, bool $conlibreria = false,
+            bool $conbusqueda = false, array $validacion = []): string {
         $rubrica = [];
         foreach (self::rubrica() as $id => $c) {
             $rubrica[] = $id . '. ' . $c['nombre'];
@@ -246,8 +258,8 @@ class diseno {
             }
         }
         return implode("\n", [
-            'Eres un asistente experto en diseño instruccional con enfoque de competencias. Tu comportamiento es '
-                . 'estricto, estructurado y orientado a asegurar calidad.',
+            'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias. Tu '
+                . 'comportamiento es estricto, estructurado y orientado a asegurar calidad.',
             '',
             'TAREA: ETAPA 8, EVALUACIÓN DEL DISEÑO. Evalúa el diseño instruccional consolidado con la rúbrica de '
                 . 'validación técnica: asigna a cada criterio un puntaje de 1 a 4 según el nivel cuyo descriptor mejor '
@@ -256,6 +268,12 @@ class diseno {
                 . ($adjuntos ? ' Se adjuntan ' . implode(' y ', $adjuntos) . ' para validar la alineación.' : ''),
             'Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género. Evalúas el '
                 . 'diseño, no a la persona.',
+            exante::NO_PEDAGOGIA,
+            '',
+            'CONSISTENCIA CON EL DIAGNÓSTICO: la evaluación del diseño debe ser consistente con la calidad del diagnóstico '
+                . 'validado: en aquellos criterios de la rúbrica vinculados a ítems de las secciones de la ficha diagnóstica '
+                . 'donde se presentaron observaciones no resueltas antes del diseño, el puntaje máximo debiera ser 3. '
+                . self::pending_observations($validacion),
             '',
             'EVALÚA CON OJO CRÍTICO: este diseño se elaboró con apoyo de una IA, así que no lo des por bueno porque '
                 . 'esté bien redactado: revísalo como lo haría una persona revisora externa. Cada puntaje 4 debe '
@@ -264,6 +282,8 @@ class diseno {
                 . 'descriptor del nivel 4 contra el diseño: si falta alguno, el puntaje es 3 y la justificación dice cuál '
                 . 'falta. El 4 es el nivel de excelencia: no es el valor por defecto. Aunque el total llegue a 36, entrega al menos 2 '
                 . 'recomendaciones concretas de mejora.',
+            '',
+            implode("\n", exante::knowledge_rules($conlibreria, $conbusqueda)),
             '',
             'RÚBRICA (id. criterio):',
             implode("\n", $rubrica),
@@ -338,6 +358,122 @@ class diseno {
             return false;
         }
         return $siempre || !empty($evaluacion['banda']['aprobado']);
+    }
+
+    /**
+     * Items del checklist de la validacion de la ficha que no quedaron «cumple», para la evaluacion de la etapa 8.
+     * Funcion pura.
+     *
+     * @param array $validacion Informe de la validacion (['items' => [id => ['estado', 'observacion']]]).
+     * @return string
+     */
+    public static function pending_observations(array $validacion): string {
+        $lineas = [];
+        foreach (exante::checklist() as $n => $seccion) {
+            foreach ($seccion['items'] as $id => $texto) {
+                $item = $validacion['items'][$id] ?? null;
+                if (!$item || ($item['estado'] ?? '') === exante::CUMPLE) {
+                    continue;
+                }
+                $lineas[] = '- Sección ' . $n . ' (' . $seccion['titulo'] . '), ' . $id . ' «' . $texto . '»: '
+                    . (($item['estado'] ?? '') === exante::NO_CUMPLE ? 'no cumple' : 'cumple parcialmente')
+                    . (trim((string) ($item['observacion'] ?? '')) !== '' ? ' — ' . trim((string) $item['observacion']) : '');
+            }
+        }
+        return $lineas
+            ? "Ítems de la ficha con observaciones en la validación de la Fase 1:\n" . implode("\n", $lineas)
+            : 'La validación de la ficha no dejó observaciones pendientes.';
+    }
+
+    /**
+     * Segundos que puede tardar la generacion de una etapa antes de darla por caida.
+     *
+     * @param int $etapa
+     * @return int
+     */
+    public static function max_seconds(int $etapa): int {
+        return $etapa === self::CONSOLIDACION ? self::CONSOLIDACION_MAX : exante::PROCESO_MAX;
+    }
+
+    /**
+     * Instrucciones de la etapa 7 con el asistente (Prompt Maestro del 30-10-2026): consolidar todos los entregables
+     * «en extenso» en un documento unico, sin repetir los campos comunes. Funcion pura.
+     *
+     * @param string[] $etapas Numero de etapa (1 a 6) => producto aceptado (HTML).
+     * @return string
+     */
+    public static function build_consolidation_prompt(array $etapas): string {
+        $l = [];
+        $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, '
+            . 'especializado en formación de personas adultas en contextos de capacitación laboral.';
+        $l[] = '';
+        $l[] = 'TAREA: ETAPA 7: CONSOLIDACIÓN. Consolida todos los entregables anteriores "en extenso" en un documento único '
+            . 'listo para descargar en Word, sin repetir aquellos campos que puedan ser comunes. El documento tiene estas '
+            . 'partes, en este orden: Análisis, Diseño, Secuencia, Materiales, Evaluación, Instrumentos.';
+        $l[] = '';
+        $l[] = 'REGLAS:';
+        $l[] = '- "En extenso": conserva todo el contenido de cada etapa: actividades, tiempos, recursos, tablas, materiales, '
+            . 'indicadores e instrumentos completos, con todos sus niveles, ítems y criterios. No resumas ni acortes.';
+        $l[] = '- Sin repetir campos comunes: los datos que se repiten entre etapas (nombre de la experiencia, aprendizaje '
+            . 'esperado, criterios de evaluación, contexto, modalidad, tiempos, participantes) van una sola vez, en una '
+            . 'sección inicial de datos generales; en las partes siguientes no los vuelvas a transcribir.';
+        $l[] = '- No agregues contenido nuevo ni cambies decisiones de diseño: solo reorganizas lo que la persona aceptó.';
+        $l[] = '- Transcribe el aprendizaje esperado y los criterios de evaluación tal como están.';
+        $l[] = exante::NO_PEDAGOGIA;
+        $l[] = '- Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género.';
+        $l[] = '';
+        $l[] = guardrails::injection_clause();
+        $l[] = '';
+        $l[] = 'FORMATO DE RESPUESTA: el documento completo en Markdown (títulos con #, listas y tablas Markdown), sin texto '
+            . 'antes ni después del documento.';
+        foreach ($etapas as $n => $html) {
+            $l[] = '';
+            $l[] = 'PRODUCTO ACEPTADO DE LA ETAPA ' . $n . ' (' . (self::etapas()[$n]['titulo'] ?? '') . '):';
+            $l[] = guardrails::isolate_user_content((string) $html);
+        }
+        return implode("\n", $l);
+    }
+
+    /**
+     * Si la consolidacion del asistente esta completa: no se corto por largo y conserva una parte razonable del texto de
+     * las etapas (quitar lo repetido acorta, resumir acorta mucho mas). Funcion pura.
+     *
+     * @param string $consolidado Texto devuelto por el modelo.
+     * @param string[] $etapas Productos aceptados (HTML).
+     * @param string|null $fin finishReason del modelo.
+     * @return bool
+     */
+    public static function consolidation_complete(string $consolidado, array $etapas, ?string $fin): bool {
+        if ($fin !== null && strtoupper($fin) === 'MAX_TOKENS') {
+            return false;
+        }
+        $largo = static function(string $t): int {
+            return \core_text::strlen(trim(preg_replace('/\s+/u', ' ', strip_tags($t))));
+        };
+        $original = 0;
+        foreach ($etapas as $html) {
+            $original += $largo((string) $html);
+        }
+        return $original === 0 || $largo($consolidado) >= self::CONSOLIDACION_MIN * $original;
+    }
+
+    /**
+     * Fuentes web que uso el modelo, como lista al final de la etapa (para que la persona las revise). Funcion pura.
+     *
+     * @param array $fuentes [['title' => string, 'uri' => string], ...] (gemini_client::extract_sources()).
+     * @return string Markdown; '' sin fuentes.
+     */
+    public static function sources_markdown(array $fuentes): string {
+        $lineas = [];
+        foreach (array_slice($fuentes, 0, 8) as $f) {
+            $uri = (string) ($f['uri'] ?? '');
+            if (!preg_match('#^https?://#i', $uri)) {
+                continue;
+            }
+            $titulo = trim(str_replace(['[', ']'], '', (string) ($f['title'] ?? ''))) ?: $uri;
+            $lineas[] = '- [' . $titulo . '](' . $uri . ')';
+        }
+        return $lineas ? "\n\n**Fuentes web consultadas para la especialidad técnica:**\n\n" . implode("\n", $lineas) : '';
     }
 
     /**
@@ -449,13 +585,14 @@ class diseno {
      * @return string
      */
     public static function build_prompt(int $etapa, string $ficha, array $informe, array $previas, array $adjuntos,
-            string $actual = '', string $ajustes = ''): string {
+            string $actual = '', string $ajustes = '', bool $conlibreria = false, bool $conbusqueda = false): string {
         $e = self::etapas()[$etapa];
         $l = [];
-        $l[] = 'Eres un asistente experto en diseño instruccional con enfoque de competencias, especializado en formación '
-            . 'de personas adultas en contextos de capacitación laboral. Apoyas a un equipo de capacitación en el diseño '
-            . 'de experiencias de aprendizaje, usando como insumo principal y obligatorio la ficha de diagnóstico '
-            . '(evaluación ex-ante) ya validada. Tu comportamiento es estricto, estructurado y orientado a asegurar calidad.';
+        $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, especializado en formación '
+            . 'de personas adultas en contextos de capacitación laboral. Apoyas a personas facilitadoras en el diseño de '
+            . 'experiencias de aprendizaje, usando como insumo principal y obligatorio la ficha de diagnóstico (evaluación '
+            . 'ex-ante) ya validada, el Plan Formativo como documento de referencia obligatorio y, opcionalmente, el Perfil '
+            . 'Ocupacional. Tu comportamiento es estricto, estructurado y orientado a asegurar calidad.';
         $l[] = '';
         $l[] = 'TAREA: ETAPA ' . $etapa . ': ' . \core_text::strtoupper($e['titulo']) . '.';
         $l[] = 'Desarrolla solo esta etapa; no adelantes las siguientes. Debe incluir obligatoriamente:';
@@ -467,18 +604,17 @@ class diseno {
         }
         $l[] = '';
         $l[] = 'REGLAS DE GOBERNANZA:';
-        $l[] = '- Usa como fuente principal la ficha de diagnóstico. ' . ($adjuntos
-            ? 'Se adjuntan ' . implode(' y ', $adjuntos) . ': úsalos para validar coherencia, profundidad y alineación, '
-                . 'priorizando siempre la ficha.'
-            : 'No se adjuntaron el Plan Formativo ni el Perfil Ocupacional: continúa y señala cuando una decisión podría '
-                . 'beneficiarse de ellos.');
+        $l[] = '- Usa como fuente principal la ficha de diagnóstico y el Plan Formativo. ' . exante::documents_rule($adjuntos);
         $l[] = '- No inventes aprendizajes esperados ni criterios de evaluación: transcríbelos tal como están en la ficha.';
         $l[] = '- Trabaja con todos los criterios de evaluación que registra la ficha (al menos 3; no hay un número máximo).';
-        $l[] = '- No utilices en los aprendizajes o criterios conceptos que remitan a juicios de valor, como '
-            . '"adecuadamente". Si la ficha los trae, no alteres el plan formativo: señálalo en una observación.';
+        $l[] = exante::NO_PEDAGOGIA;
         $l[] = '- Mantén la alineación constructiva con las etapas ya aceptadas y con los criterios de evaluación.';
         $l[] = '- Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género.';
         $l[] = '- Detecta vacíos de información y repórtalos. Propón soluciones viables sin alterar el plan formativo.';
+        $l[] = '';
+        foreach (exante::knowledge_rules($conlibreria, $conbusqueda) as $regla) {
+            $l[] = $regla;
+        }
         $l[] = '- Considera las observaciones de la validación de la ficha.';
         $l[] = '';
         $l[] = 'CONTROL DE CALIDAD: antes de cerrar la etapa verifica la alineación con el aprendizaje esperado, la '
@@ -822,7 +958,7 @@ class diseno {
         global $DB;
         $salida = [];
         foreach ($DB->get_records('local_chatbot_diseno', ['fichaid' => $fichaid]) as $fila) {
-            if ($fila->generacion === exante::PROCESANDO && $fila->timemodified < time() - exante::PROCESO_MAX) {
+            if ($fila->generacion === exante::PROCESANDO && $fila->timemodified < time() - self::max_seconds((int) $fila->etapa)) {
                 $fila->generacion = exante::ERROR;
                 $fila->error = 'tiempo';
                 $DB->update_record('local_chatbot_diseno', (object) ['id' => $fila->id, 'generacion' => $fila->generacion,
@@ -941,11 +1077,29 @@ class diseno {
      * @param string $huella
      * @return void
      */
-    public static function confirm_consolidation(int $userid, int $courseid, string $html, string $huella): void {
+    public static function confirm_consolidation(int $userid, int $courseid, string $html, string $huella,
+            ?string $promptversion = null): void {
         global $DB;
         $fila = self::row($userid, $courseid, self::CONSOLIDACION);
+        // promptversion queda solo si lo confirmado es la consolidacion del asistente (para mostrarlo asi).
         $DB->update_record('local_chatbot_diseno', (object) ['id' => $fila->id, 'contenido' => $html, 'huella' => $huella,
-            'estado' => self::ACEPTADO, 'timeaccepted' => time(), 'timemodified' => time()]);
+            'estado' => self::ACEPTADO, 'promptversion' => $promptversion, 'timeaccepted' => time(), 'timemodified' => time()]);
+    }
+
+    /**
+     * La consolidacion que se muestra y se confirma: la guardada (del asistente o ya confirmada) si corresponde a las
+     * etapas de hoy; si no, la completa por codigo. Funcion pura.
+     *
+     * @param \stdClass|null $fila Fila de la etapa 7.
+     * @param string[] $contenidos Productos de las etapas 1 a 6 (HTML).
+     * @param string $huella Huella de las etapas de hoy (stages_fingerprint()).
+     * @return array [html, si es del asistente (bool)].
+     */
+    public static function consolidation_shown(?\stdClass $fila, array $contenidos, string $huella): array {
+        if ($fila && trim((string) $fila->contenido) !== '' && (string) $fila->huella === $huella) {
+            return [(string) $fila->contenido, !empty($fila->promptversion)];
+        }
+        return [self::consolidate($contenidos), false];
     }
 
     /**
@@ -988,7 +1142,10 @@ class diseno {
         $informe = (array) json_decode((string) $val->informe, true);
 
         if ((int) $fila->etapa === self::EVALUACION) {
-            return self::evaluate($fila, $ficha, (int) $val->fichaid);
+            return self::evaluate($fila, $ficha, (int) $val->fichaid, $informe);
+        }
+        if ((int) $fila->etapa === self::CONSOLIDACION) {
+            return self::consolidate_ai($fila);
         }
 
         $previas = [];
@@ -1002,12 +1159,16 @@ class diseno {
 
         [$partes, $etiquetas] = exante::attachment_parts((int) $val->fichaid);
         $actual = $fila->contenido ? html_to_text((string) $fila->contenido, 0, false) : '';
+        // Libreria del rol para el enfoque de competencias y busqueda web para la especialidad tecnica (30-10-2026).
+        $libreria = exante::role_library();
+        $buscar = exante::web_search_available();
         $prompt = self::build_prompt((int) $fila->etapa, pseudonymizer::scrub(exante::to_text($ficha)), $informe,
-            $previas, $etiquetas, $actual, (string) $fila->ajustes);
-        $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes)]];
+            $previas, $etiquetas, $actual, (string) $fila->ajustes, $libreria !== '', $buscar);
+        $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes,
+            exante::library_parts($libreria))]];
 
         $modelo = ai\provider_factory::get_configured_model();
-        $resultado = ai\provider_factory::get()->generate_content($contenido, 240, 2, $modelo);
+        $resultado = exante::generate_steady($contenido, 240, $modelo, $buscar);
         if (isset($resultado['error'])) {
             return [exante::ERROR, ['error' => 'servicio']];
         }
@@ -1015,10 +1176,45 @@ class diseno {
         if ($markdown === '') {
             return [exante::ERROR, ['error' => 'ilegible']];
         }
+        $markdown .= self::sources_markdown(gemini_client::extract_sources($resultado));
         // Una propuesta nueva o ajustada vuelve a borrador: la persona la revisa y la acepta de nuevo.
         return [exante::LISTO, ['contenido' => clean_text(markdown_to_html($markdown), FORMAT_HTML),
             'estado' => self::BORRADOR, 'modelo' => (string) $modelo, 'promptversion' => self::PROMPT_VERSION,
             'error' => null]];
+    }
+
+    /**
+     * Etapa 7 con el asistente: consolida las seis etapas aceptadas en extenso, sin repetir campos comunes. Si la
+     * respuesta llega cortada o mucho mas corta que las etapas, no se usa: queda la consolidacion completa por codigo.
+     *
+     * @param \stdClass $fila Fila de la etapa 7.
+     * @return array [estado de la generacion, campos a guardar].
+     */
+    private static function consolidate_ai(\stdClass $fila): array {
+        $filas = self::get_by_ficha((int) $fila->fichaid);
+        $etapas = [];
+        foreach (array_keys(self::etapas()) as $n) {
+            if (empty($filas[$n]) || $filas[$n]->estado !== self::ACEPTADO || trim((string) $filas[$n]->contenido) === '') {
+                return [exante::ERROR, ['error' => 'sinetapas']];
+            }
+            $etapas[$n] = (string) $filas[$n]->contenido;
+        }
+        $huella = self::stages_fingerprint($filas);
+        $contenido = [['role' => 'user', 'parts' => [['text' => self::build_consolidation_prompt($etapas)]]]];
+        $modelo = ai\provider_factory::get_configured_model();
+        $resultado = exante::generate_steady($contenido, 600, $modelo);
+        if (isset($resultado['error'])) {
+            return [exante::ERROR, ['error' => 'servicio']];
+        }
+        $markdown = self::clean_markdown(gemini_client::extract_text($resultado));
+        $fin = $resultado['candidates'][0]['finishReason'] ?? null;
+        if ($markdown === '' || !self::consolidation_complete($markdown, $etapas, $fin)) {
+            return [exante::ERROR, ['error' => 'incompleta']];
+        }
+        // Queda como borrador: la persona la revisa y la confirma (o confirma la consolidacion completa por codigo).
+        return [exante::LISTO, ['contenido' => clean_text(markdown_to_html($markdown), FORMAT_HTML),
+            'estado' => self::BORRADOR, 'huella' => $huella, 'modelo' => (string) $modelo,
+            'promptversion' => self::PROMPT_VERSION, 'error' => null]];
     }
 
     /**
@@ -1027,24 +1223,29 @@ class diseno {
      * @param \stdClass $fila
      * @param array $ficha
      * @param int $fichaid
+     * @param array $validacion Informe de la validacion de la ficha.
      * @return array [estado de la generacion, campos a guardar].
      */
-    private static function evaluate(\stdClass $fila, array $ficha, int $fichaid): array {
+    private static function evaluate(\stdClass $fila, array $ficha, int $fichaid, array $validacion = []): array {
         global $DB;
         $c = $DB->get_record('local_chatbot_diseno', ['fichaid' => $fila->fichaid, 'etapa' => self::CONSOLIDACION]);
         if (!$c || $c->estado !== self::ACEPTADO || !$c->contenido) {
             return [exante::ERROR, ['error' => 'sinconsolidado']];
         }
         [$partes, $etiquetas] = exante::attachment_parts($fichaid);
+        $libreria = exante::role_library();
+        $buscar = exante::web_search_available();
         $prompt = self::build_eval_prompt(html_to_text((string) $c->contenido, 0, false),
-            pseudonymizer::scrub(exante::to_text($ficha)), $etiquetas);
-        $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes)]];
+            pseudonymizer::scrub(exante::to_text($ficha)), $etiquetas, $libreria !== '', $buscar, $validacion);
+        $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes,
+            exante::library_parts($libreria))]];
         $modelo = ai\provider_factory::get_configured_model();
         $informe = null;
         $primero = null;
         // Un segundo intento solo si la respuesta no se pudo leer: la rubrica va entera o no va.
         for ($intento = 0; $intento < 2 && $informe === null; $intento++) {
-            $resultado = exante::generate_steady($contenido, 240, $modelo);
+            // El segundo intento va sin busqueda web, por si la respuesta con fuentes no vino como JSON limpio.
+            $resultado = exante::generate_steady($contenido, 240, $modelo, $buscar && $intento === 0);
             if (isset($resultado['error'])) {
                 if ($primero !== null) {
                     break;
