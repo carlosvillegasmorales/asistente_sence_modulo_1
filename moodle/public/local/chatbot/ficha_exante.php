@@ -460,12 +460,26 @@ echo $OUTPUT->header();
                         <tr class="table-light"><th colspan="3" class="small text-uppercase"><?php
                             echo $n . '. ' . s($seccion['titulo']); ?></th></tr>
                         <?php foreach ($seccion['items'] as $id => $texto):
-                            $item = $informe['items'][$id] ?? ['estado' => exante::NO_CUMPLE, 'observacion' => '']; ?>
+                            $item = $informe['items'][$id] ?? null; ?>
                             <tr>
-                                <td class="small"><?php echo s($texto); ?></td>
+                                <td class="small"><?php echo s($texto); ?>
+                                    <?php if (in_array($id, exante::CRITICOS, true)): ?>
+                                        <span class="badge text-bg-light border text-danger ms-1"><?php
+                                            echo get_string('autocheck_critical', 'local_chatbot'); ?></span>
+                                    <?php endif; ?></td>
+                                <?php if ($item === null): // Item que no existia cuando se valido (checklist del 30-10). ?>
+                                    <td><span class="badge text-bg-light border"><?php
+                                        echo get_string('exante_status_none', 'local_chatbot'); ?></span></td>
+                                    <td class="small text-muted"><?php echo get_string('exante_status_none_help', 'local_chatbot'); ?></td>
+                            </tr>
+                                    <?php continue; ?>
+                                <?php endif; ?>
                                 <td><span class="badge text-bg-<?php echo $estadoclase[$item['estado']]; ?>"><?php
                                     echo get_string('exante_status_' . $item['estado'], 'local_chatbot'); ?></span></td>
                                 <td class="small"><?php echo s($item['observacion']); ?>
+                                    <?php if (!empty($item['forma'])): ?>
+                                        <div class="mt-1 text-muted"><em><?php echo get_string('exante_report_form', 'local_chatbot'); ?></em></div>
+                                    <?php endif; ?>
                                     <?php if (!empty($item['propuesta'])): ?>
                                         <div class="mt-1 text-success-emphasis"><strong><?php
                                             echo get_string('exante_report_howto', 'local_chatbot'); ?></strong> <?php
@@ -482,7 +496,27 @@ echo $OUTPUT->header();
                 <div class="alert alert-<?php echo $condclase[$val->condicion]; ?> mb-4">
                     <strong><?php echo get_string('exante_cond_' . $val->condicion, 'local_chatbot'); ?></strong>.
                     <?php echo get_string('exante_cond_' . $val->condicion . '_desc', 'local_chatbot'); ?>
+                    <?php if (!empty($informe['regla'])): // Aplicacion explicita de la regla de decision (30-10-2026). ?>
+                        <div class="small mt-2"><strong><?php echo get_string('exante_rule_label', 'local_chatbot'); ?></strong>
+                            <?php echo get_string('exante_rule_' . $informe['regla'], 'local_chatbot'); ?></div>
+                    <?php endif; ?>
                 </div>
+                <?php $detienen = !empty($informe['regla']) && $val->condicion === exante::NO_APROBADO
+                    ? exante::critical_failures($informe['items']) : []; ?>
+                <?php if ($detienen): ?>
+                    <div class="alert alert-danger mb-4">
+                        <h6 class="mb-2"><?php echo get_string('exante_report_mustfix', 'local_chatbot'); ?></h6>
+                        <ul class="small mb-0">
+                            <?php foreach ($detienen as $id): $item = $informe['items'][$id] ?? []; ?>
+                                <li class="mb-1"><strong><?php echo s(exante::checklist_texts()[$id]); ?></strong>
+                                    <?php if (!empty($item['observacion'])): ?><br><?php echo s($item['observacion']); ?><?php endif; ?>
+                                    <?php if (!empty($item['propuesta'])): ?><br><strong><?php
+                                        echo get_string('exante_report_howto', 'local_chatbot'); ?></strong> <?php
+                                        echo s($item['propuesta']); ?><?php endif; ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
                 <?php if (!empty($informe['motivo'])): ?>
                     <div class="alert alert-danger mb-4">
                         <h6 class="mb-2"><?php echo get_string('exante_report_mustfix', 'local_chatbot'); ?></h6>
@@ -509,6 +543,22 @@ echo $OUTPUT->header();
                     <ul class="small">
                         <?php foreach ($informe['sugerencias'] as $texto): ?><li><?php echo s($texto); ?></li><?php endforeach; ?>
                     </ul>
+                <?php endif; ?>
+
+                <?php $pendientes = exante::unresolved_items($informe['items'] ?? []); ?>
+                <h5 class="mb-2 mt-3">d) <?php echo get_string('exante_report_unresolved', 'local_chatbot'); ?></h5>
+                <?php if ($pendientes): ?>
+                    <p class="small text-muted mb-1"><?php echo get_string('exante_report_unresolved_help', 'local_chatbot'); ?></p>
+                    <ul class="small">
+                        <?php foreach ($pendientes as $p): ?>
+                            <li><?php echo get_string('exante_report_section', 'local_chatbot', $p['seccion']); ?>:
+                                <?php echo s($p['texto']); ?>
+                                <span class="badge text-bg-<?php echo $estadoclase[$p['estado']]; ?>"><?php
+                                    echo get_string('exante_status_' . $p['estado'], 'local_chatbot'); ?></span></li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php else: ?>
+                    <p class="small"><?php echo get_string('exante_report_unresolved_none', 'local_chatbot'); ?></p>
                 <?php endif; ?>
 
                 <p class="small text-muted mb-1"><?php echo empty($informe['adjuntos'])

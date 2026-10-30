@@ -176,6 +176,34 @@ local_chatbot_verificar(kb_store::ambitos() === ['m1', 'm2'], 'hay dos ámbitos:
 local_chatbot_verificar(kb_store::normalize_ambito('m2') === 'm2' && kb_store::normalize_ambito('m1') === 'm1'
     && kb_store::normalize_ambito('otro') === 'm1' && kb_store::normalize_ambito(null) === 'm1',
     'un ámbito desconocido o vacío cae en el del Módulo 1 (los documentos anteriores siguen con el Tutor)');
+
+// --- Libreria versionada del Modulo 2 (deploy/libreria_m2, cargada con cli/cargar_libreria.php) ---
+local_chatbot_verificar(kb_store::library_file("\xEF\xBB\xBF# Guía de llenado\r\n\r\nTexto.\r\n")
+    === ['Guía de llenado', "# Guía de llenado\n\nTexto."], 'el nombre del documento es su título «# ...»');
+local_chatbot_verificar(kb_store::library_file("Texto sin título\n# Tarde") === null
+    && kb_store::library_file("## Subtítulo\nx") === null && kb_store::library_file('') === null,
+    'sin título en la primera línea el archivo no se carga');
+$dirlib = __DIR__ . '/../../../../../deploy/libreria_m2';
+$libreria = is_dir($dirlib) ? glob($dirlib . '/*.md') : [];
+$nombreslib = [];
+foreach ($libreria as $ruta) {
+    $doc = kb_store::library_file((string) file_get_contents($ruta));
+    local_chatbot_verificar($doc !== null && kb_store::answer_key_markers($doc[1]) === [],
+        basename($ruta) . ': tiene título y no trae marcas de claves de evaluación');
+    $nombreslib[] = $doc[0] ?? '';
+}
+// La carpeta no viaja al servidor con el plugin: si no esta (CI del plugin solo), esta parte no aplica.
+local_chatbot_verificar(!$libreria || $nombreslib === [
+    'Checklist Validación Ficha Diagnóstico Ex Ante - Interfases',
+    'Ficha Diagnóstico Ex Ante - Trabajo de Campo - Interfases',
+    'Guía Llenado Ficha Diagnóstico Ex Ante - Interfases',
+    'Ejemplo de Llenado - Ficha Diagnóstico Ex Ante - Cuidados Personas Mayores',
+    'Marco de Cualificaciones Técnico-Profesional (MCTP) - MINEDUC 2017',
+    'Manual Estrategias Didácticas y de Evaluación para el Desarrollo de Competencias (EDECOMP) - 2021',
+    'Guía de Elaboración de Planes Formativos - SENCE y ChileValora',
+    'Rúbrica Validación Técnica Diseño - Interfases',
+], 'la librería del Módulo 2 trae los ocho documentos del cliente en orden 01…08');
+$total += 2 + 2 + count($libreria) + 1;
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 
 if ($fallidos === 0) {

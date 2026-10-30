@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 class diseno {
 
     /** @var string Version del prompt de diseno: se guarda con cada producto (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F2-etapas-v4';
+    const PROMPT_VERSION = 'M2-F2-etapas-v8';
 
     /** Estado del producto. */
     const BORRADOR = 'borrador';
@@ -34,8 +34,13 @@ class diseno {
     public static function etapas(): array {
         return [
             1 => ['titulo' => 'Análisis diagnóstico', 'archivo' => 'Etapa_1_Analisis_diagnostico',
-                'incluye' => ['Síntesis diagnóstica', 'Prioridades de diseño', 'Restricciones', 'Oportunidades',
-                    'Recomendación didáctica', 'Nota de uso de documentos complementarios (Plan Formativo y Perfil Ocupacional)'],
+                'incluye' => ['Síntesis diagnóstica',
+                    'Resultado de la validación (Etapa 0) y observaciones no resueltas, incorporadas como restricciones o '
+                        . 'prioridades de diseño',
+                    'Síntesis de la observación obligatoria 2.4 (pertinencia y factibilidad de los criterios) y de las '
+                        . 'observaciones finales de la ficha',
+                    'Prioridades de diseño', 'Restricciones', 'Oportunidades', 'Recomendación didáctica',
+                    'Nota de uso de documentos complementarios (plan formativo y perfil ocupacional)'],
                 'nota' => ''],
             2 => ['titulo' => 'Diseño de la experiencia', 'archivo' => 'Etapa_2_Diseno_de_la_experiencia',
                 'incluye' => ['Nombre de la experiencia de aprendizaje', 'Propósito', 'Aprendizaje esperado',
@@ -45,15 +50,18 @@ class diseno {
                     . 'estar alineado con el aprendizaje esperado y ser utilizable como título formal del diseño.'],
             3 => ['titulo' => 'Secuencia instruccional', 'archivo' => 'Etapa_3_Secuencia_instruccional',
                 'incluye' => ['Inicio / Desarrollo / Cierre',
-                    'Alcance de cada fase (lo que se espera lograr en ella; no lo llames «objetivos específicos»)',
-                    'Actividades (facilitador / participantes)', 'Recursos', 'Tiempo estimado', 'Evidencias parciales'],
-                'nota' => 'La suma de los tiempos estimados debe ajustarse al tiempo asignado a la experiencia de '
-                    . 'aprendizaje en la ficha (2.3).'],
+                    'Alcance de cada fase (descripción de lo que se espera lograr en la fase, sin formularlo como objetivo '
+                        . 'específico)',
+                    'Actividades (persona facilitadora / participantes)', 'Recursos',
+                    'Tiempo estimado en minutos por actividad y por fase; la suma total no debe superar el tiempo asignado '
+                        . 'a la experiencia de aprendizaje (ficha, subsección 2.3)',
+                    'Evidencias parciales'],
+                'nota' => ''],
             4 => ['titulo' => 'Materiales instruccionales de apoyo al aprendizaje',
                 'archivo' => 'Etapa_4_Materiales_instruccionales',
-                'incluye' => ['Materiales por fase', 'Alcance (en lugar de «objetivo»)', 'Contenidos', 'Formato', 'Uso didáctico',
+                'incluye' => ['Materiales por fase', 'Alcance', 'Contenidos', 'Formato', 'Uso didáctico',
                     'Evidencias asociadas', 'Tabla de síntesis', 'Factibilidad', 'Vacíos y soluciones'],
-                'nota' => 'No incluye instrumentos de evaluación: se desarrollan en la etapa 6.'],
+                'nota' => 'No incluye instrumentos de evaluación: estos se desarrollan en la Etapa 6.'],
             5 => ['titulo' => 'Plan de evaluación', 'archivo' => 'Etapa_5_Plan_de_evaluacion',
                 'incluye' => ['Tabla con: aprendizaje esperado, criterio de evaluación, evidencia, instrumento, '
                     . 'indicador de logro, momento de evaluación y responsable'],
@@ -97,8 +105,9 @@ class diseno {
                 'nota' => 'Todos los entregables anteriores, en extenso, en un documento único. El diseño consolidado '
                     . 'no es editable: si quieres ajustar algo, hazlo en la etapa que corresponda de la Fase 2.'],
             self::EVALUACION => ['titulo' => 'Evaluación del diseño', 'archivo' => 'Diseno_final_validado',
-                'incluye' => ['Puntaje por criterio', 'Puntaje total (máx 36)', 'Fortalezas', 'Debilidades',
-                    'Recomendaciones'],
+                'incluye' => ['Puntaje por criterio, indicando para cada criterio limitado la sección y el ítem del '
+                    . 'checklist que originan el límite', 'Puntaje total (máx. 36) y puntaje máximo alcanzable',
+                    'Fortalezas', 'Debilidades', 'Recomendaciones'],
                 'nota' => 'El asistente aplica la rúbrica de validación técnica del diseño. Con 25 puntos o más el '
                     . 'diseño queda aprobado. El documento final lleva impresos el puntaje y su interpretación.'],
         ];
@@ -114,58 +123,160 @@ class diseno {
     }
 
     /**
-     * Rubrica de validacion tecnica del diseno, con el texto del documento del cliente.
+     * Rubrica de validacion tecnica del diseno, con el texto del documento del cliente (version del 30-10-2026,
+     * «Rúbrica Validación Técnica Diseño - Interfases»). El nivel 3 de los criterios 1 a 8 incluye el caso «O bien»
+     * del limite por observaciones no resueltas; el informe lo muestra solo en un criterio limitado.
      *
      * @return array id => ['nombre' => string, 'niveles' => [4 => string, 3 =>, 2 =>, 1 =>]].
      */
     public static function rubrica(): array {
         return [
             'r1' => ['nombre' => 'Coherencia con la ficha diagnóstica', 'niveles' => [
-                4 => 'El diseño responde completamente a la ficha validada. Total coherencia con contexto, recursos y participantes.',
-                3 => 'Coherencia general con la ficha, con omisiones menores.',
-                2 => 'Uso parcial de la ficha. Decisiones poco justificadas.',
-                1 => 'No hay coherencia o contradice la ficha.']],
+                4 => 'El diseño incorpora la información relevante de la ficha validada (características y '
+                    . 'necesidades del grupo, contexto y decisiones de diseño) y responde a las observaciones 2.4 y '
+                    . 'finales. Las diferencias con la ficha están justificadas.',
+                3 => 'Incorpora la información de la ficha con omisiones menores; las decisiones principales son '
+                    . 'coherentes con ella. O bien: cumple el nivel 4, pero el criterio está limitado por una '
+                    . 'observación no resuelta del diagnóstico (secciones 1, 4 y 9 del checklist).',
+                2 => 'Usa la ficha de forma parcial: omite información relevante del grupo o del contexto, o se '
+                    . 'aparta de sus decisiones sin justificarlo.',
+                1 => 'No considera la ficha o la contradice.']],
             'r2' => ['nombre' => 'Alineación con aprendizaje esperado y criterios', 'niveles' => [
-                4 => 'Total alineación con aprendizaje y todos los criterios. No se modifican.',
-                3 => 'Alineación adecuada con la mayoría de criterios.',
-                2 => 'Alineación incompleta o poco clara.',
-                1 => 'No hay alineación o se alteran criterios.']],
+                4 => 'Todas las actividades y evidencias se vinculan con el aprendizaje esperado y con cada criterio '
+                    . 'utilizado (al menos 3 del plan formativo, o todos si declara menos), sin modificaciones.',
+                3 => 'Se alinea con el aprendizaje esperado y con la mayoría de los criterios utilizados; algún '
+                    . 'criterio tiene una vinculación débil con actividades o evidencias. Sin modificaciones. O '
+                    . 'bien: cumple el nivel 4, pero el criterio está limitado por una observación no resuelta del '
+                    . 'diagnóstico (sección 2 del checklist).',
+                2 => 'Alineación incompleta: uno o más criterios sin actividades o evidencias asociadas, o se usan '
+                    . 'menos de 3 criterios cuando el plan formativo declara más.',
+                1 => 'No hay alineación, o se modifican, omiten o inventan el aprendizaje esperado o los criterios.']],
             'r3' => ['nombre' => 'Calidad de la experiencia de aprendizaje', 'niveles' => [
-                4 => 'Nombre claro, propósito preciso, estrategia y modalidad pertinentes y coherentes.',
-                3 => 'Experiencia bien formulada con mejoras menores posibles.',
-                2 => 'Presenta debilidades en claridad o pertinencia.',
-                1 => 'Experiencia mal formulada o poco pertinente.']],
+                4 => 'Nombre claro, breve y representativo del desempeño; propósito preciso; modalidad y estrategia '
+                    . 'coherentes con la sección 7 de la ficha o con un cambio justificado.',
+                3 => 'Experiencia bien formulada; uno de sus elementos (nombre, propósito, modalidad o estrategia) '
+                    . 'requiere una mejora menor. O bien: cumple el nivel 4, pero el criterio está limitado por una '
+                    . 'observación no resuelta del diagnóstico (secciones 3, 5 y 7 del checklist).',
+                2 => 'Dos o más elementos presentan debilidades de claridad o pertinencia, o la modalidad o '
+                    . 'estrategia difieren de la ficha sin justificación.',
+                1 => 'Experiencia mal formulada o no pertinente para el aprendizaje esperado.']],
             'r4' => ['nombre' => 'Secuencia instruccional', 'niveles' => [
-                4 => 'Progresión clara (inicio-desarrollo-cierre), coherente y bien articulada.',
-                3 => 'Secuencia clara con pequeños ajustes necesarios.',
-                2 => 'Desajustes en actividades, tiempos o evidencias.',
-                1 => 'Sin progresión clara o incoherente.']],
+                4 => 'Progresión clara de inicio, desarrollo y cierre; cada fase tiene alcance, actividades, '
+                    . 'recursos, tiempo en minutos y evidencias parciales. El tiempo total no supera el asignado '
+                    . '(2.3).',
+                3 => 'Secuencia clara y completa, con ajustes menores en actividades, tiempos o evidencias; tiempo '
+                    . 'total dentro de lo asignado. O bien: cumple el nivel 4, pero el criterio está limitado por '
+                    . 'una observación no resuelta del diagnóstico (sección 2 (ítem de tiempo) y sección 4 del '
+                    . 'checklist).',
+                2 => 'Desajustes en la progresión, fases incompletas o tiempo total que supera el asignado.',
+                1 => 'Sin progresión clara o secuencia incoherente con el aprendizaje esperado.']],
             'r5' => ['nombre' => 'Materiales instruccionales', 'niveles' => [
-                4 => 'Materiales pertinentes, bien definidos y alineados con evidencias.',
-                3 => 'Materiales adecuados con leves mejoras necesarias.',
-                2 => 'Materiales genéricos o poco claros.',
-                1 => 'Materiales no pertinentes o desconectados.']],
+                4 => 'Materiales definidos por fase (alcance, contenidos, formato y uso), pertinentes, alineados con '
+                    . 'las evidencias y factibles con los recursos de la ficha.',
+                3 => 'Materiales pertinentes y alineados, con mejoras menores en su definición o factibilidad. O '
+                    . 'bien: cumple el nivel 4, pero el criterio está limitado por una observación no resuelta del '
+                    . 'diagnóstico (sección 6 del checklist).',
+                2 => 'Materiales genéricos, poco claros o sin vínculo explícito con las evidencias.',
+                1 => 'Materiales no pertinentes, desconectados de la secuencia o ausentes.']],
             'r6' => ['nombre' => 'Plan de evaluación', 'niveles' => [
-                4 => 'Relación clara entre aprendizaje, criterios, evidencias, instrumentos e indicadores.',
-                3 => 'Plan coherente con pequeños ajustes necesarios.',
-                2 => 'Relaciones incompletas o poco claras.',
-                1 => 'Plan desalineado o incompleto.']],
+                4 => 'Cada criterio utilizado tiene evidencia, instrumento, indicador de logro, momento de '
+                    . 'evaluación y responsable, con relaciones claras entre ellos.',
+                3 => 'Plan coherente; algún elemento requiere un ajuste menor sin afectar la cobertura de los '
+                    . 'criterios. O bien: cumple el nivel 4, pero el criterio está limitado por una observación no '
+                    . 'resuelta del diagnóstico (secciones 2 y 7 del checklist).',
+                2 => 'Relaciones incompletas o poco claras: uno o más criterios sin evidencia, instrumento o '
+                    . 'indicador.',
+                1 => 'Plan desalineado con el aprendizaje esperado y los criterios, o ausente.']],
             'r7' => ['nombre' => 'Instrumentos evaluativos', 'niveles' => [
-                4 => 'Instrumentos completos, claros y listos para aplicar.',
-                3 => 'Instrumentos adecuados con ajustes menores.',
-                2 => 'Instrumentos poco claros o incompletos.',
-                1 => 'Instrumentos no válidos o mal formulados.']],
+                4 => 'Un instrumento por cada evidencia del plan, coherente con su tipo, con indicadores, escala y '
+                    . 'pautas de uso; redactado y listo para aplicar.',
+                3 => 'Instrumentos coherentes con el plan, con ajustes menores de redacción o escala. O bien: cumple '
+                    . 'el nivel 4, pero el criterio está limitado por una observación no resuelta del diagnóstico '
+                    . '(sección 7 del checklist).',
+                2 => 'Instrumentos poco claros o incompletos (sin escala, indicadores o pautas), o alguna evidencia '
+                    . 'del plan sin instrumento.',
+                1 => 'Instrumentos no válidos para las evidencias, mal formulados o ausentes.']],
             'r8' => ['nombre' => 'Factibilidad de implementación', 'niveles' => [
-                4 => 'Totalmente viable según recursos, tiempo y contexto.',
-                3 => 'Viable con ajustes menores.',
-                2 => 'Factibilidad limitada.',
-                1 => 'No viable en el contexto real.']],
+                4 => 'Implementable con los recursos, el tiempo y el contexto registrados en la ficha, y aborda los '
+                    . 'riesgos identificados en la sección 8.',
+                3 => 'Viable con ajustes menores (por ejemplo, reorganizar espacios o turnos) que no requieren '
+                    . 'recursos adicionales relevantes. O bien: cumple el nivel 4, pero el criterio está limitado '
+                    . 'por una observación no resuelta del diagnóstico (sección 2 (ítem de tiempo) y secciones 5, 6 '
+                    . 'y 8 del checklist).',
+                2 => 'Factibilidad limitada: requiere recursos, tiempo o condiciones no disponibles según la ficha, '
+                    . 'sin proponer alternativas.',
+                1 => 'No viable en el contexto real registrado en la ficha.']],
             'r9' => ['nombre' => 'Calidad formal del documento', 'niveles' => [
-                4 => 'Documento claro, ordenado y listo para uso institucional.',
-                3 => 'Presentación adecuada con mejoras menores.',
-                2 => 'Problemas de claridad u organización.',
-                1 => 'Documento deficiente o poco usable.']],
+                4 => 'Documento único, ordenado y sin repeticiones, con lenguaje claro e inclusivo y terminología de '
+                    . 'formación por competencias; listo para uso institucional.',
+                3 => 'Presentación adecuada, con mejoras menores de formato o redacción.',
+                2 => 'Problemas de claridad, organización o terminología que dificultan su uso.',
+                1 => 'Documento deficiente, incompleto o poco usable.']],
         ];
+    }
+
+    /**
+     * Criterios de la rubrica vinculados a cada item del checklist de la Etapa 0, para el limite por observaciones no
+     * resueltas (Etapa 8 del Prompt Maestro, ajuste del cliente del 30-10-2026). Por seccion, salvo el item de tiempo
+     * (c2_4: criterios 4 y 8, en lugar de 2 y 6) y la seccion 7, que va por item. El criterio 9 no se limita. Funcion pura.
+     *
+     * @return array id de item => ids de criterio.
+     */
+    public static function rubric_links(): array {
+        $porseccion = [1 => ['r1'], 2 => ['r2', 'r6'], 3 => ['r3'], 4 => ['r1', 'r4'], 5 => ['r3', 'r8'],
+            6 => ['r5', 'r8'], 8 => ['r8'], 9 => ['r1']];
+        // Seccion 7: modalidad o estrategia metodologica → 3; evidencia → 6; instrumento → 7.
+        $poritem = ['c2_4' => ['r4', 'r8'], 'c7_1' => ['r3'], 'c7_2' => ['r3'], 'c7_3' => ['r6'], 'c7_4' => ['r7']];
+        $vinculos = [];
+        foreach (exante::checklist() as $n => $seccion) {
+            foreach (array_keys($seccion['items']) as $id) {
+                $vinculos[$id] = $poritem[$id] ?? ($porseccion[$n] ?? []);
+            }
+        }
+        return $vinculos;
+    }
+
+    /**
+     * Criterios con puntaje maximo 3 por las observaciones no resueltas de la Etapa 0 (items ⚠ o ❌ de la validacion
+     * vigente: la que habilito la Fase 2), con los items que originan cada limite. Cada criterio se limita una sola vez.
+     * Funcion pura.
+     *
+     * @param array $validacion Informe de la validacion (['items' => [id => ['estado' => ...]]]).
+     * @return array id de criterio => ids de item que lo limitan, en el orden de la rubrica.
+     */
+    public static function rubric_limits(array $validacion): array {
+        $vinculos = self::rubric_links();
+        $limites = [];
+        foreach (array_keys(exante::unresolved_items($validacion['items'] ?? [])) as $id) {
+            foreach ($vinculos[$id] ?? [] as $criterio) {
+                $limites[$criterio][] = $id;
+            }
+        }
+        $ordenado = [];
+        foreach (array_keys(self::rubrica()) as $criterio) {
+            if (isset($limites[$criterio])) {
+                $ordenado[$criterio] = $limites[$criterio];
+            }
+        }
+        return $ordenado;
+    }
+
+    /**
+     * Seccion e item del checklist que originan un limite, como texto. Funcion pura.
+     *
+     * @param string[] $ids Items del checklist.
+     * @return string Por ejemplo «Sección 2, «El tiempo para ...»; Sección 6, «...»».
+     */
+    public static function limit_origins(array $ids): string {
+        $textos = [];
+        foreach (exante::checklist() as $n => $seccion) {
+            foreach ($seccion['items'] as $id => $texto) {
+                if (in_array($id, $ids, true)) {
+                    $textos[] = 'Sección ' . $n . ', «' . $texto . '»';
+                }
+            }
+        }
+        return implode('; ', $textos);
     }
 
     /**
@@ -257,23 +368,38 @@ class diseno {
                 $rubrica[] = '   Nivel ' . $nivel . ' (' . $nivel . ' pts): ' . $texto;
             }
         }
+        // Limite por observaciones no resueltas: lo calcula el codigo con el vinculo seccion → criterio del cliente.
+        $limites = self::rubric_limits($validacion);
+        $limitados = [];
+        foreach ($limites as $criterio => $items) {
+            $limitados[] = '- ' . $criterio . ' (' . self::rubrica()[$criterio]['nombre'] . '): ' . self::limit_origins($items);
+        }
+        $limite = $limitados
+            ? "En este diseño, los criterios con puntaje máximo 3 son:\n" . implode("\n", $limitados) . "\n"
+                . 'El límite es un máximo, no un puntaje asignado: si el diseño merece un puntaje menor, asigna el que '
+                . 'corresponda según la rúbrica. En la justificación de cada criterio limitado indica la sección y el ítem '
+                . 'del checklist que originan el límite. Puntaje máximo alcanzable: ' . (36 - count($limites)) . ' de 36.'
+            : 'En este diseño ningún criterio queda limitado: el puntaje máximo alcanzable es 36.';
         return implode("\n", [
             'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias. Tu '
                 . 'comportamiento es estricto, estructurado y orientado a asegurar calidad.',
             '',
-            'TAREA: ETAPA 8, EVALUACIÓN DEL DISEÑO. Evalúa el diseño instruccional consolidado con la rúbrica de '
-                . 'validación técnica: asigna a cada criterio un puntaje de 1 a 4 según el nivel cuyo descriptor mejor '
-                . 'corresponda, con una justificación breve y específica que cite el diseño. No reescribas el diseño.',
+            'TAREA: ETAPA 8, EVALUACIÓN DEL DISEÑO. Evalúa cada criterio (1 a 4) utilizando la rúbrica de validación '
+                . 'técnica del diseño: asigna a cada criterio el puntaje del nivel cuyo descriptor mejor corresponda, con '
+                . 'una justificación breve y específica que cite el diseño. No reescribas el diseño.',
             'Usa la ficha de diagnóstico validada como referencia para la coherencia y la factibilidad.'
                 . ($adjuntos ? ' Se adjuntan ' . implode(' y ', $adjuntos) . ' para validar la alineación.' : ''),
             'Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género. Evalúas el '
                 . 'diseño, no a la persona.',
             exante::NO_PEDAGOGIA,
             '',
-            'CONSISTENCIA CON EL DIAGNÓSTICO: la evaluación del diseño debe ser consistente con la calidad del diagnóstico '
-                . 'validado: en aquellos criterios de la rúbrica vinculados a ítems de las secciones de la ficha diagnóstica '
-                . 'donde se presentaron observaciones no resueltas antes del diseño, el puntaje máximo debiera ser 3. '
-                . self::pending_observations($validacion),
+            'LÍMITE POR OBSERVACIONES NO RESUELTAS: la evaluación del diseño debe ser consistente con la calidad del '
+                . 'diagnóstico validado. Se consideran observaciones no resueltas los ítems evaluados ⚠ o ❌ en la Etapa 0 '
+                . 'que no fueron corregidos en la ficha antes de iniciar la Etapa 1, según el registro de la Etapa 0. Cuando '
+                . 'una sección del checklist tiene al menos una observación no resuelta, el puntaje máximo de los criterios '
+                . 'de la rúbrica vinculados a esa sección es 3; cada criterio se limita una sola vez, y el criterio 9 '
+                . '(Calidad formal del documento) no se limita. ' . self::pending_observations($validacion),
+            $limite,
             '',
             'EVALÚA CON OJO CRÍTICO: este diseño se elaboró con apoyo de una IA, así que no lo des por bueno porque '
                 . 'esté bien redactado: revísalo como lo haría una persona revisora externa. Cada puntaje 4 debe '
@@ -284,6 +410,17 @@ class diseno {
                 . 'recomendaciones concretas de mejora.',
             '',
             implode("\n", exante::knowledge_rules($conlibreria, $conbusqueda)),
+            '',
+            'PAUTAS DE APLICACIÓN DE LA RÚBRICA:',
+            '1. Asignación del nivel: se asigna el nivel cuyo descriptor se cumple íntegramente. Si el diseño cumple '
+                . 'solo parte del nivel 4, corresponde el nivel 3 o inferior.',
+            '2. Ajuste u omisión «menor»: no afecta la alineación con el aprendizaje esperado y los criterios ni la '
+                . 'factibilidad, y puede corregirse sin rediseñar la experiencia. Es «importante» cuando exige rediseñar '
+                . 'una fase, actividad, evidencia o instrumento.',
+            '3. Criterios limitados: cuando corresponda aplicar el límite por observaciones no resueltas del '
+                . 'diagnóstico, el puntaje se informa como «3 (limitado)», con la sección y el ítem del checklist que lo '
+                . 'originan. Si el desempeño corresponde a un nivel inferior, se asigna ese nivel. (En el JSON el puntaje '
+                . 'va como número: 3; el informe agrega «(limitado)».)',
             '',
             'RÚBRICA (id. criterio):',
             implode("\n", $rubrica),
@@ -309,13 +446,18 @@ class diseno {
      *
      * @param string|null $texto
      * @param bool $exigeevidencia Un 4 sin evidencia citada cuenta como 3 (interruptor «iaapoyo»).
-     * @return array|null criterios (id => [puntaje, justificacion]), total, banda, fortalezas, debilidades, recomendaciones.
+     * @param array $limites Criterios con tope 3 por observaciones no resueltas (rubric_limits()): id => items.
+     * @return array|null criterios (id => [puntaje, justificacion]), total, banda, limitados (ids con tope 3), limites
+     *         (id => items que lo originan), maximo (36 menos los limitados), fortalezas, debilidades, recomendaciones.
      */
-    public static function parse_eval(?string $texto, bool $exigeevidencia = true): ?array {
+    public static function parse_eval(?string $texto, bool $exigeevidencia = true, array $limites = []): ?array {
         $json = exante::decode_json($texto);
         if (!$json || !isset($json['criterios']) || !is_array($json['criterios'])) {
             return null;
         }
+        // Etapa 8 del Prompt Maestro (ajuste del 30-10-2026): el tope 3 lo fija el codigo, no lo que diga el modelo.
+        $limites = array_intersect_key($limites, self::rubrica());
+        $limitados = array_keys($limites);
         $criterios = [];
         $total = 0;
         foreach (array_keys(self::rubrica()) as $id) {
@@ -326,6 +468,9 @@ class diseno {
             }
             $justificacion = \core_text::substr(trim((string) ($c['justificacion'] ?? '')), 0, 800);
             $p = $exigeevidencia ? self::supported_score($p, $justificacion) : $p;
+            if (in_array($id, $limitados, true)) {
+                $p = min($p, 3);
+            }
             $criterios[$id] = ['puntaje' => $p, 'justificacion' => $justificacion];
             $total += $p;
         }
@@ -339,7 +484,8 @@ class diseno {
             }
             return array_slice($salida, 0, 6);
         };
-        return ['criterios' => $criterios, 'total' => $total, 'banda' => self::band($total),
+        return ['criterios' => $criterios, 'total' => $total, 'banda' => self::band($total), 'limitados' => $limitados,
+            'limites' => $limites, 'maximo' => 36 - count($limitados),
             'fortalezas' => $lista($json['fortalezas'] ?? []), 'debilidades' => $lista($json['debilidades'] ?? []),
             'recomendaciones' => $lista($json['recomendaciones'] ?? [])];
     }
@@ -381,8 +527,9 @@ class diseno {
             }
         }
         return $lineas
-            ? "Ítems de la ficha con observaciones en la validación de la Fase 1:\n" . implode("\n", $lineas)
-            : 'La validación de la ficha no dejó observaciones pendientes.';
+            ? "Registro de observaciones no resueltas de la Etapa 0 (ítems ⚠ o ❌ de la validación vigente de la ficha):\n"
+                . implode("\n", $lineas)
+            : 'La validación de la ficha (Etapa 0) no dejó observaciones no resueltas.';
     }
 
     /**
@@ -497,16 +644,30 @@ class diseno {
         $e = static function($t) {
             return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8');
         };
+        // Limites por observaciones no resueltas (desde v1.20.14 con su origen; las evaluaciones anteriores no lo traen).
+        $limites = (array) ($informe['limites'] ?? array_fill_keys((array) ($informe['limitados'] ?? []), []));
         $html = '<table class="table table-sm align-middle"><thead><tr><th>Criterio</th><th>Puntaje</th>'
             . '<th>Nivel</th><th>Justificación</th></tr></thead><tbody>';
         foreach (self::rubrica() as $id => $c) {
             $p = (int) ($informe['criterios'][$id]['puntaje'] ?? 0);
-            $html .= '<tr><td>' . $e(substr($id, 1) . '. ' . $c['nombre']) . '</td><td>' . $p . ' / 4</td><td>'
-                . $e($c['niveles'][$p] ?? '') . '</td><td>' . $e($informe['criterios'][$id]['justificacion'] ?? '')
-                . '</td></tr>';
+            $limite = isset($limites[$id]) ? '<br><em>Puntaje máximo 3 por observaciones no resueltas'
+                . ($limites[$id] ? ': ' . $e(self::limit_origins((array) $limites[$id])) : '') . '.</em>' : '';
+            $nivel = (string) ($c['niveles'][$p] ?? '');
+            if (!isset($limites[$id])) {
+                $nivel = (string) preg_replace('/\s*O bien: cumple el nivel 4.*$/su', '', $nivel);
+            }
+            $puntaje = isset($limites[$id]) ? ($p === 3 ? '3 (limitado)' : $p . ' / 4 (máx. 3)') : $p . ' / 4';
+            $html .= '<tr><td>' . $e(substr($id, 1) . '. ' . $c['nombre']) . '</td><td>' . $puntaje
+                . '</td><td>' . $e($nivel) . '</td><td>'
+                . $e($informe['criterios'][$id]['justificacion'] ?? '') . $limite . '</td></tr>';
         }
         $html .= '<tr><th>Puntaje total</th><th>' . (int) $informe['total'] . ' / 36</th><th colspan="2">'
-            . $e($informe['banda']['texto']) . '</th></tr></tbody></table>';
+            . $e($informe['banda']['texto']) . '</th></tr>';
+        if ($limites) {
+            $html .= '<tr><th>Puntaje máximo alcanzable</th><th>' . (36 - count($limites)) . ' / 36</th><th colspan="2">'
+                . count($limites) . ' criterio(s) limitado(s) por observaciones no resueltas del diagnóstico</th></tr>';
+        }
+        $html .= '</tbody></table>';
         foreach (['fortalezas' => 'Fortalezas', 'debilidades' => 'Debilidades', 'recomendaciones' => 'Recomendaciones']
                 as $clave => $titulo) {
             if (!empty($informe[$clave])) {
@@ -590,9 +751,11 @@ class diseno {
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, especializado en formación '
             . 'de personas adultas en contextos de capacitación laboral. Apoyas a personas facilitadoras en el diseño de '
-            . 'experiencias de aprendizaje, usando como insumo principal y obligatorio la ficha de diagnóstico (evaluación '
-            . 'ex-ante) ya validada, el Plan Formativo como documento de referencia obligatorio y, opcionalmente, el Perfil '
-            . 'Ocupacional. Tu comportamiento es estricto, estructurado y orientado a asegurar calidad.';
+            . 'experiencias de aprendizaje, utilizando como insumo principal y obligatorio una ficha de diagnóstico '
+            . '(evaluación ex ante) para trabajo de campo, completada por la persona facilitadora y validada por este '
+            . 'asistente en la Etapa 0 mediante el checklist de validación; el plan formativo, como documento de referencia '
+            . 'obligatorio, y opcionalmente el perfil ocupacional. Tu comportamiento es estricto, estructurado y orientado a '
+            . 'asegurar calidad.';
         $l[] = '';
         $l[] = 'TAREA: ETAPA ' . $etapa . ': ' . \core_text::strtoupper($e['titulo']) . '.';
         $l[] = 'Desarrolla solo esta etapa; no adelantes las siguientes. Debe incluir obligatoriamente:';
@@ -606,7 +769,9 @@ class diseno {
         $l[] = 'REGLAS DE GOBERNANZA:';
         $l[] = '- Usa como fuente principal la ficha de diagnóstico y el Plan Formativo. ' . exante::documents_rule($adjuntos);
         $l[] = '- No inventes aprendizajes esperados ni criterios de evaluación: transcríbelos tal como están en la ficha.';
-        $l[] = '- Trabaja con todos los criterios de evaluación que registra la ficha (al menos 3; no hay un número máximo).';
+        $l[] = '- Utiliza al menos 3 de los criterios de evaluación declarados en el plan formativo para el aprendizaje '
+            . 'esperado (los que registra la ficha). Si el plan formativo declara menos de 3, utiliza todos los '
+            . 'disponibles, infórmalo como vacío de información y no crees criterios nuevos.';
         $l[] = exante::NO_PEDAGOGIA;
         $l[] = '- Mantén la alineación constructiva con las etapas ya aceptadas y con los criterios de evaluación.';
         $l[] = '- Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género.';
@@ -615,10 +780,12 @@ class diseno {
         foreach (exante::knowledge_rules($conlibreria, $conbusqueda) as $regla) {
             $l[] = $regla;
         }
-        $l[] = '- Considera las observaciones de la validación de la ficha.';
+        $l[] = '- Considera el resultado de la validación de la ficha (Etapa 0) y su registro de observaciones no '
+            . 'resueltas: incorpóralas como restricciones o prioridades de diseño.';
         $l[] = '';
-        $l[] = 'CONTROL DE CALIDAD: antes de cerrar la etapa verifica la alineación con el aprendizaje esperado, la '
-            . 'coherencia con los criterios de evaluación y la aplicabilidad práctica. Termina el documento con una '
+        $l[] = 'CONTROL DE CALIDAD: antes de cerrar la etapa verifica la coherencia con la ficha, la alineación con el '
+            . 'aprendizaje esperado y los criterios de evaluación, la aplicabilidad real y la consistencia con el tiempo '
+            . 'asignado a la experiencia (2.3) y con el tiempo total disponible (2.2). Termina el documento con una '
             . 'sección breve «Verificación de calidad de la etapa» que diga qué verificaste y, si detectas una '
             . 'inconsistencia, qué ajuste se necesita.';
         $l[] = '';
@@ -631,6 +798,15 @@ class diseno {
         $l[] = '';
         $l[] = 'FICHA DE DIAGNÓSTICO VALIDADA:';
         $l[] = guardrails::isolate_user_content($ficha);
+        if (!empty($informe['condicion'])) {
+            $condiciones = [exante::APROBADO => '✔ Aprobado', exante::OBSERVACIONES => '⚠ Aprobado con observaciones',
+                exante::NO_APROBADO => '❌ No aprobado'];
+            $l[] = '';
+            $l[] = 'RESULTADO DE LA VALIDACIÓN DE LA FICHA (ETAPA 0): ' . ($condiciones[$informe['condicion']] ?? '') . '.';
+        }
+        if (!empty($informe['items'])) {
+            $l[] = self::pending_observations($informe);
+        }
         $obs = array_merge($informe['debilidades'] ?? [], $informe['sugerencias'] ?? []);
         if ($obs) {
             $l[] = '';
@@ -1140,6 +1316,8 @@ class diseno {
         }
         $ficha = exante::clean((array) json_decode((string) $val->snapshot, true));
         $informe = (array) json_decode((string) $val->informe, true);
+        // Resultado de la Etapa 0 para la Etapa 1 (Prompt Maestro del 30-10-2026).
+        $informe['condicion'] = (string) $val->condicion;
 
         if ((int) $fila->etapa === self::EVALUACION) {
             return self::evaluate($fila, $ficha, (int) $val->fichaid, $informe);
@@ -1160,12 +1338,12 @@ class diseno {
         [$partes, $etiquetas] = exante::attachment_parts((int) $val->fichaid);
         $actual = $fila->contenido ? html_to_text((string) $fila->contenido, 0, false) : '';
         // Libreria del rol para el enfoque de competencias y busqueda web para la especialidad tecnica (30-10-2026).
-        $libreria = exante::role_library();
+        $libreria = exante::role_library('e' . (int) $fila->etapa, (string) ($ficha['nivel'] ?? ''));
         $buscar = exante::web_search_available();
         $prompt = self::build_prompt((int) $fila->etapa, pseudonymizer::scrub(exante::to_text($ficha)), $informe,
             $previas, $etiquetas, $actual, (string) $fila->ajustes, $libreria !== '', $buscar);
-        $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes,
-            exante::library_parts($libreria))]];
+        $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
+            ux::on('libreriaruta'))]];
 
         $modelo = ai\provider_factory::get_configured_model();
         $resultado = exante::generate_steady($contenido, 240, $modelo, $buscar);
@@ -1233,12 +1411,12 @@ class diseno {
             return [exante::ERROR, ['error' => 'sinconsolidado']];
         }
         [$partes, $etiquetas] = exante::attachment_parts($fichaid);
-        $libreria = exante::role_library();
+        $libreria = exante::role_library('e8', (string) ($ficha['nivel'] ?? ''));
         $buscar = exante::web_search_available();
         $prompt = self::build_eval_prompt(html_to_text((string) $c->contenido, 0, false),
             pseudonymizer::scrub(exante::to_text($ficha)), $etiquetas, $libreria !== '', $buscar, $validacion);
-        $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes,
-            exante::library_parts($libreria))]];
+        $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
+            ux::on('libreriaruta'))]];
         $modelo = ai\provider_factory::get_configured_model();
         $informe = null;
         $primero = null;
@@ -1252,7 +1430,8 @@ class diseno {
                 }
                 return [exante::ERROR, ['error' => 'servicio']];
             }
-            $informe = self::parse_eval(gemini_client::extract_text($resultado), ux::on('iaapoyo'));
+            $informe = self::parse_eval(gemini_client::extract_text($resultado), ux::on('iaapoyo'),
+                self::rubric_limits($validacion));
             // Con menos de 2 recomendaciones se pide una vez mas; si sigue igual, se conserva la lectura valida.
             if ($informe !== null && count($informe['recomendaciones']) < self::RECOMENDACIONES_MIN && $intento === 0) {
                 $primero = $informe;

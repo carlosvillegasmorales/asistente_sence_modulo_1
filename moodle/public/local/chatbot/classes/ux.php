@@ -61,6 +61,8 @@ class ux {
         'libreriam2' => 1,      // Modulo 2: la libreria del Asistente de Diseño Instruccional va en cada pedido a la IA (v1.20.10).
         'busquedaweb' => 1,     // Modulo 2: busqueda web (Gemini) para la especialidad tecnica de la persona (v1.20.10).
         'consolidacionia' => 1, // Modulo 2, etapa 7: consolidacion con el asistente, en extenso y sin repetir campos comunes (v1.20.12).
+        'reglacriticos' => 1,   // Modulo 2: regla de decision del checklist del cliente del 30-10 (items CRÍTICO; v1.20.13).
+        'libreriaruta' => 1,    // Modulo 2: cada pedido a la IA lleva solo las secciones de la libreria que su tarea necesita, y la libreria va primero (v1.20.15).
     ];
 
     /**

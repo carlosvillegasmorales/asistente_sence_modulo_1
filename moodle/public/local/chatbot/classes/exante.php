@@ -3,6 +3,8 @@ namespace local_chatbot;
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once(__DIR__ . '/kb_router.php');
+
 /**
  * Modulo 2, Fase 1: ficha de diagnostico (evaluacion ex-ante) y su validacion con el checklist.
  *
@@ -18,15 +20,15 @@ defined('MOODLE_INTERNAL') || die();
  * texto de la interfaz, y por eso vive aqui y no en los archivos de idioma.
  *
  * La validacion revisa un documento de trabajo, no a la persona: no es una calificacion y no toca el
- * libro de calificaciones. La condicion final no queda solo en manos del modelo: decide() aplica la
- * regla del checklist sobre los items y se queda con la mas estricta de las dos.
+ * libro de calificaciones. La condicion final no queda en manos del modelo: decide() aplica la regla
+ * de decision del checklist sobre los items que evaluo (items CRÍTICO, version del 30-10-2026).
  *
  * Todo lo que no lleva prefijo de BD es funcion pura y lo ejercita cli/verificar_exante.php.
  */
 class exante {
 
     /** @var string Version del prompt de validacion: se guarda con cada informe (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F1-checklist-v4';
+    const PROMPT_VERSION = 'M2-F1-checklist-v6';
 
     /** Tipos de campo de la ficha. */
     const T_TEXTO = 'texto';
@@ -68,15 +70,28 @@ class exante {
         'exante_perfil' => 'Perfil Ocupacional',
     ];
 
-    /** @var string[] Items que la autorrevision marca como criticos. Ya no dejan «No aprobado» por si solos: eso lo hacen los motivos graves. */
-    const CRITICOS = ['c2_1', 'c2_2', 'c2_3', 'c2_5', 'c9_2'];
+    /**
+     * @var string[] Items marcados CRÍTICO en el checklist del cliente (version del 30-10-2026): competencia y nivel,
+     * aprendizaje esperado, criterios (completos y sin modificar) y coherencia global. Con la regla «criticos» un ❌ o
+     * un ⚠ (salvo diferencia de forma) en cualquiera de ellos deja la ficha «No aprobado».
+     */
+    const CRITICOS = ['c1_3', 'c2_1', 'c2_2', 'c2_3', 'c9_2'];
+
+    /**
+     * Reglas de decision. «criticos»: la del checklist y el Prompt Maestro del 30-10-2026 (interruptor «reglacriticos»).
+     * «motivos»: v1.20.6 a v1.20.12, «No aprobado» solo por un motivo grave citado (interruptor «iaapoyo»).
+     * «estricta»: la anterior a v1.20.6.
+     */
+    const REGLA_CRITICOS = 'criticos';
+    const REGLA_MOTIVOS = 'motivos';
+    const REGLA_ESTRICTA = 'estricta';
 
     /** @var string Rol del asistente en el Modulo 2, distinto de los del Modulo 1 (Tutor, Coach, Evaluador). */
     const ROL = 'Asistente de Diseño Instruccional';
 
     /** @var string Regla de gobernanza del Prompt Maestro del Modulo 2 (30-10-2026), comun a todas las etapas. */
     const NO_PEDAGOGIA = '- Nunca utilices conceptos relativos a «pedagógico» o «pedagogía» en tus respuestas: sustitúyelos '
-        . 'por conceptos relativos a formación de adultos o formación laboral.';
+        . 'por conceptos relativos a formación de personas adultas o formación laboral.';
 
     /** @var float Temperatura de la validacion: baja, para que la misma ficha de el mismo resultado. */
     const TEMPERATURA = 0.1;
@@ -88,7 +103,10 @@ class exante {
     const LARGO_TEXTO = 255;
     const LARGO_PARRAFO = 4000;
 
-    /** @var int Criterios de evaluacion que se piden como minimo; la ficha muestra estos de partida. */
+    /**
+     * @var int Casillas de criterio que la ficha muestra de partida. Para validar basta uno: si el plan formativo declara
+     * menos de 3, se usan todos y se informa como vacio de informacion (Prompt Maestro del 30-10-2026).
+     */
     const CRITERIOS_MIN = 3;
 
     /**
@@ -116,8 +134,9 @@ class exante {
         for ($i = 1; $i <= self::CRITERIOS_MAX; $i++) {
             $criterio = ['id' => 'criterio' . $i, 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación ' . $i];
             if ($i === 1) {
-                $criterio['antes'] = 'Registre los criterios de evaluación tal como están definidos en el plan formativo. '
-                    . 'Se necesitan al menos 3 y no existe un número máximo de criterios de evaluación definidos por '
+                // Sin «Se necesitan al menos 3»: si el plan declara menos, se registran todos (Prompt Maestro del 30-10).
+                $criterio['antes'] = 'Registre los criterios de evaluación tal como están definidos en el plan formativo '
+                    . 'para ese aprendizaje esperado. No existe un número máximo de criterios de evaluación definidos por '
                     . 'aprendizaje esperado. Agregue todos los que sean necesarios para completar los que se establecen '
                     . 'en el Plan Formativo.';
             }
@@ -138,7 +157,7 @@ class exante {
                 ['id' => 'facilitador', 'tipo' => self::T_TEXTO, 'label' => 'Nombre del facilitador o facilitadora'],
                 ['id' => 'fechas', 'tipo' => self::T_TEXTO, 'label' => 'Fecha(s)',
                     'ayuda' => 'Fecha(s) de aplicación del diagnóstico.'],
-                ['id' => 'participantes', 'tipo' => self::T_NUMERO, 'label' => 'Nº de participantes',
+                ['id' => 'participantes', 'tipo' => self::T_NUMERO, 'label' => 'N.º de participantes',
                     'ayuda' => 'Total de participantes matriculados en el curso.'],
             ]],
             2 => ['titulo' => 'Aprendizaje esperado y criterios de evaluación del plan formativo', 'campos' => array_merge([
@@ -160,10 +179,9 @@ class exante {
             ])],
             3 => ['titulo' => 'Perfil ocupacional y plan formativo', 'campos' => [
                 ['id' => 'vinculo', 'tipo' => self::T_UNA, 'num' => '3.1',
-                    'antes' => 'Nota: si no existe Perfil Ocupacional, en el Catálogo Nacional ChileValora, asociado al '
-                        . 'Plan Formativo, responda las siguientes preguntas respecto de su experiencia y conocimiento del '
-                        . 'campo laboral en el cual se desempeñarán las personas participantes que egresen del Plan de '
-                        . 'Formación.',
+                    'antes' => 'Nota: Si no existe un perfil ocupacional del Catálogo Nacional de ChileValora asociado al '
+                        . 'plan formativo, responda las siguientes preguntas a partir de su experiencia y conocimiento del '
+                        . 'campo laboral en que se desempeñarán las personas participantes al egresar del plan formativo.',
                     'label' => 'El aprendizaje esperado se vincula con:',
                     'ayuda' => 'Marque la dimensión predominante. En formación por competencias lo más frecuente '
                         . 'es la integración de las tres.',
@@ -184,8 +202,8 @@ class exante {
                     'opciones' => ['inicial' => 'Inicial', 'intermedio' => 'Intermedio', 'avanzado' => 'Avanzado']],
                 ['id' => 'obs3', 'tipo' => self::T_PARRAFO, 'opcional' => true,
                     'label' => 'Observaciones breves (opcional):',
-                    'ayuda' => 'Si no existe Perfil Ocupacional de referencia para el Plan Formativo, señale esto en las '
-                        . 'observaciones y justifique las respuestas que marcó en las preguntas anteriores.'],
+                    'ayuda' => 'Si no existe un perfil ocupacional de referencia para el plan formativo, indíquelo y '
+                        . 'justifique las respuestas marcadas en las preguntas anteriores.'],
             ]],
             4 => ['titulo' => 'Caracterización de los participantes', 'campos' => [
                 ['id' => 'dominio', 'tipo' => self::T_UNA, 'num' => '4.1',
@@ -281,7 +299,11 @@ class exante {
     }
 
     /**
-     * Checklist de validacion, con el texto exacto del documento del cliente.
+     * Checklist de validacion, con el texto exacto del documento del cliente («Checklist de validación de la ficha de
+     * diagnóstico», version del 30-10-2026: 33 items, 5 de ellos CRÍTICO).
+     *
+     * El item nuevo de la seccion 1 (competencia y nivel contra el plan formativo) se llama c1_3 y va segundo: asi los
+     * informes anteriores conservan el significado de c1_2. El orden lo da el arreglo, no el id.
      *
      * @return array Seccion => ['titulo' => string, 'items' => [id => texto]].
      */
@@ -289,17 +311,20 @@ class exante {
         return [
             1 => ['titulo' => 'Identificación general', 'items' => [
                 'c1_1' => 'La ficha contiene todos los datos administrativos requeridos',
+                'c1_3' => 'La competencia del módulo y el nivel de cualificación corresponden a lo declarado en el plan '
+                    . 'formativo',
                 'c1_2' => 'La información es clara y consistente',
             ]],
             2 => ['titulo' => 'Aprendizaje esperado y criterios', 'items' => [
-                'c2_1' => 'El aprendizaje esperado está claramente definido',
-                'c2_2' => 'Los criterios de evaluación están completos',
+                'c2_1' => 'El aprendizaje esperado está claramente definido y corresponde al declarado en el plan formativo',
+                'c2_2' => 'Los criterios de evaluación están completos y corresponden a los declarados en el plan formativo',
                 'c2_3' => 'Los criterios no han sido modificados arbitrariamente',
                 'c2_4' => 'El tiempo para el desarrollo y evaluación del aprendizaje es suficiente',
                 'c2_5' => 'Existe coherencia entre aprendizaje y criterios',
             ]],
             3 => ['titulo' => 'Perfil ocupacional y plan formativo', 'items' => [
-                'c3_1' => 'El aprendizaje se vincula con el perfil ocupacional',
+                'c3_1' => 'El aprendizaje se vincula con el perfil ocupacional (si no existe perfil, se justifica en las '
+                    . 'observaciones)',
                 'c3_2' => 'Se identifica correctamente el tipo de saber',
                 'c3_3' => 'El nivel de complejidad es adecuado',
                 'c3_4' => 'Existe alineación con el plan formativo',
@@ -332,9 +357,10 @@ class exante {
                 'c8_2' => 'Se identifican riesgos',
                 'c8_3' => 'Se justifica la decisión de diseño',
             ]],
-            9 => ['titulo' => 'Validación', 'items' => [
+            9 => ['titulo' => 'Validación global', 'items' => [
                 'c9_1' => 'La ficha está completa',
-                'c9_2' => 'La información es coherente globalmente',
+                'c9_2' => 'La información es coherente globalmente: los compromisos formativos de las secciones 1, 2 y 3 '
+                    . 'son consistentes con los recursos, estrategias y decisiones de diseño de las secciones 5, 6 y 7',
                 'c9_3' => 'El diagnóstico permite diseñar',
             ]],
         ];
@@ -351,6 +377,19 @@ class exante {
             $ids = array_merge($ids, array_keys($seccion['items']));
         }
         return $ids;
+    }
+
+    /**
+     * Texto de cada item del checklist.
+     *
+     * @return string[] id => texto.
+     */
+    public static function checklist_texts(): array {
+        $textos = [];
+        foreach (self::checklist() as $seccion) {
+            $textos += $seccion['items'];
+        }
+        return $textos;
     }
 
     /**
@@ -487,9 +526,11 @@ class exante {
     /**
      * Control de entrada: sin esto no se valida.
      *
-     * Regla del cliente (30-10-2026): todas las secciones completas salvo los campos marcados como opcionales (las
-     * observaciones breves de las secciones 3 a 7), al menos 3 criterios de evaluacion, «Otro» especificado si se
-     * marco, y el Plan Formativo adjunto. El Perfil Ocupacional es opcional.
+     * Regla del cliente (checklist y Prompt Maestro del 30-10-2026): todas las secciones completas salvo los campos
+     * marcados como opcionales (las observaciones breves de las secciones 3 a 7), los criterios de evaluacion transcritos
+     * (al menos uno: si el plan declara menos de 3, se usan todos), «Otro» especificado si se marco, y el Plan Formativo
+     * adjunto. El Perfil Ocupacional es opcional. Completar no es aprobar: la correspondencia con el plan la evaluan los
+     * items CRÍTICO.
      *
      * @param array $data Ficha ya limpia.
      * @param string[]|null $adjuntos Areas de los archivos adjuntos (exante_plan, exante_perfil); null no los revisa.
@@ -502,14 +543,10 @@ class exante {
         foreach (self::sections() as $n => $seccion) {
             foreach ($seccion['campos'] as $campo) {
                 $id = $campo['id'];
-                if ($id === 'criterio1') {
-                    // Al menos 3 criterios, sin maximo (ajuste del cliente del 29-10-2026, que reemplaza el «no mas
-                    // de 5» del Prompt Maestro).
-                    $criterios = self::criteria_count($data);
-                    if ($criterios < self::CRITERIOS_MIN) {
-                        $falta[] = '2.1 Criterios de evaluación (mínimo ' . self::CRITERIOS_MIN . '; la ficha tiene '
-                            . $criterios . ')';
-                    }
+                if ($id === 'criterio1' && self::criteria_count($data) === 0) {
+                    // Los criterios del plan para ese aprendizaje, sin minimo ni maximo: el Prompt Maestro del 30-10-2026
+                    // reemplaza el «al menos 3» de la ficha (si el plan declara menos, se usan todos).
+                    $falta[] = '2.1 Criterios de evaluación';
                 }
                 if (!empty($campo['opcional']) || strpos($id, 'criterio') === 0) {
                     continue;
@@ -574,6 +611,12 @@ class exante {
                 . 'técnicos y señala lo que la persona debe verificar en fuentes del sector.';
         $l[] = '- La librería y la web complementan la ficha de diagnóstico y el Plan Formativo, que siguen siendo la fuente '
             . 'principal.';
+        if ($conlibreria) {
+            // La libreria trae el formato de la ficha, su guia, el checklist y un ejemplo de llenado (30-10-2026).
+            $l[] = '- Si la librería trae la guía de llenado, el formato de la ficha, el checklist o un ejemplo de llenado, '
+                . 'úsalos para interpretar cada campo y orientar tus propuestas. El ejemplo de llenado es ilustrativo y '
+                . 'con datos ficticios: no lo confundas con la ficha de la persona ni tomes de él sus datos.';
+        }
         return $l;
     }
 
@@ -597,13 +640,17 @@ class exante {
                 . 'priorizando siempre la información de la ficha de diagnóstico y del Plan Formativo.'
             : ' No se adjuntó el Perfil Ocupacional, que es opcional: continúa normalmente, sin bajar por eso ningún ítem, '
                 . 'y señala cuando alguna decisión podría beneficiarse de ese documento.';
+        // Prompt Maestro del 30-10-2026: sin perfil (no adjunto o inexistente en ChileValora), la seccion 3 vale.
+        $texto .= ' Si no se proporciona o no existe perfil ocupacional en el Catálogo Nacional de ChileValora, acepta '
+            . 'las respuestas de la sección 3 de la ficha basadas en la experiencia de la persona facilitadora, siempre que '
+            . 'estén justificadas en las observaciones de esa sección: no lo consideres un incumplimiento.';
         return $texto;
     }
 
     /**
      * La libreria del rol como parte del pedido al modelo.
      *
-     * @param string $libreria Texto de la libreria (kb_store::get_combined_context(AMBITO_M2)); '' si no hay.
+     * @param string $libreria Texto de la libreria; '' si no hay.
      * @return array Partes del pedido ([] sin libreria).
      */
     public static function library_parts(string $libreria): array {
@@ -612,6 +659,22 @@ class exante {
         }
         return [['text' => 'LIBRERÍA DE CONOCIMIENTOS DEL ' . \core_text::strtoupper(self::ROL)
             . " (referencia preferente para el enfoque de competencias):\n" . $libreria]];
+    }
+
+    /**
+     * Arma las partes del pedido al modelo: con «libreriaruta» encendido la libreria va primero (antes del prompt y de
+     * los adjuntos) para aprovechar la cache implicita; apagado, va al final como antes. Funcion pura.
+     *
+     * @param string $prompt Instrucciones de la tarea y contenido principal.
+     * @param array $adjuntos Partes de los documentos adjuntos.
+     * @param string $libreria Texto de la libreria ya seleccionado ('' si no hay).
+     * @param bool $primero Si la libreria debe ir al comienzo del pedido.
+     * @return array Lista de partes.
+     */
+    public static function request_parts(string $prompt, array $adjuntos, string $libreria, bool $primero): array {
+        $lib = self::library_parts($libreria);
+        $resto = array_merge([['text' => $prompt]], $adjuntos);
+        return $primero ? array_merge($lib, $resto) : array_merge($resto, $lib);
     }
 
     /**
@@ -624,12 +687,25 @@ class exante {
     }
 
     /**
-     * Libreria del rol para un pedido: vacia con el interruptor «libreriam2» apagado.
+     * Libreria del rol para un pedido: vacia con «libreriam2» apagado; con «libreriaruta» encendido y tarea indicada,
+     * solo las secciones que esa tarea y el nivel de la ficha necesitan; si no, completa y sin marcas.
      *
+     * @param string $tarea Tarea del Modulo 2 ('fase1', 'e1'..'e6', 'e8').
+     * @param string $nivel Valor del campo «nivel» de la ficha.
      * @return string
      */
-    public static function role_library(): string {
-        return ux::on('libreriam2') ? kb_store::get_combined_context(kb_store::AMBITO_M2) : '';
+    public static function role_library(string $tarea = '', string $nivel = ''): string {
+        if (!ux::on('libreriam2')) {
+            return '';
+        }
+        if (ux::on('libreriaruta') && trim($tarea) !== '') {
+            return kb_router::select(
+                kb_store::documents(kb_store::AMBITO_M2),
+                $tarea,
+                kb_router::level_of($nivel)
+            )['texto'];
+        }
+        return kb_router::strip_marks(kb_store::get_combined_context(kb_store::AMBITO_M2));
     }
 
     /**
@@ -641,13 +717,13 @@ class exante {
     public static function welcome(): array {
         return [
             'Bienvenido/a, soy tu asistente de apoyo en diseño instruccional por competencias.',
-            'Te puedo ayudar a analizar fichas de diagnóstico (evaluación ex-ante), diseñar experiencias de aprendizaje, '
+            'Te puedo ayudar a analizar fichas de diagnóstico (evaluación ex ante), diseñar experiencias de aprendizaje, '
                 . 'construir secuencias instruccionales, proponer materiales de apoyo y desarrollar planes e instrumentos '
                 . 'de evaluación.',
-            'Comienza completando tu ficha de diagnóstico. Después de completar la ficha, debes cargar también el Plan de '
-                . 'Formación para el cual estás diseñando la experiencia de aprendizaje y, opcionalmente, el Perfil '
-                . 'Ocupacional al cual tributa el Plan de Formación, lo que permitirá enriquecer el análisis y mejorar la '
-                . 'precisión del diseño.',
+            'Comienza completando tu ficha de diagnóstico para trabajo de campo; puedes apoyarte en la guía de llenado. '
+                . 'Después de completar la ficha, debes cargarla junto con el plan formativo para el cual estás diseñando '
+                . 'la experiencia de aprendizaje y, opcionalmente, el perfil ocupacional al cual tributa el plan formativo, '
+                . 'lo que permitirá enriquecer el análisis y mejorar la precisión del diseño.',
         ];
     }
 
@@ -669,6 +745,12 @@ class exante {
         if ($total !== '' && $experiencia !== '' && (int) $experiencia >= (int) $total) {
             $avisos[] = 'El tiempo de la experiencia (2.3) debe ser menor que el tiempo total disponible (2.2): '
                 . 'tras la implementación se necesitan ajustes o acciones remediales.';
+        }
+        $criterios = self::criteria_count($data);
+        if ($criterios > 0 && $criterios < self::CRITERIOS_MIN) {
+            $avisos[] = 'La ficha registra ' . $criterios . ' criterio(s) de evaluación. Si el plan formativo declara más '
+                . 'para este aprendizaje esperado, transcríbelos todos; si declara menos de 3, el asistente lo informará '
+                . 'como vacío de información.';
         }
         foreach (self::sections() as $seccion) {
             foreach ($seccion['campos'] as $campo) {
@@ -842,14 +924,17 @@ class exante {
      * @param string[] $adjuntos Etiquetas de los documentos complementarios que se adjuntaron.
      * @param bool $conlibreria Si la libreria del rol viene en el pedido.
      * @param bool $conbusqueda Si el modelo puede buscar en la web.
+     * @param string $regla Regla de decision (rule_mode()): cambia la seccion REGLA DE DECISIÓN y el formato.
      * @return string
      */
-    public static function build_prompt(array $adjuntos, bool $conlibreria = false, bool $conbusqueda = false): string {
+    public static function build_prompt(array $adjuntos, bool $conlibreria = false, bool $conbusqueda = false,
+            string $regla = self::REGLA_CRITICOS): string {
+        $criticos = $regla === self::REGLA_CRITICOS;
         $checklist = [];
         foreach (self::checklist() as $n => $seccion) {
             $checklist[] = $n . '. ' . \core_text::strtoupper($seccion['titulo']);
             foreach ($seccion['items'] as $id => $texto) {
-                $checklist[] = '   ' . $id . ': ' . $texto;
+                $checklist[] = '   ' . $id . ': ' . $texto . ($criticos && in_array($id, self::CRITICOS, true) ? ' [CRÍTICO]' : '');
             }
         }
         $complementarios = self::documents_rule($adjuntos);
@@ -861,19 +946,24 @@ class exante {
         return implode("\n", [
             'Eres el ' . self::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, '
                 . 'especializado en formación de personas adultas en contextos de capacitación laboral. Apoyas a personas '
-                . 'facilitadoras en la Fase 1 (Diagnóstico y Validación) del diseño de experiencias de aprendizaje, con la '
-                . 'ficha de diagnóstico como insumo principal y obligatorio, el Plan Formativo como documento de '
-                . 'referencia obligatorio y, opcionalmente, el Perfil Ocupacional.',
+                . 'facilitadoras en el diseño de experiencias de aprendizaje, utilizando como insumo principal y '
+                . 'obligatorio una ficha de diagnóstico (evaluación ex ante) para trabajo de campo, completada por la '
+                . 'persona facilitadora y validada por este asistente en la Etapa 0 mediante el checklist de validación; el '
+                . 'plan formativo, como documento de referencia obligatorio, y opcionalmente el perfil ocupacional.',
             '',
-            'TAREA: aplica la ETAPA 0, VALIDACIÓN DEL DIAGNÓSTICO, a la ficha de diagnóstico (evaluación ex-ante) '
+            'TAREA: aplica la ETAPA 0, VALIDACIÓN DEL DIAGNÓSTICO, a la ficha de diagnóstico (evaluación ex ante) '
                 . 'que viene más abajo. Aplica el checklist completo, sin omitir secciones ni ítems. No construyas '
                 . 'ni completes la ficha, no diseñes la experiencia de aprendizaje y no avances a otras etapas: solo '
                 . 'evalúas lo que la persona registró. Tu comportamiento es estricto, estructurado y orientado a '
                 . 'asegurar una calidad mínima antes de avanzar.',
+            'La ficha ya pasó el control de entrada: todos sus campos obligatorios tienen respuesta. Completar un campo '
+                . 'no implica aprobarlo: su correspondencia con el plan formativo se evalúa en los ítems CRÍTICO del '
+                . 'checklist.',
             '',
             'Evalúa cada ítem con uno de estos valores: "cumple" (✔ Cumple), "parcial" (⚠ Cumple parcialmente) o '
                 . '"no_cumple" (❌ No cumple). Agrega una observación breve y específica, que se refiera a lo '
-                . 'registrado en la ficha; es obligatoria cuando el ítem no es "cumple". Cuando el ítem no es '
+                . 'registrado en la ficha; es obligatoria cuando el ítem no es "cumple" y debe señalar el campo de la '
+                . 'ficha o del plan formativo que la origina. Cuando el ítem no es '
                 . '"cumple", agrega además una "propuesta": una mejora concreta con la frase lista para copiar en la '
                 . 'ficha, indicando en qué campo va (por ejemplo: "En 8.2 marca Sí y anota: conectividad irregular → '
                 . 'materiales descargables").',
@@ -881,26 +971,33 @@ class exante {
             'REGLAS DE GOBERNANZA:',
             '- La ficha de diagnóstico y el Plan Formativo son la fuente principal. ' . $complementarios,
             '- No inventes aprendizajes esperados ni criterios de evaluación.',
-            '- No se utilizan menos de 3 criterios de evaluación en el diseño de la experiencia de aprendizaje, y no hay '
-                . 'un número máximo. Si la ficha registra menos de 3, indícalo; si registra más de 5, es normal: no lo '
-                . 'señales.',
+            '- La ficha transcribe el aprendizaje esperado y todos los criterios de evaluación que el plan formativo '
+                . 'declara para ese aprendizaje esperado, sin un número máximo. En el diseño se utilizan al menos 3 de esos '
+                . 'criterios: si el plan formativo declara menos de 3, la ficha los registra todos y eso no es un '
+                . 'incumplimiento de la ficha; infórmalo como vacío de información (en "debilidades") y no propongas '
+                . 'criterios nuevos.',
             self::NO_PEDAGOGIA,
             '- La ficha lista solo los criterios de evaluación que la persona registró: no reportes como faltantes '
                 . 'casillas de criterios que no aparecen.',
-            '- Una decisión razonable que la persona no explicó (por ejemplo, usar 4 de los 9 criterios de la '
-                . 'unidad o marcar "Parcialmente alineado") se evalúa "cumple"; puedes sugerir explicarla.',
+            '- Una decisión razonable que la persona no explicó (por ejemplo, marcar "Parcialmente alineado" en 3.3) se '
+                . 'evalúa "cumple"; puedes sugerir explicarla.',
             '- La sinceridad no se castiga: reconocer una alineación parcial (3.3), una limitación de recursos o un '
                 . 'grupo heterogéneo no baja otros ítems (por ejemplo, 3.3 "Parcialmente alineado" no baja el ítem '
                 . 'c3_4) mientras la ficha sea coherente consigo misma.',
-            '- Los ítems de la sección 9 resumen lo ya evaluado: no los bajes por algo que ya señalaste en otro ítem; '
-                . 'evalúalos solo sobre lo que sigue sin resolver.',
+            '- Los ítems c9_1 y c9_3 resumen lo ya evaluado: no los bajes por algo que ya señalaste en otro ítem; '
+                . 'evalúalos solo sobre lo que sigue sin resolver. El ítem c9_2 se evalúa con su propio texto: '
+                . 'inconsistencias profundas entre los compromisos formativos de las secciones 1, 2 y 3 y los recursos, '
+                . 'estrategias y decisiones de diseño de las secciones 5, 6 y 7.',
             '- El tiempo asignado a la experiencia (2.3) debe ser menor que el tiempo total disponible (2.2).',
             '- Una opción "Otro" u "Otra" marcada debe venir especificada.',
             '- Detecta vacíos de información y repórtalos. Propón soluciones viables sin alterar el plan formativo.',
             '- Las observaciones breves de las secciones 3 a 7 son opcionales (' . implode('; ', self::optional_fields())
                 . '). Si traen información, considérala como aporte a la ficha. Si vienen vacías ("opcional, sin '
                 . 'información"), no es un vacío de información: no lo menciones en observaciones, debilidades ni '
-                . 'sugerencias, y no bajes por eso la evaluación de ningún ítem.',
+                . 'sugerencias, y no bajes por eso la evaluación de ningún ítem. Única excepción, el ítem c3_1: si no '
+                . 'existe perfil ocupacional de referencia, las respuestas de la sección 3 se justifican en sus '
+                . 'observaciones; si no se adjuntó el perfil y esas observaciones no lo identifican ni justifican las '
+                . 'respuestas, evalúa c3_1 como "parcial".',
             '- La ficha en línea no incluye la tabla de validación del documento (fechas y responsables de la '
                 . 'revisión, de la validación con el equipo y de la aprobación final): no la reportes como faltante. '
                 . 'Los ítems de la sección 9 del checklist se evalúan sobre la ficha completa.',
@@ -912,32 +1009,73 @@ class exante {
             'CHECKLIST (id: ítem):',
             implode("\n", $checklist),
             '',
-            'REGLA DE DECISIÓN:',
-            '- Tu apoyo es ayudar a que el diagnóstico sirva para diseñar, no a detener a la persona. La ficha se '
-                . 'detiene ("no_aprobado") únicamente por uno de estos MOTIVOS GRAVES, y debes nombrarlo en '
-                . '"motivo_grave" con su código y citar, textual, el fragmento de la ficha que lo prueba (el que no '
-                . 'corresponde al Plan Formativo o el que es inconsistente):',
-            implode("\n", $motivos),
-            '- Cualquier otra debilidad (ítems "parcial" o "no_cumple" que no son uno de esos cuatro motivos) nunca '
-                . 'deja la ficha en "no_aprobado".',
-            '- "aprobado": ningún ítem "no_cumple" (puede haber ítems "parcial"). El diagnóstico es suficiente para '
-                . 'diseñar.',
-            '- "observaciones": al menos un ítem "no_cumple" que no es un motivo grave. La persona puede avanzar; '
-                . 'las sugerencias le ayudarán en el diseño.',
-            '- "no_aprobado": solo con un motivo grave, citado de la ficha. Sin motivo grave no uses "no_aprobado".',
+            $criticos ? implode("\n", self::critical_rule_lines()) : implode("\n", [
+                'REGLA DE DECISIÓN:',
+                '- Tu apoyo es ayudar a que el diagnóstico sirva para diseñar, no a detener a la persona. La ficha se '
+                    . 'detiene ("no_aprobado") únicamente por uno de estos MOTIVOS GRAVES, y debes nombrarlo en '
+                    . '"motivo_grave" con su código y citar, textual, el fragmento de la ficha que lo prueba (el que no '
+                    . 'corresponde al Plan Formativo o el que es inconsistente):',
+                implode("\n", $motivos),
+                '- Cualquier otra debilidad (ítems "parcial" o "no_cumple" que no son uno de esos cuatro motivos) nunca '
+                    . 'deja la ficha en "no_aprobado".',
+                '- "aprobado": ningún ítem "no_cumple" (puede haber ítems "parcial"). El diagnóstico es suficiente para '
+                    . 'diseñar.',
+                '- "observaciones": al menos un ítem "no_cumple" que no es un motivo grave. La persona puede avanzar; '
+                    . 'las sugerencias le ayudarán en el diseño.',
+                '- "no_aprobado": solo con un motivo grave, citado de la ficha. Sin motivo grave no uses "no_aprobado".',
+            ]),
             '',
             guardrails::injection_clause(),
             '',
             'FORMATO DE RESPUESTA: únicamente un objeto JSON válido, sin texto antes ni después y sin bloques de '
                 . 'código, con esta forma:',
-            '{"items": {"c1_1": {"estado": "cumple|parcial|no_cumple", "observacion": "...", "propuesta": "frase lista '
-                . 'para copiar (vacía si cumple)"}, ... un elemento por cada id del checklist ...}, '
-                . '"condicion": "aprobado|observaciones|no_aprobado", '
-                . '"motivo_grave": null, o {"codigo": "' . implode('|', array_keys(self::serious_reasons())) . '", "cita": '
-                . '"fragmento textual de la ficha que lo prueba", "corregir": "cómo corregirlo"}, '
-                . '"debilidades": ["principales debilidades, máximo 6"], '
-                . '"sugerencias": ["sugerencias de mejora concretas para enriquecer el diseño, máximo 6"]}',
+            $criticos
+                ? '{"items": {"c1_1": {"estado": "cumple|parcial|no_cumple", "observacion": "...", "propuesta": "frase '
+                    . 'lista para copiar (vacía si cumple)", "forma": false}, ... un elemento por cada id del checklist '
+                    . '...}, "condicion": "aprobado|observaciones|no_aprobado", '
+                    . '"debilidades": ["principales debilidades, máximo 6"], '
+                    . '"sugerencias": ["sugerencias de mejora concretas para enriquecer el diseño, máximo 6"]}'
+                : '{"items": {"c1_1": {"estado": "cumple|parcial|no_cumple", "observacion": "...", "propuesta": "frase '
+                    . 'lista para copiar (vacía si cumple)"}, ... un elemento por cada id del checklist ...}, '
+                    . '"condicion": "aprobado|observaciones|no_aprobado", '
+                    . '"motivo_grave": null, o {"codigo": "' . implode('|', array_keys(self::serious_reasons())) . '", '
+                    . '"cita": "fragmento textual de la ficha que lo prueba", "corregir": "cómo corregirlo"}, '
+                    . '"debilidades": ["principales debilidades, máximo 6"], '
+                    . '"sugerencias": ["sugerencias de mejora concretas para enriquecer el diseño, máximo 6"]}',
         ]);
+    }
+
+    /**
+     * Regla de decision del checklist y del Prompt Maestro del 30-10-2026, para el prompt. Funcion pura.
+     *
+     * @return string[]
+     */
+    public static function critical_rule_lines(): array {
+        return [
+            'REGLA DE DECISIÓN (aplícala de forma explícita). Los aspectos críticos son los ítems marcados [CRÍTICO]:',
+            '- c1_3, competencia del módulo y nivel de cualificación (sección 1): no hay correspondencia entre lo definido '
+                . 'en la ficha y lo declarado en el plan formativo.',
+            '- c2_1, aprendizaje esperado (sección 2): no hay correspondencia entre el definido en la ficha y el declarado '
+                . 'en el plan formativo.',
+            '- c2_2 y c2_3, criterios de evaluación (sección 2): no hay correspondencia entre los definidos en la ficha y '
+                . 'los declarados en el plan formativo, están incompletos o han sido modificados arbitrariamente.',
+            '- c9_2, coherencia general (sección 9): hay inconsistencias profundas entre los compromisos formativos que se '
+                . 'establecen en los ítems de las secciones 1, 2 y 3 y los recursos, estrategias y decisiones de diseño que '
+                . 'se establecen en los ítems de las secciones 5, 6 y 7.',
+            'Evalúa los ítems críticos comparando la ficha con el plan formativo adjunto. Si uno no es "cumple", la '
+                . 'observación dice qué registra la ficha y qué declara el plan formativo.',
+            'Aplicación:',
+            '- ❌ en cualquier ítem CRÍTICO → "no_aprobado".',
+            '- ⚠ en cualquier ítem CRÍTICO → se trata como "no_aprobado" hasta que la ficha se corrija. Única excepción: '
+                . 'diferencias de forma que no alteran el contenido declarado en el plan formativo (por ejemplo, errores '
+                . 'de tipeo en la transcripción): evalúa ese ítem "parcial" con "forma": true y regístralo en la '
+                . 'observación; permiten "observaciones".',
+            '- Sin problemas en ítems críticos, pero con ⚠ o ❌ en ítems no críticos → "observaciones".',
+            '- Todos los ítems en ✔ → "aprobado".',
+            '- "forma" va true solo en un ítem crítico "parcial" por una diferencia de forma; en todos los demás, false.',
+            '- Si el resultado es "no_aprobado", la "propuesta" de cada ítem crítico que no cumple indica el ajuste '
+                . 'específico: la persona corrige la ficha y se vuelve a aplicar el checklist.',
+        ];
     }
 
     /**
@@ -958,14 +1096,15 @@ class exante {
     }
 
     /**
-     * Resumen de la autorrevision. Con los 32 items marcados, la condicion sale de la misma regla que aplica el
+     * Resumen de la autorrevision. Con todos los items marcados, la condicion sale de la misma regla que aplica el
      * asistente (decide), sin condicion propuesta por el modelo.
      *
      * @param string[] $marcas Resultado de self_check_clean().
-     * @param bool $estricto Regla anterior a v1.20.6 (interruptor «iaapoyo» apagado), como en decide().
-     * @return array cumple, parcial, no_cumple, sin_marcar (int), condicion (string|null), criticos (ids criticos en ❌).
+     * @param string $regla Regla de decision (rule_mode()), como en decide().
+     * @return array cumple, parcial, no_cumple, sin_marcar (int), condicion (string|null), criticos (ids criticos que
+     *         detienen la ficha: en ❌ y, con la regla «criticos», tambien en ⚠).
      */
-    public static function self_check_summary(array $marcas, bool $estricto = false): array {
+    public static function self_check_summary(array $marcas, string $regla = self::REGLA_CRITICOS): array {
         $cuenta = array_count_values($marcas);
         $total = count(self::checklist_ids());
         $items = [];
@@ -977,9 +1116,10 @@ class exante {
             'parcial' => $cuenta[self::PARCIAL] ?? 0,
             'no_cumple' => $cuenta[self::NO_CUMPLE] ?? 0,
             'sin_marcar' => $total - count($marcas),
-            'condicion' => count($marcas) === $total ? self::decide($items, null, null, $estricto) : null,
-            'criticos' => array_values(array_filter(self::CRITICOS, static function($id) use ($marcas) {
-                return ($marcas[$id] ?? '') === self::NO_CUMPLE;
+            'condicion' => count($marcas) === $total ? self::decide($items, null, null, $regla) : null,
+            'criticos' => array_values(array_filter(self::CRITICOS, static function($id) use ($marcas, $regla) {
+                $estado = $marcas[$id] ?? '';
+                return $estado === self::NO_CUMPLE || ($regla === self::REGLA_CRITICOS && $estado === self::PARCIAL);
             })),
         ];
     }
@@ -1069,6 +1209,10 @@ class exante {
                 'observacion' => self::short_text($item['observacion'] ?? '', 600),
                 'propuesta' => $estado === self::CUMPLE ? '' : self::short_text($item['propuesta'] ?? '', 600),
             ];
+            // Diferencia de forma (Prompt Maestro del 30-10-2026): solo cuenta en un item critico parcial.
+            if ($estado === self::PARCIAL && in_array($id, self::CRITICOS, true) && self::is_true($item['forma'] ?? false)) {
+                $items[$id]['forma'] = true;
+            }
         }
 
         $motivo = null;
@@ -1112,6 +1256,19 @@ class exante {
     }
 
     /**
+     * Si un valor del JSON del modelo dice «verdadero» (true, "true", "si", "sí", 1).
+     *
+     * @param mixed $valor
+     * @return bool
+     */
+    private static function is_true($valor): bool {
+        if (is_bool($valor)) {
+            return $valor;
+        }
+        return is_scalar($valor) && in_array(\core_text::strtolower(trim((string) $valor)), ['true', 'si', 'sí', '1'], true);
+    }
+
+    /**
      * @param mixed $valor
      * @param int $largo
      * @return string
@@ -1138,24 +1295,128 @@ class exante {
     }
 
     /**
-     * Condicion final. La ultima palabra la tiene esta regla fija y no la variacion del modelo:
+     * Regla de decision vigente segun los interruptores: «reglacriticos» (la del cliente, 30-10-2026) y, apagado ese,
+     * «iaapoyo» (motivos graves) o la estricta anterior.
      *
-     *  - «No aprobado» solo con un motivo grave sostenido (uno de los cuatro, con cita de la ficha). Ni un item critico
-     *    sin cumplir ni que el modelo lo proponga lo dejan asi sin motivo: pasa a «Aprobado con observaciones».
-     *  - Un item «no cumple» (sin motivo grave) deja «Aprobado con observaciones».
-     *  - «Aprobado» se acepta aunque haya items «parcial», si no hay ningun «no cumple» y el modelo no pidio observaciones.
+     * @return string Una de REGLA_CRITICOS, REGLA_MOTIVOS o REGLA_ESTRICTA.
+     */
+    public static function rule_mode(): string {
+        if (ux::on('reglacriticos')) {
+            return self::REGLA_CRITICOS;
+        }
+        return ux::on('iaapoyo') ? self::REGLA_MOTIVOS : self::REGLA_ESTRICTA;
+    }
+
+    /**
+     * Items CRÍTICO que detienen la ficha: en ❌, o en ⚠ que no sea una diferencia de forma. Funcion pura.
      *
-     * @param array $items id => ['estado' => ...].
-     * @param string|null $modelo Condicion que propuso el modelo.
-     * Con $estricto (interruptor «iaapoyo» apagado) vuelve la regla anterior a v1.20.6: un item critico que no se
-     * cumple o un «No aprobado» del modelo dejan la ficha no aprobada, y algo parcial deja observaciones.
+     * @param array $items id => ['estado' => ..., 'forma' => bool].
+     * @return string[] ids, en el orden del checklist.
+     */
+    public static function critical_failures(array $items): array {
+        $ids = [];
+        foreach (self::checklist_ids() as $id) {
+            if (!in_array($id, self::CRITICOS, true)) {
+                continue;
+            }
+            $estado = $items[$id]['estado'] ?? self::NO_CUMPLE;
+            if ($estado === self::NO_CUMPLE || ($estado === self::PARCIAL && empty($items[$id]['forma']))) {
+                $ids[] = $id;
+            }
+        }
+        return $ids;
+    }
+
+    /**
+     * Que parte de la regla del cliente decidio la condicion, para mostrarla («aplicación explícita de la regla de
+     * decisión», Prompt Maestro del 30-10-2026). Funcion pura.
      *
-     * @param array|null $motivo Motivo grave ya comprobado con valid_reason(); null si no hay.
-     * @param bool $estricto Regla anterior.
+     * @param array $items id => ['estado' => ..., 'forma' => bool].
+     * @return string critico_no (❌ en un critico), critico_parcial (⚠ en un critico), forma (solo diferencias de forma
+     *         en criticos), no_criticos (⚠ o ❌ en items no criticos) o todo_cumple.
+     */
+    public static function decision_rule(array $items): string {
+        foreach (self::critical_failures($items) as $id) {
+            if (($items[$id]['estado'] ?? self::NO_CUMPLE) === self::NO_CUMPLE) {
+                return 'critico_no';
+            }
+        }
+        if (self::critical_failures($items)) {
+            return 'critico_parcial';
+        }
+        $forma = false;
+        $otros = false;
+        foreach (self::checklist_ids() as $id) {
+            $estado = $items[$id]['estado'] ?? self::NO_CUMPLE;
+            if ($estado === self::CUMPLE) {
+                continue;
+            }
+            if (in_array($id, self::CRITICOS, true)) {
+                $forma = true;
+            } else {
+                $otros = true;
+            }
+        }
+        return $otros ? 'no_criticos' : ($forma ? 'forma' : 'todo_cumple');
+    }
+
+    /**
+     * Registro de observaciones no resueltas de la Etapa 0: items en ⚠ o ❌, con su observacion. Se usa en la Etapa 1
+     * y en la Etapa 8. Funcion pura.
+     *
+     * @param array $items id => ['estado' => ..., 'observacion' => ...].
+     * @return array id => ['seccion' => int, 'texto' => string, 'estado' => string, 'observacion' => string].
+     */
+    public static function unresolved_items(array $items): array {
+        $salida = [];
+        foreach (self::checklist() as $n => $seccion) {
+            foreach ($seccion['items'] as $id => $texto) {
+                $estado = $items[$id]['estado'] ?? null;
+                if ($estado === null || $estado === self::CUMPLE) {
+                    continue;
+                }
+                $salida[$id] = ['seccion' => $n, 'texto' => $texto, 'estado' => $estado,
+                    'observacion' => trim((string) ($items[$id]['observacion'] ?? ''))];
+            }
+        }
+        return $salida;
+    }
+
+    /**
+     * Condicion final. La ultima palabra la tiene esta regla fija y no la variacion del modelo.
+     *
+     * Regla «criticos» (checklist y Prompt Maestro del 30-10-2026), solo con los items:
+     *  - ❌ en un item CRÍTICO, o ⚠ que no sea una diferencia de forma: «No aprobado».
+     *  - Sin problemas en los criticos, pero con ⚠ o ❌ en otro item (o una diferencia de forma): «Aprobado con
+     *    observaciones».
+     *  - Todos los items en ✔: «Aprobado».
+     *
+     * Regla «motivos» (v1.20.6 a v1.20.12): «No aprobado» solo con un motivo grave sostenido (uno de los cuatro, con
+     * cita de la ficha); un «no cumple» deja «Aprobado con observaciones»; «Aprobado» se acepta con items «parcial».
+     *
+     * Regla «estricta» (anterior a v1.20.6): un item critico que no se cumple o un «No aprobado» del modelo dejan la
+     * ficha no aprobada, y algo parcial deja observaciones.
+     *
+     * @param array $items id => ['estado' => ..., 'forma' => bool].
+     * @param string|null $modelo Condicion que propuso el modelo (no cuenta con la regla «criticos»).
+     * @param array|null $motivo Motivo grave ya comprobado con valid_reason(); null si no hay (regla «motivos»).
+     * @param string $regla Una de REGLA_CRITICOS, REGLA_MOTIVOS o REGLA_ESTRICTA.
      * @return string
      */
-    public static function decide(array $items, ?string $modelo, ?array $motivo = null, bool $estricto = false): string {
-        if ($estricto) {
+    public static function decide(array $items, ?string $modelo, ?array $motivo = null,
+            string $regla = self::REGLA_CRITICOS): string {
+        if ($regla === self::REGLA_CRITICOS) {
+            if (self::critical_failures($items)) {
+                return self::NO_APROBADO;
+            }
+            foreach ($items as $item) {
+                if (($item['estado'] ?? self::NO_CUMPLE) !== self::CUMPLE) {
+                    return self::OBSERVACIONES;
+                }
+            }
+            return self::APROBADO;
+        }
+        if ($regla === self::REGLA_ESTRICTA) {
             foreach (self::CRITICOS as $id) {
                 if (($items[$id]['estado'] ?? self::NO_CUMPLE) === self::NO_CUMPLE) {
                     return self::NO_APROBADO;
@@ -1652,9 +1913,9 @@ class exante {
     public static function fase1_ok(int $userid, int $courseid): ?\stdClass {
         $ficha = self::get_ficha($userid, $courseid);
         $val = self::latest_validation($userid, $courseid);
-        // Una validacion anterior a la exigencia de 3 criterios tampoco habilita el diseno.
+        // Una ficha sin criterios de evaluacion no habilita el diseno (si el plan declara menos de 3, se usan todos).
         if (!$ficha || !$val || $val->estado !== self::LISTO || !self::can_advance($val->condicion)
-                || $val->huella !== self::ficha_fingerprint($ficha) || self::criteria_count($ficha->data) < self::CRITERIOS_MIN) {
+                || $val->huella !== self::ficha_fingerprint($ficha) || self::criteria_count($ficha->data) === 0) {
             return null;
         }
         // Prompt Maestro: «Este asistente NO trabaja sin ficha y Plan Formativo».
@@ -1702,11 +1963,12 @@ class exante {
 
         $fichatexto = pseudonymizer::scrub(self::to_text($data));
         // Libreria del rol para el enfoque de competencias y busqueda web para la especialidad tecnica (30-10-2026).
-        $libreria = self::role_library();
+        $libreria = self::role_library('fase1', (string) ($data['nivel'] ?? ''));
         $buscar = self::web_search_available();
-        $prompt = self::build_prompt(array_keys($nombres), $libreria !== '', $buscar) . "\n\nFICHA DE DIAGNÓSTICO:\n"
+        $regla = self::rule_mode();
+        $prompt = self::build_prompt(array_keys($nombres), $libreria !== '', $buscar, $regla) . "\n\nFICHA DE DIAGNÓSTICO:\n"
             . guardrails::isolate_user_content($fichatexto);
-        $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $partes, self::library_parts($libreria))]];
+        $contenido = [['role' => 'user', 'parts' => self::request_parts($prompt, $partes, $libreria, ux::on('libreriaruta'))]];
 
         $modelo = ai\provider_factory::get_configured_model();
         $informe = null;
@@ -1728,11 +1990,15 @@ class exante {
         $informe['adjuntos'] = $nombres;
         $informe['fuentes_web'] = array_slice($fuentes, 0, 8);
         $informe['libreria'] = $libreria !== '' ? kb_store::context_version(kb_store::AMBITO_M2) : '';
-        // Un motivo grave solo cuenta si es uno de los cuatro y su cita esta en la ficha que vio el modelo.
-        $motivo = self::valid_reason($informe['motivo'], $fichatexto, $informe['condicion_modelo'],
-            isset($nombres[self::ADJUNTOS['exante_plan']]));
+        // Regla «criticos»: deciden los items; se guarda que parte de la regla se aplico. Regla «motivos»: un motivo
+        // grave solo cuenta si es uno de los cuatro y su cita esta en la ficha que vio el modelo.
+        $motivo = $regla === self::REGLA_CRITICOS ? null : self::valid_reason($informe['motivo'], $fichatexto,
+            $informe['condicion_modelo'], isset($nombres[self::ADJUNTOS['exante_plan']]));
         $informe['motivo'] = $motivo;
-        $condicion = self::decide($informe['items'], $informe['condicion_modelo'], $motivo, !ux::on('iaapoyo'));
+        if ($regla === self::REGLA_CRITICOS) {
+            $informe['regla'] = self::decision_rule($informe['items']);
+        }
+        $condicion = self::decide($informe['items'], $informe['condicion_modelo'], $motivo, $regla);
         return [self::LISTO, [
             'condicion' => $condicion,
             'informe' => json_encode($informe, JSON_UNESCAPED_UNICODE),

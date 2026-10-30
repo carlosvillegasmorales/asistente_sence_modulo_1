@@ -1,5 +1,91 @@
 # Changelog
 
+## M1-v1.20.16 (2026-10-30)
+
+**Rúbrica de validación técnica del diseño actualizada por el cliente (Fase 3, Etapa 8).** Prompt `M2-F2-etapas-v8`. Sin
+cambios en la base.
+
+- **Rúbrica textual nueva** en `diseno::rubrica()`: descriptores más precisos en los cuatro niveles de los 9 criterios; el
+  nivel 3 de los criterios 1 a 8 incluye el caso «O bien: cumple el nivel 4, pero el criterio está limitado…» con las
+  secciones del checklist que lo originan (coinciden con `rubric_links()`). Bandas y límite sin cambios.
+- **Pautas de aplicación** textuales en el prompt de la Etapa 8: nivel asignado solo si su descriptor se cumple
+  íntegramente; qué es un ajuste «menor» y uno «importante»; un criterio limitado se informa como «3 (limitado)».
+- **Informe y documento final:** un criterio limitado con 3 se muestra «3 (limitado)» (uno con menos, «2 / 4 (máx. 3)»),
+  y el caso «O bien» del nivel 3 solo aparece en los criterios limitados.
+- **Librería del Módulo 2:** documento nuevo `deploy/libreria_m2/08_rubrica_validacion_diseno.md` («Rúbrica Validación
+  Técnica Diseño - Interfases»), transcrito del PDF del cliente, con ruta `{ruta: e8}`.
+
+## M1-v1.20.15 (2026-10-30)
+
+**Enrutador por tarea de la librería del Módulo 2 y tres documentos técnicos nuevos en `deploy/libreria_m2/`.** Prompts
+`M2-F1-checklist-v6` y `M2-F2-etapas-v7`. Sin cambios en la base.
+
+- **Enrutador puro por tarea y nivel** (`classes/kb_router.php`, interruptor `libreriaruta`): cada sección (`#`, `##`,
+  `###`) de la librería `m2` puede marcar `{ruta: fase1 e1 …}` y `{nivel: 1..5}` con herencia desde títulos superiores
+  (los documentos sin marcas van en todas las tareas; la etapa 7 sigue sin usar librería). Las marcas se limpian antes
+  de enviar el texto al modelo en todos los caminos y al leer el nombre `H1` en `kb_store::library_file()`.
+- **Caché implícita y posición en el pedido** (`exante::role_library()`, `exante::request_parts()`,
+  `kb_store::documents()`): con `libreriaruta` encendido, la librería filtrada viaja primero en el pedido (antes del
+  prompt y de los adjuntos) y las secciones con `{nivel}` van al final para preservar el prefijo común entre fichas;
+  presupuesto `PRESUPUESTO = 220000` caracteres (0 secciones omitidas en las tareas reales).
+- **Librería ampliada a siete documentos** (`deploy/libreria_m2/01…07`): se agregan las transcripciones textuales del
+  Marco de Cualificaciones Técnico-Profesional MINEDUC 2017 (`05`), Manual EDECOMP 2021 (`06`) y Guía de Elaboración de
+  Planes Formativos SENCE / ChileValora (`07`), con rutas por sección; verificador nuevo `cli/verificar_libreria_ruta.php`.
+
+## M1-v1.20.14 (2026-10-30)
+
+**Etapa 8 del Prompt Maestro reemplazada por el cliente: límite por observaciones no resueltas.** Prompt
+`M2-F2-etapas-v6`. Sin cambios en la base.
+
+- **Vínculo sección del checklist → criterios de la rúbrica, fijo en el código** (`diseno::rubric_links()`): sección 1 →
+  1; sección 2 → 2 y 6, y el ítem de tiempo (c2_4) → 4 y 8; sección 3 → 3; sección 4 → 1 y 4; sección 5 → 3 y 8;
+  sección 6 → 5 y 8; sección 7 por ítem (modalidad o estrategia → 3, evidencia → 6, instrumento → 7); sección 8 → 8;
+  sección 9 → 1. El criterio 9 no se limita.
+- **El límite lo calcula el código** (`rubric_limits()`) desde los ítems ⚠ o ❌ de la validación vigente (la que
+  habilitó la Fase 2), y no lo que diga el modelo: cada criterio se limita una vez, con tope 3 (un puntaje menor se
+  respeta). El prompt recibe la lista ya calculada con su origen y el máximo alcanzable (36 − criterios limitados).
+- **Informe:** cada criterio limitado muestra «(máx. 3)» y la sección y el ítem que lo originan (`limit_origins()`);
+  fila «Puntaje máximo alcanzable» y aviso bajo el total. Las denominaciones de la interpretación ya eran las exactas.
+
+## M1-v1.20.13 (2026-10-30)
+
+**Checklist, ficha, guía, ejemplo y Prompt Maestro del Módulo 2 ajustados por el cliente (30-10, 15:00), «para
+consistencia de reglas de decisiones».** Prompts `M2-F1-checklist-v5` y `M2-F2-etapas-v5`. Sin cambios en la base.
+
+- **Checklist de 33 ítems con 5 CRÍTICO** (`exante::checklist()`, `CRITICOS`): ítem nuevo en la sección 1, «La
+  competencia del módulo y el nivel de cualificación corresponden a lo declarado en el plan formativo» (id `c1_3`, va
+  segundo para que los informes anteriores conserven `c1_2`); c2_1 y c2_2 agregan «y corresponde(n) al declarado en el
+  plan formativo»; c3_1 agrega «(si no existe perfil, se justifica en las observaciones)»; la sección 9 es «Validación
+  global» y c9_2 detalla la coherencia secciones 1-3 frente a 5-7. Críticos: c1_3, c2_1, c2_2, c2_3, c9_2 (c2_5 ya no).
+- **Regla de decisión del cliente** (`decide()` con la regla `criticos`, interruptor `reglacriticos`): ❌ en un ítem
+  CRÍTICO → No aprobado; ⚠ en un CRÍTICO → No aprobado hasta corregir, salvo diferencias de forma (el modelo marca
+  `"forma": true`, p. ej. errores de tipeo en la transcripción) → Aprobado con observaciones; ⚠ o ❌ en ítems no
+  críticos → Aprobado con observaciones; todo ✔ → Aprobado. Deciden los ítems, no la condición que propone el modelo.
+  Ya no se piden ni comprueban «motivos graves»; con el interruptor apagado vuelve la regla de v1.20.12 (`motivos`).
+- **Informe de la Etapa 0 con la salida del Prompt Maestro:** marca CRÍTICO en cada ítem, «Regla aplicada»
+  (`decision_rule()`), «Para avanzar debes corregir» con los críticos que detienen la ficha (`critical_failures()`) y
+  «d) Registro de observaciones no resueltas» (`unresolved_items()`). Un informe anterior muestra el ítem nuevo como «Sin
+  evaluar». La autorrevisión del checklist aplica la misma regla.
+- **Control de entrada:** basta un criterio de evaluación (si el plan declara menos de 3, se usan todos y se informa como
+  vacío de información; aviso sin bloquear con 1 o 2). El mensaje de faltantes remite a la Guía de llenado; el de la
+  regla crítica es el textual nuevo («…La validación de la ficha se realizará en la Etapa 0 mediante el checklist de
+  validación…»).
+- **Prompt:** función del asistente y bienvenida textuales nuevas («para trabajo de campo; puedes apoyarte en la guía de
+  llenado… debes cargarla junto con el plan formativo…»); «formación de personas adultas»; sin perfil ocupacional, la
+  sección 3 vale si está justificada en sus observaciones; observación con el campo de la ficha o del plan que la
+  origina; se quita el ejemplo «usar 4 de los 9 criterios» (los criterios del plan van completos).
+- **Ficha:** nota de la sección 3 y ayuda de sus observaciones con el texto nuevo; «N.º de participantes»; el texto sobre
+  el criterio 1 ya no dice «Se necesitan al menos 3».
+- **Etapas:** etapa 1 con el resultado de la Etapa 0 y las observaciones no resueltas (como restricciones o prioridades)
+  y la síntesis de 2.4 y de las observaciones finales; etapa 3 con tiempos en minutos por actividad y por fase, sin
+  superar 2.3; etapa 4 «Alcance»; control de calidad con los tiempos 2.2 y 2.3; «al menos 3 de los criterios declarados»
+  (con menos, todos y vacío de información).
+- **Etapa 8:** máximo 3 en los criterios vinculados a observaciones no resueltas de la Etapa 0; el modelo los lista en
+  `limitados`, el código aplica el tope y el informe los nombra.
+- **Librería del Asistente de Diseño Instruccional:** los cuatro documentos del cliente (checklist, ficha, guía de
+  llenado, ejemplo de llenado) transcritos en `deploy/libreria_m2/` y cargados con `cli/cargar_libreria.php` (sin la
+  extracción con IA del panel; idempotente, con `--simular`). El prompt aclara que el ejemplo es ilustrativo.
+
 ## M1-v1.20.12 (2026-10-30)
 
 **Prompt Maestro del Módulo 2, versión del cliente del 30-10** (amarillo: cambios; rojo: se elimina). Prompts

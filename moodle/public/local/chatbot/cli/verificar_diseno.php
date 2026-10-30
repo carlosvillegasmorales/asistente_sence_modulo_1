@@ -121,8 +121,11 @@ local_chatbot_verificar(strpos($p1, '- Falta evidencia de desempeño.') !== fals
 local_chatbot_verificar(strpos($p1, '"adecuadamente"') === false && strpos($p1, 'Nunca utilices conceptos relativos a «pedagógico»') !== false
     && strpos($p1, 'Usa como fuente principal la ficha de diagnóstico y el Plan Formativo') !== false,
     'Prompt Maestro del 30-10: sin la regla de juicios de valor, sin «pedagogía» y con el Plan Formativo como fuente principal');
-foreach (['No inventes aprendizajes esperados ni criterios', 'al menos 3; no hay un número máximo',
-        'alineación constructiva', 'lenguaje inclusivo', 'sin alterar el plan formativo', 'Verificación de calidad'] as $regla) {
+foreach (['No inventes aprendizajes esperados ni criterios', 'Utiliza al menos 3 de los criterios de evaluación declarados',
+        'Si el plan formativo declara menos de 3, utiliza todos los disponibles, infórmalo como vacío de información',
+        'alineación constructiva', 'lenguaje inclusivo', 'sin alterar el plan formativo', 'Verificación de calidad',
+        'consistencia con el tiempo asignado a la experiencia (2.3) y con el tiempo total disponible (2.2)',
+        'formación de personas adultas o formación laboral'] as $regla) {
     local_chatbot_verificar(strpos($p1, $regla) !== false, "el prompt trae la regla «{$regla}»");
 }
 local_chatbot_verificar(strpos($p1, 'No se adjuntó el Plan Formativo, que es documento de referencia obligatorio') !== false,
@@ -135,23 +138,111 @@ $p3 = diseno::build_prompt(3, $ficha, [], [1 => 'Síntesis: grupo heterogéneo.'
 local_chatbot_verificar(strpos($p3, 'PRODUCTO ACEPTADO DE LA ETAPA 1 (Análisis diagnóstico)') !== false
     && strpos($p3, 'PRODUCTO ACEPTADO DE LA ETAPA 2 (Diseño de la experiencia)') !== false,
     'las etapas aceptadas viajan con su nombre');
-local_chatbot_verificar(strpos($p3, $etapas[3]['nota']) !== false, 'la secuencia se ajusta al tiempo de la ficha (2.3)');
+local_chatbot_verificar(strpos($p3, 'la suma total no debe superar el tiempo asignado a la experiencia de aprendizaje '
+    . '(ficha, subsección 2.3)') !== false, 'la secuencia, en minutos, no supera el tiempo de la ficha (2.3)');
+// Prompt Maestro del 30-10-2026 (15:00): la etapa 1 recibe el resultado de la Etapa 0 y su registro de observaciones.
+$p1v = diseno::build_prompt(1, $ficha, ['condicion' => 'observaciones', 'debilidades' => [],
+    'items' => ['c6_1' => ['estado' => 'parcial', 'observacion' => 'Falta una cama clínica'], 'c1_1' => ['estado' => 'cumple']]],
+    [], []);
+local_chatbot_verificar(strpos($p1v, 'RESULTADO DE LA VALIDACIÓN DE LA FICHA (ETAPA 0): ⚠ Aprobado con observaciones.') !== false
+    && strpos($p1v, 'Registro de observaciones no resueltas de la Etapa 0') !== false
+    && strpos($p1v, 'Falta una cama clínica') !== false && strpos($p1v, 'c1_1') === false
+    && strpos($p1v, 'incorpóralas como restricciones o prioridades de diseño') !== false,
+    'la etapa 1 recibe el resultado de la Etapa 0 y las observaciones no resueltas, como restricciones o prioridades');
+local_chatbot_verificar(strpos($p1, 'RESULTADO DE LA VALIDACIÓN') === false, 'sin condición no se inventa un resultado');
 local_chatbot_verificar(strpos($p3, 'Se adjunta el Plan Formativo, documento de referencia obligatorio') !== false,
     'con el Plan Formativo el prompt lo usa como referencia obligatoria');
 $et = diseno::etapas();
-local_chatbot_verificar(in_array('Nota de uso de documentos complementarios (Plan Formativo y Perfil Ocupacional)', $et[1]['incluye'], true)
-    && strpos(implode(' ', $et[3]['incluye']), 'Alcance de cada fase') !== false && !in_array('Objetivos específicos', $et[3]['incluye'], true)
+local_chatbot_verificar(in_array('Nota de uso de documentos complementarios (plan formativo y perfil ocupacional)', $et[1]['incluye'], true)
+    && in_array('Resultado de la validación (Etapa 0) y observaciones no resueltas, incorporadas como restricciones o '
+        . 'prioridades de diseño', $et[1]['incluye'], true)
+    && in_array('Síntesis de la observación obligatoria 2.4 (pertinencia y factibilidad de los criterios) y de las '
+        . 'observaciones finales de la ficha', $et[1]['incluye'], true)
+    && in_array('Alcance de cada fase (descripción de lo que se espera lograr en la fase, sin formularlo como objetivo '
+        . 'específico)', $et[3]['incluye'], true) && !in_array('Objetivos específicos', $et[3]['incluye'], true)
+    && in_array('Actividades (persona facilitadora / participantes)', $et[3]['incluye'], true)
     && in_array('Uso didáctico', $et[4]['incluye'], true) && strpos(implode(' ', $et[4]['incluye']), 'pedagóg') === false
-    && strpos(implode(' ', $et[4]['incluye']), 'Alcance') !== false,
-    'etapas 1, 3 y 4 con los textos del Prompt Maestro del 30-10 (alcance, uso didáctico)');
+    && in_array('Alcance', $et[4]['incluye'], true)
+    && $et[4]['nota'] === 'No incluye instrumentos de evaluación: estos se desarrollan en la Etapa 6.',
+    'etapas 1, 3 y 4 con los textos del Prompt Maestro del 30-10 (15:00)');
 $pend = diseno::pending_observations(['items' => ['c2_4' => ['estado' => 'parcial', 'observacion' => 'Tiempo justo'],
     'c1_1' => ['estado' => 'cumple', 'observacion' => '']]]);
 local_chatbot_verificar(strpos($pend, 'c2_4') !== false && strpos($pend, 'Tiempo justo') !== false && strpos($pend, 'c1_1') === false
-    && diseno::pending_observations([]) === 'La validación de la ficha no dejó observaciones pendientes.',
-    'la evaluación recibe los ítems de la ficha con observaciones de la validación');
-$pe8 = diseno::build_eval_prompt('D', 'F', [], false, false, ['items' => ['c2_4' => ['estado' => 'no_cumple', 'observacion' => 'x']]]);
-local_chatbot_verificar(strpos($pe8, 'el puntaje máximo debiera ser 3') !== false && strpos($pe8, 'c2_4') !== false,
-    'etapa 8: consistente con el diagnóstico (máximo 3 donde hubo observaciones no resueltas)');
+    && strpos($pend, 'Registro de observaciones no resueltas de la Etapa 0') === 0
+    && diseno::pending_observations([]) === 'La validación de la ficha (Etapa 0) no dejó observaciones no resueltas.',
+    'la evaluación recibe el registro de observaciones no resueltas de la Etapa 0');
+// --- Etapa 8: límite por observaciones no resueltas (ajuste del cliente del 30-10-2026) ---
+$v = diseno::rubric_links();
+local_chatbot_verificar(count($v) === 33 && $v['c1_3'] === ['r1'] && $v['c1_2'] === ['r1'] && $v['c2_1'] === ['r2', 'r6']
+    && $v['c2_5'] === ['r2', 'r6'] && $v['c2_4'] === ['r4', 'r8'] && $v['c3_1'] === ['r3'] && $v['c4_2'] === ['r1', 'r4']
+    && $v['c5_3'] === ['r3', 'r8'] && $v['c6_4'] === ['r5', 'r8'] && $v['c7_1'] === ['r3'] && $v['c7_2'] === ['r3']
+    && $v['c7_3'] === ['r6'] && $v['c7_4'] === ['r7'] && $v['c8_2'] === ['r8'] && $v['c9_2'] === ['r1'],
+    'vínculo sección o ítem del checklist → criterios de la rúbrica, como lo pide el cliente (tiempo → 4 y 8; sección 7 por ítem)');
+$todos = array_merge(...array_values($v));
+local_chatbot_verificar(!in_array('r9', $todos, true), 'el criterio 9 (Calidad formal del documento) no se limita');
+$val = ['items' => ['c1_1' => ['estado' => 'cumple'], 'c2_4' => ['estado' => 'parcial', 'observacion' => 'Tiempo justo'],
+    'c6_1' => ['estado' => 'no_cumple'], 'c6_2' => ['estado' => 'parcial'], 'c9_1' => ['estado' => 'parcial']]];
+$lims = diseno::rubric_limits($val);
+local_chatbot_verificar($lims === ['r1' => ['c9_1'], 'r4' => ['c2_4'], 'r5' => ['c6_1', 'c6_2'], 'r8' => ['c2_4', 'c6_1', 'c6_2']]
+    && diseno::rubric_limits([]) === [] && diseno::rubric_limits(['items' => ['c1_1' => ['estado' => 'cumple']]]) === [],
+    'criterios limitados en el orden de la rúbrica, una sola vez cada uno, con los ítems que los originan');
+local_chatbot_verificar(diseno::limit_origins(['c2_4']) === 'Sección 2, «El tiempo para el desarrollo y evaluación del '
+    . 'aprendizaje es suficiente»', 'el origen del límite se dice con la sección y el ítem del checklist');
+$pe8 = diseno::build_eval_prompt('D', 'F', [], false, false, $val);
+local_chatbot_verificar(strpos($pe8, 'LÍMITE POR OBSERVACIONES NO RESUELTAS') !== false
+    && strpos($pe8, 'que no fueron corregidos en la ficha antes de iniciar la Etapa 1') !== false
+    && strpos($pe8, '- r4 (Secuencia instruccional): Sección 2, «El tiempo para el desarrollo') !== false
+    && strpos($pe8, 'El límite es un máximo, no un puntaje asignado') !== false
+    && strpos($pe8, 'Puntaje máximo alcanzable: 32 de 36.') !== false && strpos($pe8, '"limitados"') === false
+    && strpos($pe8, 'el criterio 9 (Calidad formal del documento) no se limita') !== false,
+    'etapa 8: el prompt trae los criterios limitados ya calculados, su origen y el máximo alcanzable');
+local_chatbot_verificar(strpos(diseno::build_eval_prompt('D', 'F', [], false, false, []),
+    'ningún criterio queda limitado: el puntaje máximo alcanzable es 36') !== false, 'sin observaciones no resueltas, 36');
+// El tope 3 lo aplica el código con los límites calculados; lo que diga el modelo no cuenta.
+$evlim = ['criterios' => [], 'limitados' => ['r9'], 'fortalezas' => [], 'debilidades' => [], 'recomendaciones' => ['a', 'b']];
+foreach (array_keys(diseno::rubrica()) as $id) {
+    $evlim['criterios'][$id] = ['puntaje' => 4, 'justificacion' => str_repeat('Evidencia concreta del diseño. ', 4)];
+}
+$evlim['criterios']['r5']['puntaje'] = 2;
+$lim = diseno::parse_eval(json_encode($evlim), true, $lims + ['r99' => ['c1_1']]);
+local_chatbot_verificar($lim !== null && $lim['limitados'] === ['r1', 'r4', 'r5', 'r8'] && $lim['maximo'] === 32
+    && $lim['criterios']['r1']['puntaje'] === 3 && $lim['criterios']['r5']['puntaje'] === 2
+    && $lim['criterios']['r9']['puntaje'] === 4 && $lim['total'] === 3 + 4 + 4 + 3 + 2 + 4 + 4 + 3 + 4,
+    'tope 3 en los criterios limitados (el límite es un máximo: un 2 queda en 2); ids desconocidos y los del modelo no cuentan');
+local_chatbot_verificar(diseno::parse_eval(json_encode($evlim))['maximo'] === 36 && diseno::parse_eval(json_encode($evlim))['limitados'] === [],
+    'sin límites, el máximo alcanzable es 36');
+$h = diseno::evaluation_html($lim);
+local_chatbot_verificar(strpos($h, 'Puntaje máximo alcanzable</th><th>32 / 36') !== false
+    && strpos($h, 'Puntaje máximo 3 por observaciones no resueltas: Sección 6, «Los recursos son suficientes') !== false
+    && substr_count($h, '3 (limitado)') === 3 && substr_count($h, '2 / 4 (máx. 3)') === 1
+    && strpos($h, 'O bien: cumple el nivel 4, pero el criterio está limitado') !== false
+    && substr_count($h, 'O bien:') === 3,
+    'el informe de la etapa 8 da «3 (limitado)» con su origen y el máximo alcanzable (pauta 3 de la rúbrica)');
+$sinlim = diseno::evaluation_html(['criterios' => array_fill_keys(array_keys(diseno::rubrica()),
+    ['puntaje' => 3, 'justificacion' => 'x']), 'total' => 27, 'banda' => diseno::band(27)]);
+local_chatbot_verificar(strpos($sinlim, 'O bien:') === false && strpos($sinlim, '3 / 4') !== false
+    && strpos($sinlim, 'Incorpora la información de la ficha con omisiones menores; las decisiones principales son coherentes con ella.</td>') !== false,
+    'un 3 sin límite no muestra el caso «O bien» del nivel 3');
+$pe8b = diseno::build_eval_prompt('D', 'F', [], false, false, []);
+local_chatbot_verificar(strpos($pe8b, 'PAUTAS DE APLICACIÓN DE LA RÚBRICA:') !== false
+    && strpos($pe8b, 'Si el diseño cumple solo parte del nivel 4, corresponde el nivel 3 o inferior.') !== false
+    && strpos($pe8b, 'Es «importante» cuando exige rediseñar una fase, actividad, evidencia o instrumento.') !== false
+    && strpos($pe8b, 'el puntaje se informa como «3 (limitado)»') !== false
+    && strpos($pe8b, 'PAUTAS DE APLICACIÓN') < strpos($pe8b, 'RÚBRICA (id. criterio):'),
+    'la etapa 8 recibe las tres pautas de aplicación de la rúbrica, textuales');
+$vieja = diseno::parse_eval(json_encode($evlim));
+unset($vieja['limites'], $vieja['maximo']);
+$vieja['limitados'] = ['r2'];
+local_chatbot_verificar(strpos(diseno::evaluation_html(diseno::parse_eval(json_encode($evlim))), 'máximo alcanzable') === false
+    && strpos(diseno::evaluation_html($vieja), 'Puntaje máximo 3 por observaciones no resueltas.</em>') !== false
+    && strpos(diseno::evaluation_html($vieja), 'Puntaje máximo alcanzable</th><th>35 / 36') !== false,
+    'sin límites no aparece el máximo; una evaluación de la v1.20.13 (solo «limitados») se sigue mostrando');
+local_chatbot_verificar(diseno::band(32)['texto'] === 'Aprobado con alto estándar técnico'
+    && diseno::band(25)['texto'] === 'Aprobado con ajustes menores'
+    && diseno::band(18)['texto'] === 'Requiere ajustes importantes antes de aprobación' && diseno::band(17)['texto'] === 'No aprobado',
+    'interpretación con las denominaciones exactas del Prompt Maestro');
+local_chatbot_verificar(in_array('Puntaje total (máx. 36) y puntaje máximo alcanzable', diseno::etapas_fase3()[8]['incluye'], true),
+    'la etapa 8 entrega el puntaje total y el máximo alcanzable');
 local_chatbot_verificar(strpos($p3, guardrails::isolate_user_content('Agregar una actividad de cierre')) !== false
     && strpos($p3, guardrails::isolate_user_content('Versión anterior')) !== false
     && strpos($p3, 'entrega el producto completo de la etapa') !== false,
@@ -252,8 +343,15 @@ local_chatbot_verificar(modulo2_setup::add_phase1_button($b, 'uf1') === $b, 'agr
 // --- Fase 3: rubrica, consolidacion y evaluacion ---
 $rub = diseno::rubrica();
 local_chatbot_verificar(array_keys($rub) === ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'], 'la rúbrica tiene sus 9 criterios');
-local_chatbot_verificar($rub['r2']['niveles'][1] === 'No hay alineación o se alteran criterios.'
-    && $rub['r9']['nombre'] === 'Calidad formal del documento', 'la rúbrica va textual');
+local_chatbot_verificar($rub['r2']['niveles'][1] === 'No hay alineación, o se modifican, omiten o inventan el aprendizaje '
+    . 'esperado o los criterios.' && $rub['r9']['nombre'] === 'Calidad formal del documento'
+    && $rub['r4']['niveles'][4] === 'Progresión clara de inicio, desarrollo y cierre; cada fase tiene alcance, actividades, '
+    . 'recursos, tiempo en minutos y evidencias parciales. El tiempo total no supera el asignado (2.3).'
+    && $rub['r8']['niveles'][3] === 'Viable con ajustes menores (por ejemplo, reorganizar espacios o turnos) que no '
+    . 'requieren recursos adicionales relevantes. O bien: cumple el nivel 4, pero el criterio está limitado por una '
+    . 'observación no resuelta del diagnóstico (sección 2 (ítem de tiempo) y secciones 5, 6 y 8 del checklist).'
+    && strpos($rub['r9']['niveles'][3], 'O bien') === false,
+    'la rúbrica va textual (versión del cliente del 30-10-2026; el criterio 9 no se limita)');
 $niveles = true;
 foreach ($rub as $c) {
     $niveles = $niveles && array_keys($c['niveles']) === [4, 3, 2, 1];

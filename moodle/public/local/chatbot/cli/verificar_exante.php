@@ -69,8 +69,10 @@ local_chatbot_verificar($opcionales['obs3'] === 'Sección 3: Observaciones breve
 local_chatbot_verificar(strpos(exante::field('obs_evaluacion')['ayuda'], '(obligatorio)') !== false
     && exante::field('obs_finales')['label'] === 'Observaciones finales (obligatorio):'
     && strpos(exante::field('obs_finales')['ayuda'], 'justificar la selección de modalidad y estrategia') !== false
-    && strpos(exante::field('vinculo')['antes'], 'si no existe Perfil Ocupacional, en el Catálogo Nacional ChileValora') !== false
-    && strpos(exante::field('obs3')['ayuda'], 'justifique las respuestas que marcó') !== false,
+    && strpos(exante::field('vinculo')['antes'], 'Nota: Si no existe un perfil ocupacional del Catálogo Nacional de ChileValora') === 0
+    && exante::field('obs3')['ayuda'] === 'Si no existe un perfil ocupacional de referencia para el plan formativo, '
+        . 'indíquelo y justifique las respuestas marcadas en las preguntas anteriores.'
+    && exante::field('participantes')['label'] === 'N.º de participantes',
     'textos del formulario del cliente: 2.4 y observaciones finales obligatorias, nota de la sección 3 y su instrucción');
 
 // --- El checklist es el del documento del cliente ---
@@ -78,8 +80,22 @@ $checklist = exante::checklist();
 local_chatbot_verificar(array_keys($checklist) === range(1, 9), 'el checklist tiene las 9 secciones');
 local_chatbot_verificar(array_map(static function($s) {
     return count($s['items']);
-}, array_values($checklist)) === [2, 5, 4, 4, 3, 4, 4, 3, 3], 'cada sección del checklist tiene sus ítems');
-local_chatbot_verificar(count(exante::checklist_ids()) === 32, 'el checklist tiene 32 ítems');
+}, array_values($checklist)) === [3, 5, 4, 4, 3, 4, 4, 3, 3], 'cada sección del checklist tiene sus ítems');
+local_chatbot_verificar(count(exante::checklist_ids()) === 33, 'el checklist tiene 33 ítems (checklist del 30-10-2026)');
+local_chatbot_verificar(array_keys($checklist[1]['items']) === ['c1_1', 'c1_3', 'c1_2']
+    && $checklist[1]['items']['c1_3'] === 'La competencia del módulo y el nivel de cualificación corresponden a lo '
+        . 'declarado en el plan formativo'
+    && $checklist[2]['items']['c2_1'] === 'El aprendizaje esperado está claramente definido y corresponde al declarado en '
+        . 'el plan formativo'
+    && $checklist[2]['items']['c2_2'] === 'Los criterios de evaluación están completos y corresponden a los declarados en '
+        . 'el plan formativo'
+    && $checklist[3]['items']['c3_1'] === 'El aprendizaje se vincula con el perfil ocupacional (si no existe perfil, se '
+        . 'justifica en las observaciones)'
+    && $checklist[9]['titulo'] === 'Validación global' && strpos($checklist[9]['items']['c9_2'], 'La información es '
+        . 'coherente globalmente: los compromisos formativos de las secciones 1, 2 y 3 son consistentes') === 0,
+    'ítems nuevos y modificados, textuales; el nuevo de la sección 1 va segundo con id c1_3 (los informes viejos no cambian)');
+local_chatbot_verificar(exante::CRITICOS === ['c1_3', 'c2_1', 'c2_2', 'c2_3', 'c9_2'],
+    'los ítems CRÍTICO son los del checklist del cliente (competencia y nivel, aprendizaje, criterios, coherencia global)');
 local_chatbot_verificar($checklist[2]['items']['c2_3'] === 'Los criterios no han sido modificados arbitrariamente',
     'los ítems van textuales');
 local_chatbot_verificar($checklist[6]['items']['c6_4'] === 'La accesibilidad está considerada', 'ítem 6.4 textual');
@@ -179,10 +195,14 @@ $criterios = static function(array $llenos) use ($ejemplo) {
     }
     return exante::missing_inputs($f);
 };
-local_chatbot_verificar($criterios([1]) === ['2.1 Criterios de evaluación (mínimo 3; la ficha tiene 1)'],
-    'con 1 criterio no se valida y se dice cuántos tiene');
-local_chatbot_verificar($criterios([1, 2]) === ['2.1 Criterios de evaluación (mínimo 3; la ficha tiene 2)'],
-    'con 2 criterios no se valida');
+// Prompt Maestro del 30-10-2026: si el plan declara menos de 3, se usan todos (vacío de información, no faltante).
+local_chatbot_verificar($criterios([]) === ['2.1 Criterios de evaluación'], 'sin criterios no se valida');
+local_chatbot_verificar($criterios([1]) === [] && $criterios([1, 2]) === [],
+    'con 1 o 2 criterios se valida: el plan puede declarar menos de 3');
+$avisocrit = exante::form_warnings(['criterio1' => 'A', 'criterio2' => 'B'] + exante::clean([]));
+local_chatbot_verificar(count($avisocrit) === 1 && strpos($avisocrit[0], 'vacío de información') !== false
+    && exante::form_warnings(['criterio1' => 'A', 'criterio2' => 'B', 'criterio3' => 'C'] + exante::clean([])) === [],
+    'con menos de 3 criterios se avisa (sin impedir validar)');
 local_chatbot_verificar($criterios([2, 4, 5]) === [], 'con 3 criterios en cualquier casilla se valida');
 local_chatbot_verificar($criterios([1, 2, 3, 4, 5]) === [], 'con 5 criterios se valida');
 // Criterios sin maximo (ajuste del cliente del 29-10-2026): 3 de partida y se agregan de a uno.
@@ -198,7 +218,8 @@ local_chatbot_verificar(exante::criteria_count($muchoslimpio) === 8 && $muchosli
     && !isset($muchoslimpio['criterio9']), 'con 8 criterios se guardan los 8, y nada más');
 local_chatbot_verificar($criterios([1, 2, 3, 4, 5, 6, 7]) === [], 'con 7 criterios se valida (no hay máximo)');
 $c1 = exante::field('criterio1');
-local_chatbot_verificar(strpos($c1['antes'] ?? '', 'no existe un número máximo de criterios de evaluación') !== false
+local_chatbot_verificar(strpos($c1['antes'] ?? '', 'No existe un número máximo de criterios de evaluación') !== false
+    && strpos($c1['antes'], 'al menos 3') === false
     && empty($c1['ayuda']) && empty($c1['adicional']) && empty(exante::field('criterio3')['adicional'])
     && !empty(exante::field('criterio4')['adicional']),
     'el texto del cliente va arriba del criterio 1; del 4 en adelante son criterios agregados');
@@ -275,8 +296,18 @@ local_chatbot_verificar(strpos($prompt1, 'Se adjunta el Plan Formativo, document
 local_chatbot_verificar(strpos(exante::build_prompt(['Plan Formativo', 'Perfil Ocupacional']),
     'priorizando siempre la información de la ficha de diagnóstico y del Plan Formativo') !== false,
     'con el Perfil Ocupacional, se prioriza la ficha y el Plan Formativo');
-local_chatbot_verificar(strpos($prompt, 'No se utilizan menos de 3 criterios de evaluación') !== false && strpos($prompt, 'ni más de 5') === false,
-    'regla de criterios: al menos 3, sin máximo');
+local_chatbot_verificar(strpos($prompt, 'En el diseño se utilizan al menos 3 de esos criterios: si el plan formativo declara '
+    . 'menos de 3, la ficha los registra todos y eso no es un incumplimiento de la ficha; infórmalo como vacío de información') !== false
+    && strpos($prompt, 'ni más de 5') === false && strpos($prompt, '4 de los 9 criterios') === false,
+    'regla de criterios del Prompt Maestro del 30-10: al menos 3 en el diseño; con menos en el plan, vacío de información');
+local_chatbot_verificar(strpos($prompt, 'acepta las respuestas de la sección 3 de la ficha basadas en la experiencia de la persona '
+    . 'facilitadora, siempre que estén justificadas en las observaciones de esa sección') !== false
+    && strpos($prompt, 'Única excepción, el ítem c3_1') !== false,
+    'sin perfil ocupacional, la sección 3 se acepta si está justificada en sus observaciones (ítem c3_1)');
+local_chatbot_verificar(strpos($prompt, 'Completar un campo no implica aprobarlo') !== false
+    && strpos($prompt, 'señalar el campo de la ficha o del plan formativo que la origina') !== false
+    && strpos($prompt, 'formación de personas adultas o formación laboral') !== false,
+    'control de entrada, observación con el campo que la origina y «formación de personas adultas»');
 local_chatbot_verificar(strpos($prompt, '"adecuadamente"') === false && strpos($prompt, 'juicios de valor') === false,
     'se elimina la regla de juicios de valor (en rojo en el Prompt Maestro del 30-10)');
 local_chatbot_verificar(strpos($prompt, 'Nunca utilices conceptos relativos a «pedagógico» o «pedagogía»') !== false
@@ -298,7 +329,7 @@ foreach (exante::checklist_ids() as $id) {
 }
 $json = json_encode($completo, JSON_UNESCAPED_UNICODE);
 $leido = exante::parse_report($json);
-local_chatbot_verificar($leido !== null && count($leido['items']) === 32, 'un informe completo se lee');
+local_chatbot_verificar($leido !== null && count($leido['items']) === 33, 'un informe completo se lee');
 local_chatbot_verificar($leido['condicion_modelo'] === exante::APROBADO, 'se lee la condición propuesta');
 local_chatbot_verificar($leido['sugerencias'] === ['s1', 's2'], 'las listas descartan vacíos');
 local_chatbot_verificar(exante::parse_report("```json\n{$json}\n```") !== null, 'un informe entre bloques de código se lee');
@@ -336,32 +367,62 @@ $con = static function(array $cambios) use ($todo) {
     }
     return $todo;
 };
-local_chatbot_verificar(exante::decide($todo, exante::APROBADO) === exante::APROBADO, 'todo cumple y el modelo aprueba: aprobado');
-local_chatbot_verificar(exante::decide($todo, null) === exante::APROBADO, 'todo cumple sin condición del modelo: aprobado');
-local_chatbot_verificar(exante::decide($todo, exante::OBSERVACIONES) === exante::OBSERVACIONES,
-    'el modelo puede ser más exigente que la regla');
-// Regla nueva: «No aprobado» solo con un motivo grave sostenido; un «parcial» no impide aprobar.
-local_chatbot_verificar(exante::decide($todo, exante::NO_APROBADO) === exante::OBSERVACIONES,
-    'el modelo no puede dejar «No aprobado» sin un motivo grave: queda con observaciones');
-local_chatbot_verificar(exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO) === exante::APROBADO,
-    'un ítem parcial no impide el Aprobado que propone el modelo');
-local_chatbot_verificar(exante::decide($con(['c6_1' => exante::PARCIAL, 'c2_1' => exante::PARCIAL]), null) === exante::APROBADO,
-    'varios parciales, sin ningún «no cumple»: aprobado');
-local_chatbot_verificar(exante::decide($con(['c6_1' => exante::PARCIAL]), exante::OBSERVACIONES) === exante::OBSERVACIONES,
-    'si el modelo pide observaciones, se respetan');
-local_chatbot_verificar(exante::decide($con(['c6_1' => exante::NO_CUMPLE]), exante::APROBADO) === exante::OBSERVACIONES,
-    'un «no cumple» deja observaciones');
+// Regla del checklist y del Prompt Maestro del 30-10-2026 (regla «criticos», por defecto): deciden los ítems.
+local_chatbot_verificar(exante::decide($todo, exante::APROBADO) === exante::APROBADO
+    && exante::decide($todo, null) === exante::APROBADO, 'todos los ítems en ✔: aprobado');
+local_chatbot_verificar(exante::decide($todo, exante::OBSERVACIONES) === exante::APROBADO
+    && exante::decide($todo, exante::NO_APROBADO) === exante::APROBADO,
+    'la condición la fija la regla sobre los ítems, no la que propone el modelo');
+local_chatbot_verificar(exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO) === exante::OBSERVACIONES
+    && exante::decide($con(['c6_1' => exante::NO_CUMPLE]), exante::APROBADO) === exante::OBSERVACIONES
+    && exante::decide($con(['c2_5' => exante::NO_CUMPLE, 'c3_1' => exante::PARCIAL]), null) === exante::OBSERVACIONES,
+    '⚠ o ❌ en ítems no críticos (c2_5 ya no es crítico): aprobado con observaciones');
 foreach (exante::CRITICOS as $id) {
-    local_chatbot_verificar(exante::decide($con([$id => exante::NO_CUMPLE]), exante::NO_APROBADO) === exante::OBSERVACIONES,
-        "incumplir {$id} sin motivo grave no deja «No aprobado», ni aunque el modelo lo pida");
+    local_chatbot_verificar(exante::decide($con([$id => exante::NO_CUMPLE]), exante::APROBADO) === exante::NO_APROBADO
+        && exante::decide($con([$id => exante::PARCIAL]), exante::APROBADO) === exante::NO_APROBADO,
+        "❌ o ⚠ en el ítem crítico {$id}: no aprobado, aunque el modelo apruebe");
+}
+$forma = $con(['c2_2' => exante::PARCIAL]);
+$forma['c2_2']['forma'] = true;
+local_chatbot_verificar(exante::decide($forma, null) === exante::OBSERVACIONES && exante::critical_failures($forma) === []
+    && exante::decision_rule($forma) === 'forma',
+    'única excepción: una diferencia de forma en un crítico (⚠) deja aprobado con observaciones');
+$formano = $con(['c2_2' => exante::NO_CUMPLE]);
+$formano['c2_2']['forma'] = true;
+local_chatbot_verificar(exante::decide($formano, null) === exante::NO_APROBADO, 'un ❌ en un crítico no se excusa como forma');
+local_chatbot_verificar(exante::decision_rule($todo) === 'todo_cumple'
+    && exante::decision_rule($con(['c6_1' => exante::PARCIAL])) === 'no_criticos'
+    && exante::decision_rule($con(['c1_3' => exante::PARCIAL, 'c6_1' => exante::NO_CUMPLE])) === 'critico_parcial'
+    && exante::decision_rule($con(['c1_3' => exante::PARCIAL, 'c9_2' => exante::NO_CUMPLE])) === 'critico_no'
+    && exante::critical_failures($con(['c9_2' => exante::NO_CUMPLE, 'c1_3' => exante::PARCIAL])) === ['c1_3', 'c9_2'],
+    'la regla aplicada y los críticos que detienen la ficha, en el orden del checklist');
+$sincritico = $todo;
+unset($sincritico['c1_3']);
+local_chatbot_verificar(exante::decide($sincritico, exante::APROBADO) === exante::NO_APROBADO,
+    'un ítem crítico sin evaluar no aprueba');
+$pend = exante::unresolved_items($con(['c6_1' => exante::PARCIAL, 'c2_4' => exante::NO_CUMPLE]));
+local_chatbot_verificar(array_keys($pend) === ['c2_4', 'c6_1'] && $pend['c2_4']['seccion'] === 2
+    && $pend['c6_1']['estado'] === exante::PARCIAL && exante::unresolved_items($todo) === [],
+    'registro de observaciones no resueltas: los ítems en ⚠ o ❌, en orden, con su sección');
+// Regla «motivos» (interruptor «reglacriticos» apagado, «iaapoyo» encendido): v1.20.6 a v1.20.12.
+$m = exante::REGLA_MOTIVOS;
+local_chatbot_verificar(exante::decide($todo, exante::OBSERVACIONES, null, $m) === exante::OBSERVACIONES
+    && exante::decide($todo, exante::NO_APROBADO, null, $m) === exante::OBSERVACIONES
+    && exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO, null, $m) === exante::APROBADO
+    && exante::decide($con(['c6_1' => exante::NO_CUMPLE]), exante::APROBADO, null, $m) === exante::OBSERVACIONES,
+    'regla «motivos»: sin motivo grave no hay «No aprobado» y un parcial no impide aprobar');
+foreach (exante::CRITICOS as $id) {
+    local_chatbot_verificar(exante::decide($con([$id => exante::NO_CUMPLE]), exante::NO_APROBADO, null, $m) === exante::OBSERVACIONES,
+        "regla «motivos»: incumplir {$id} sin motivo grave no deja «No aprobado»");
 }
 $ficha4 = "- 2.1. Aprendizaje esperado: Conocer la historia de la computación\n- Criterio de evaluación 1: Lista fechas";
 $tema = ['codigo' => 'aprendizaje', 'cita' => 'Conocer la historia de la computación', 'corregir' => 'Transcríbelo del Plan Formativo'];
 $val = exante::valid_reason($tema, $ficha4, exante::NO_APROBADO, true);
 local_chatbot_verificar($val !== null && $val['codigo'] === 'aprendizaje'
-    && exante::decide($con(['c2_1' => exante::NO_CUMPLE]), exante::NO_APROBADO, $val) === exante::NO_APROBADO,
-    'un motivo grave con su cita deja «No aprobado»');
-local_chatbot_verificar(exante::decide($todo, exante::APROBADO, $val) === exante::NO_APROBADO, 'el motivo grave manda sobre el modelo');
+    && exante::decide($con(['c2_1' => exante::NO_CUMPLE]), exante::NO_APROBADO, $val, $m) === exante::NO_APROBADO,
+    'regla «motivos»: un motivo grave con su cita deja «No aprobado»');
+local_chatbot_verificar(exante::decide($todo, exante::APROBADO, $val, $m) === exante::NO_APROBADO,
+    'regla «motivos»: el motivo grave manda sobre el modelo');
 local_chatbot_verificar(exante::valid_reason(['codigo' => 'aprendizaje', 'cita' => '', 'corregir' => 'x'], $ficha4, exante::NO_APROBADO, true) === null,
     'sin cita no hay motivo grave');
 local_chatbot_verificar(exante::valid_reason(['codigo' => 'aprendizaje', 'cita' => 'Texto que no está en la ficha', 'corregir' => ''], $ficha4, exante::NO_APROBADO, true) === null,
@@ -380,29 +441,41 @@ local_chatbot_verificar(exante::valid_reason(['codigo' => 'coherencia', 'cita' =
 $bienvenida = exante::welcome();
 local_chatbot_verificar(count($bienvenida) === 3
     && $bienvenida[0] === 'Bienvenido/a, soy tu asistente de apoyo en diseño instruccional por competencias.'
-    && strpos($bienvenida[1], 'Te puedo ayudar a analizar fichas de diagnóstico (evaluación ex-ante), diseñar experiencias') === 0
+    && strpos($bienvenida[1], 'Te puedo ayudar a analizar fichas de diagnóstico (evaluación ex ante), diseñar experiencias') === 0
+    && strpos($bienvenida[2], 'Comienza completando tu ficha de diagnóstico para trabajo de campo; puedes apoyarte en la guía de '
+        . 'llenado. Después de completar la ficha, debes cargarla junto con el plan formativo') === 0
     && substr($bienvenida[2], -strlen('enriquecer el análisis y mejorar la precisión del diseño.')) === 'enriquecer el análisis y mejorar la precisión del diseño.',
     'la bienvenida es la del Prompt Maestro, textual, en 3 párrafos');
 local_chatbot_verificar(exante::valid_reason($tema, $ficha4, exante::APROBADO) === null
     && exante::valid_reason($tema, $ficha4, exante::OBSERVACIONES) === null,
     'un motivo que acompaña a otra condición del modelo no detiene la ficha');
 // Interruptor «iaapoyo» apagado: vuelve la regla anterior.
-local_chatbot_verificar(exante::decide($con(['c2_1' => exante::NO_CUMPLE]), exante::APROBADO, null, true) === exante::NO_APROBADO
-    && exante::decide($todo, exante::NO_APROBADO, null, true) === exante::NO_APROBADO
-    && exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO, null, true) === exante::OBSERVACIONES
-    && exante::decide($todo, exante::APROBADO, null, true) === exante::APROBADO,
+$e = exante::REGLA_ESTRICTA;
+local_chatbot_verificar(exante::decide($con(['c2_1' => exante::NO_CUMPLE]), exante::APROBADO, null, $e) === exante::NO_APROBADO
+    && exante::decide($todo, exante::NO_APROBADO, null, $e) === exante::NO_APROBADO
+    && exante::decide($con(['c6_1' => exante::PARCIAL]), exante::APROBADO, null, $e) === exante::OBSERVACIONES
+    && exante::decide($todo, exante::APROBADO, null, $e) === exante::APROBADO,
     'con el interruptor apagado vuelve la regla anterior (críticos y «No aprobado» del modelo detienen; parcial deja observaciones)');
 local_chatbot_verificar(array_keys(exante::serious_reasons()) === ['aprendizaje', 'criterios', 'competencia', 'coherencia']
     && exante::plan_reasons() === ['aprendizaje', 'criterios', 'competencia'],
     'los motivos graves son los cuatro de la regla de decisión del Prompt Maestro del 30-10');
 local_chatbot_verificar(exante::TEMPERATURA <= 0.2, 'la validación usa temperatura baja');
-$pm = exante::build_prompt([]);
-local_chatbot_verificar(strpos($pm, 'MOTIVOS GRAVES') !== false && strpos($pm, '"motivo_grave"') !== false
+$pc = exante::build_prompt(['Plan Formativo']);
+local_chatbot_verificar(strpos($pc, 'c1_3: La competencia del módulo y el nivel de cualificación corresponden a lo declarado en el '
+    . 'plan formativo [CRÍTICO]') !== false && strpos($pc, 'c2_5: Existe coherencia entre aprendizaje y criterios [CRÍTICO]') === false
+    && substr_count($pc, '[CRÍTICO]') === 5 + 1 && strpos($pc, '❌ en cualquier ítem CRÍTICO → "no_aprobado"') !== false
+    && strpos($pc, 'se trata como "no_aprobado" hasta que la ficha se corrija. Única excepción: diferencias de forma') !== false
+    && strpos($pc, 'Sin problemas en ítems críticos, pero con ⚠ o ❌ en ítems no críticos → "observaciones"') !== false
+    && strpos($pc, 'Todos los ítems en ✔ → "aprobado"') !== false && strpos($pc, '"forma": false') !== false
+    && strpos($pc, 'motivo_grave') === false && strpos($pc, 'MOTIVOS GRAVES') === false,
+    'el prompt trae la regla de decisión del checklist del 30-10: ítems CRÍTICO marcados, excepción de forma y sin motivos graves');
+$pm = exante::build_prompt([], false, false, exante::REGLA_MOTIVOS);
+local_chatbot_verificar(strpos($pm, '[CRÍTICO]') === false && strpos($pm, 'MOTIVOS GRAVES') !== false && strpos($pm, '"motivo_grave"') !== false
     && strpos($pm, 'no hay correspondencia entre el definido en la ficha y el declarado en el Plan Formativo') !== false
     && strpos($pm, 'secciones 1, 2 y 3 y los recursos, estrategias y decisiones de diseño') !== false
     && strpos($pm, '"aprendizaje|criterios|competencia|coherencia"') !== false
     && strpos($pm, 'ningún ítem "no_cumple" (puede haber ítems "parcial")') !== false,
-    'el prompt cierra la regla de «No aprobado» en los cuatro motivos y acepta parciales en «aprobado»');
+    'con la regla «motivos» el prompt cierra «No aprobado» en los cuatro motivos y acepta parciales en «aprobado»');
 local_chatbot_verificar(strpos($pm, 'no reportes como faltantes') !== false && strpos($pm, '3.3 "Parcialmente alineado" no baja el ítem c3_4') !== false
     && strpos($pm, 'no los bajes por algo que ya señalaste') !== false && strpos($pm, '"propuesta"') !== false
     && strpos($pm, 'sin bajar por eso ningún ítem') !== false,
@@ -411,6 +484,12 @@ $informe = exante::parse_report(json_encode(['items' => array_map(static functio
     return ['estado' => 'parcial', 'observacion' => 'o', 'propuesta' => 'En 8.2 marca Sí y anota: conectividad irregular'];
 }, array_combine(exante::checklist_ids(), exante::checklist_ids())), 'condicion' => 'aprobado',
     'motivo_grave' => ['codigo' => 'TEMA', 'cita' => 'Conocer la historia', 'corregir' => 'c']]));
+$conforma = exante::parse_report(json_encode(['items' => array_map(static function($id) {
+    return ['estado' => 'parcial', 'observacion' => 'o', 'propuesta' => 'p', 'forma' => 'sí'];
+}, array_combine(exante::checklist_ids(), exante::checklist_ids())), 'condicion' => 'observaciones']));
+local_chatbot_verificar(!empty($conforma['items']['c2_2']['forma']) && !isset($conforma['items']['c6_1']['forma'])
+    && !isset($informe['items']['c2_2']['forma']),
+    '«forma» solo se guarda en un ítem crítico parcial, y solo si el modelo lo dice');
 local_chatbot_verificar($informe['items']['c1_1']['propuesta'] === 'En 8.2 marca Sí y anota: conectividad irregular'
     && $informe['motivo']['codigo'] === 'tema' && $informe['motivo']['cita'] === 'Conocer la historia',
     'el informe trae la propuesta de cada ítem y el motivo grave');
@@ -570,16 +649,23 @@ $marcas = exante::self_check_clean(['c1_1' => 'cumple', 'c1_2' => 'parcial', 'c2
 local_chatbot_verificar($marcas === ['c1_1' => 'cumple', 'c1_2' => 'parcial', 'c2_1' => 'no_cumple'],
     'la autorrevisión guarda solo ítems y valores válidos');
 $res = exante::self_check_summary($marcas);
-local_chatbot_verificar($res['cumple'] === 1 && $res['parcial'] === 1 && $res['no_cumple'] === 1 && $res['sin_marcar'] === 29
+local_chatbot_verificar($res['cumple'] === 1 && $res['parcial'] === 1 && $res['no_cumple'] === 1 && $res['sin_marcar'] === 30
     && $res['condicion'] === null && $res['criticos'] === ['c2_1'], 'con ítems sin marcar no hay condición y se avisa el crítico');
 $todas = array_fill_keys(exante::checklist_ids(), exante::CUMPLE);
 local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::APROBADO, 'todo cumple: aprobado');
 $todas['c6_1'] = exante::PARCIAL;
-local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::APROBADO, 'algo parcial: sigue aprobado');
+local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::OBSERVACIONES,
+    'algo parcial en un ítem no crítico: con observaciones');
+$todas['c1_3'] = exante::PARCIAL;
+local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::NO_APROBADO
+    && exante::self_check_summary($todas)['criticos'] === ['c1_3'],
+    'un crítico parcial: no aprobado, y se avisa');
+$todas['c1_3'] = exante::CUMPLE;
 $todas['c9_2'] = exante::NO_CUMPLE;
-local_chatbot_verificar(exante::self_check_summary($todas)['condicion'] === exante::OBSERVACIONES
+local_chatbot_verificar(exante::self_check_summary($todas, exante::REGLA_MOTIVOS)['condicion'] === exante::OBSERVACIONES
+    && exante::self_check_summary($todas)['condicion'] === exante::NO_APROBADO
     && exante::self_check_summary($todas)['criticos'] === ['c9_2'],
-    'un ítem clave que no cumple: con observaciones (sin motivo grave no hay «No aprobado»), y se avisa');
+    'un crítico que no cumple: no aprobado con la regla del checklist; con observaciones con la regla «motivos»');
 $enlazado = modulo2_setup::link_checklist('<a style="y" href="http://x/local/chatbot/checklist_exante.php?courseid=4"> '
     . 'Consultar y descargar el checklist </a>', 'http://x/mod/resource/view.php?id=606');
 local_chatbot_verificar(strpos($enlazado, 'href="http://x/mod/resource/view.php?id=606"') !== false

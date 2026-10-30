@@ -3,6 +3,8 @@ namespace local_chatbot;
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once(__DIR__ . '/kb_router.php');
+
 /**
  * Stores the chatbot's knowledge base as individual documents in the database
  * (local_chatbot_kb_documents), one row per uploaded PDF.
@@ -324,6 +326,25 @@ class kb_store {
      * @return bool true if a record was retired.
      */
     /**
+     * Documento de texto de una libreria versionada (deploy/libreria_m2/*.md): el nombre es el titulo «# ...» de la
+     * primera linea con texto y el contenido, el archivo entero. Funcion pura (la usa cli/cargar_libreria.php).
+     *
+     * @param string $contenido Archivo tal como esta en disco.
+     * @return array|null [nombre, contenido]; null si no empieza con un titulo «# ...».
+     */
+    public static function library_file(string $contenido): ?array {
+        $texto = trim(str_replace("\r\n", "\n", preg_replace('/^\xEF\xBB\xBF/', '', $contenido)));
+        if (!preg_match('/^#[ \t]+(.+)$/m', $texto, $m) || strpos($texto, $m[0]) !== 0) {
+            return null;
+        }
+        $nombre = trim(kb_router::strip_marks($m[1]));
+        if ($nombre === '') {
+            return null;
+        }
+        return [mb_substr($nombre, 0, 255, 'UTF-8'), $texto];
+    }
+
+    /**
      * Marcas de claves de evaluacion en un texto. Funcion pura.
      *
      * Son las que usan los documentos de Interfases: el Anexo D marca cada pregunta con
@@ -404,6 +425,30 @@ class kb_store {
             return '';
         }
         return count($versiones) . 'docs-v' . implode('.', array_map('intval', $versiones));
+    }
+
+    /**
+     * Documentos vigentes de un ambito, en el mismo orden que get_combined_context (timecreated ASC), para enrutar
+     * sus secciones por tarea.
+     *
+     * @param string $ambito Rol cuya libreria se consulta.
+     * @return array Lista de ['nombre' => string, 'contenido' => string, 'version' => int].
+     */
+    public static function documents(string $ambito): array {
+        global $DB;
+        self::migrate_legacy_file();
+        [$where, $params] = self::ambito_where($ambito);
+        $docs = $DB->get_records_select('local_chatbot_kb_documents', 'active = 1 AND ' . $where, $params,
+            'timecreated ASC', 'id, filename, content, version, timecreated');
+        $lista = [];
+        foreach ($docs as $doc) {
+            $lista[] = [
+                'nombre' => (string) $doc->filename,
+                'contenido' => (string) $doc->content,
+                'version' => (int) $doc->version,
+            ];
+        }
+        return $lista;
     }
 
     /**

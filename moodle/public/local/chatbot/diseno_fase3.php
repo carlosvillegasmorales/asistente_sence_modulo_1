@@ -117,6 +117,9 @@ foreach (diseno::etapas() as $n => $e) {
             <div class="alert alert-<?php echo $clase; ?>">
                 <strong><?php echo get_string('diseno_eval_total', 'local_chatbot', (int) $evaluacion['total']); ?></strong>
                 · <?php echo s($evaluacion['banda']['texto']); ?>
+                <?php if (isset($evaluacion['maximo']) && (int) $evaluacion['maximo'] < 36): ?>
+                    <div class="small mt-1"><?php echo get_string('diseno_eval_max', 'local_chatbot', (int) $evaluacion['maximo']); ?></div>
+                <?php endif; ?>
             </div>
             <div class="table-responsive chatbot-diseno-evaluacion">
                 <?php echo diseno::evaluation_html($evaluacion); ?>

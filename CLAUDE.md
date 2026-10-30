@@ -58,9 +58,19 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
 - `classes/kb_store.php` — versión del recurso citado y de la base de
   conocimiento (`RU-PRIV-006`), se guarda en cada interacción.
 - `classes/exante.php` + `ficha_exante.php?courseid=ID` — **Módulo 2, Fase 1**: ficha de diagnóstico ex-ante
-  (textual del documento del cliente) validada por la IA con el checklist de 32 ítems. La condición final la
-  fija `decide()` (la más estricta entre modelo y regla); con Aprobado / Aprobado con observaciones aparece el
-  botón a la sección «Fase 2…» del curso. No es calificación. Interruptor `fichaexante`.
+  (textual del documento del cliente) validada por la IA con el checklist de 33 ítems (versión del 30-10, 5 CRÍTICO:
+  `exante::CRITICOS`). La condición final la fija `decide()` con la regla del cliente sobre los ítems, no la que
+  propone el modelo: ❌ o ⚠ en un CRÍTICO → No aprobado (salvo diferencia de forma, `"forma": true`); ⚠/❌ en otros →
+  con observaciones; todo ✔ → Aprobado (interruptor `reglacriticos`; apagado, la regla de motivos graves de v1.20.12).
+  El ítem nuevo de la sección 1 es `c1_3` y va segundo: no renumerar ids, los informes guardados los usan. Con
+  Aprobado / Aprobado con observaciones aparece el botón a la sección «Fase 2…» del curso. No es calificación.
+  Interruptor `fichaexante`. La **librería del Asistente de Diseño Instruccional** (ámbito `m2` de la base de
+  conocimiento) son los siete documentos de `deploy/libreria_m2/*.md` (checklist, ficha, guía, ejemplo de llenado, MCTP
+  2017, Manual EDECOMP 2021 y Guía de Planes Formativos, transcritos), cargados con `cli/cargar_libreria.php --dir=...`
+  (idempotente, `--simular`): no por el panel, cuya extracción con IA puede fallar por `RECITATION`. La carpeta no viaja
+  con el plugin: se sube aparte. `classes/kb_router.php` enruta sus secciones según las marcas `{ruta: ...}` y
+  `{nivel: 1..5}` de los títulos y coloca la librería al inicio del pedido (`exante::request_parts()`, interruptor
+  `libreriaruta`; la etapa 7 no usa librería).
   `cli/configurar_modulo2.php --curso=ID` deja la pestaña Fase 1 del curso como la pidió el cliente (enlaces a
   los materiales y al checklist, recursos ocultos, condición centrada, botón a la ficha) y pone el botón de la
   Fase 2 al final de esa pestaña; idempotente. **Correrlo de nuevo después de restaurar el curso** (una
@@ -69,8 +79,10 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   Maestro como hojas de trabajo (propuesta de la IA, edición, ajustes, aceptación, Word). Requiere la ficha
   validada y vigente (`exante::fase1_ok()`); no se salta una etapa sin aceptar la anterior. Interruptor `disenofase2`.
   **Fase 3** en la misma página (`diseno_fase3.php`): etapa 7 consolida las 6 etapas sin editar (se ajusta en la
-  Fase 2) y etapa 8 evalúa con la rúbrica del cliente (`diseno::rubrica()`, textual); total y banda los calcula el
+  Fase 2) y etapa 8 evalúa con la rúbrica del cliente (`diseno::rubrica()`, textual, versión del 30-10 con sus pautas de aplicación; también en la librería como `08_rubrica_validacion_diseno.md`); total y banda los calcula el
   código, aprobado desde 25/36; con aprobación se descarga el documento final. Cambiar una etapa invalida 7 y 8.
+  En la etapa 8, los criterios vinculados a secciones del checklist con ⚠/❌ en la validación vigente tienen tope 3:
+  el vínculo sección → criterio es `diseno::rubric_links()` y el tope lo aplica el código (`rubric_limits()`), no el modelo.
 - `cli/preparar_curso.php` — crea las actividades del puente en un curso.
   El campo correcto para el código de actividad en `create_module()` es
   **`cmidnumber`**, no `idnumber` (ese se ignora en silencio).
@@ -79,8 +91,8 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ```bash
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
-  Deben pasar sin fallos. Al 21-10-2026 (M1-v1.19.0): **984 casos, 44 celdas
-  de la matriz de acceso y 1036 claves de idioma** en 19 scripts.
+  Deben pasar sin fallos. Al 30-10-2026 (M1-v1.20.16): **44 celdas de la matriz de acceso y 1248 claves de idioma**;
+  `verificar_exante.php` 191 casos, `verificar_diseno.php` 161 y `verificar_libreria_ruta.php` 84, entre otros, en 20 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:
   solo corren en el servidor. `verificar_idiomas.php` compara `lang/en` con `lang/es`:
   toda cadena nueva va en **los dos**, porque Moodle arma las claves desde el

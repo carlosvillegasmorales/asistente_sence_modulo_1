@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $marcas = exante::self_check_clean((array) json_decode((string) get_user_preferences($preferencia, ''), true));
-$resumen = exante::self_check_summary($marcas, !\local_chatbot\ux::on('iaapoyo'));
+$resumen = exante::self_check_summary($marcas, exante::rule_mode());
 
 // Lo que dijo el asistente, si la ficha ya se valido.
 $val = exante::latest_validation($USER->id, $courseid);
@@ -158,7 +158,8 @@ echo $OUTPUT->header();
                     <?php echo get_string('exante_cond_' . $resumen['condicion'] . '_desc', 'local_chatbot'); ?>
                 </div>
             <?php else: ?>
-                <p class="small text-muted mb-2"><?php echo get_string('autocheck_incomplete', 'local_chatbot'); ?></p>
+                <p class="small text-muted mb-2"><?php echo get_string('autocheck_incomplete', 'local_chatbot',
+                    count(exante::checklist_ids())); ?></p>
             <?php endif; ?>
             <?php if ($resumen['criticos']): ?>
                 <p class="small mb-2"><?php echo get_string('autocheck_critical_warning', 'local_chatbot'); ?></p>
