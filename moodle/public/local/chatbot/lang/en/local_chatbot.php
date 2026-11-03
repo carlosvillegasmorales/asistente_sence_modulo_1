@@ -1586,3 +1586,5 @@ $string['diseno_check_prompt'] = 'Add what is missing to the product, with these
 $string['diseno_check_missing_consolidation'] = 'Automatic review: the consolidated design is missing the following. Consolidate again with the assistant or confirm the complete consolidation.';
 $string['ux_revisioncontenido'] = 'Module 2: automatic review of each stage content';
 $string['ux_revisioncontenido_desc'] = 'Below each stage product, what the stage asks for and is not in the product is shown (including the information gaps record, the quality check and the references), with a button to ask the assistant for it; in Phase 3, the stages or quality checks missing in the consolidation. Off: no review.';
+$string['ux_sinayuda'] = 'Hide the «?» help button of the page footer';
+$string['ux_sinayuda_desc'] = 'Hides on every page the round «?» button of the bottom right corner (Moodle documentation, page tour, support). Off: the button is shown, as in Moodle.';

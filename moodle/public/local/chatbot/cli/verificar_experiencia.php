@@ -63,6 +63,12 @@ local_chatbot_verificar(array_key_exists('navestudiante', ux::DEFAULTS), "la mej
 foreach (['iaapoyo', 'avisosficha', 'descargafinal', 'bienvenidam2', 'libreriam2', 'busquedaweb', 'consolidacionia'] as $f) {
     local_chatbot_verificar(array_key_exists($f, ux::DEFAULTS) && ux::DEFAULTS[$f] === 1, "la mejora '{$f}' (v1.20.6) tiene interruptor, encendido");
 }
+// --- Mejoras del 02-11-2026 (v1.21.4 a v1.21.6): todas con interruptor, encendidas ---
+foreach (['docfinal', 'docetapa', 'fabm2', 'revisioncontenido', 'sinayuda'] as $f) {
+    local_chatbot_verificar(array_key_exists($f, ux::DEFAULTS) && ux::DEFAULTS[$f] === 1, "la mejora '{$f}' tiene interruptor, encendido");
+}
+local_chatbot_verificar(ux::footer_help_css(true) === '<style>#page-footer .btn-footer-popover{display:none !important;}</style>'
+    && ux::footer_help_css(false) === '', 'el boton «?» del pie se oculta solo con el interruptor encendido, y nada mas del pie');
 local_chatbot_verificar(output_hook::hide_course_nav(18, 1, false), 'quien cursa no ve el menú del curso');
 local_chatbot_verificar(!output_hook::hide_course_nav(18, 1, true), 'quien acompaña el curso (con o sin edición) lo conserva');
 local_chatbot_verificar(!output_hook::hide_course_nav(1, 1, false) && !output_hook::hide_course_nav(0, 1, false),

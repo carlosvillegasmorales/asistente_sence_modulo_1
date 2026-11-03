@@ -455,7 +455,8 @@ class modulo2_setup {
 
     /**
      * Debajo del boton de la Fase 3: la explicacion del tablero del Modulo 2 y el boton para abrirlo (pedido del
-     * 01-11-2026). Si ya estaba, se reemplaza (asi un texto nuevo o la URL de otro servidor quedan al dia).
+     * 01-11-2026). Si ya estaba, se reemplaza (asi un texto nuevo o la URL de otro servidor quedan al dia). Desde la
+     * v1.21.6 el guion no lo pone (el cliente pidio quitarlo el 02-11-2026); queda por si se quiere volver a usar.
      *
      * @param string $html Resumen de la ultima seccion de la pestana «Fase 3».
      * @param string $url URL del tablero (tablero_m2.php?courseid=...).
@@ -477,7 +478,7 @@ class modulo2_setup {
     }
 
     /**
-     * Quita la explicacion y el boton del tablero (con el interruptor «tablerom2» apagado).
+     * Quita la explicacion y el boton del tablero (lo hace siempre configurar_modulo2.php desde la v1.21.6).
      *
      * @param string $html
      * @return string

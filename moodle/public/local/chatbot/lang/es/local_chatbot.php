@@ -1588,3 +1588,5 @@ $string['diseno_check_prompt'] = 'Agrega al producto lo que falta, con estos nom
 $string['diseno_check_missing_consolidation'] = 'Revisión automática: al diseño consolidado le falta lo siguiente. Vuelve a consolidar con el asistente o confirma la consolidación completa.';
 $string['ux_revisioncontenido'] = 'Módulo 2: revisión automática del contenido de cada etapa';
 $string['ux_revisioncontenido_desc'] = 'Bajo el producto de cada etapa se muestra lo que la etapa pide y no aparece en el producto (incluidos el registro de vacíos, la verificación de calidad y las referencias), con un botón para pedírselo al asistente; en la Fase 3, las etapas o verificaciones que falten en la consolidación. Apagado: sin revisión.';
+$string['ux_sinayuda'] = 'Ocultar el botón «?» de ayuda del pie de página';
+$string['ux_sinayuda_desc'] = 'Oculta en todas las páginas el botón redondo «?» de la esquina inferior derecha (documentación de Moodle, recorrido de la página, soporte). Apagado: el botón se muestra, como en Moodle.';

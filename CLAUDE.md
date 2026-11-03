@@ -73,7 +73,7 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   `libreriaruta`; la etapa 7 no usa librería).
   `cli/configurar_modulo2.php --curso=ID` deja la pestaña Fase 1 del curso como la pidió el cliente (enlaces a
   los materiales y al checklist, recursos ocultos, condición centrada, botón a la ficha), pone el botón de la
-  Fase 2 al final de esa pestaña y, debajo del botón de la Fase 3, la explicación del tablero con su botón; idempotente. **Correrlo de nuevo después de restaurar el curso** (una
+  Fase 2 al final de esa pestaña y quita el recuadro del tablero que antes iba bajo el botón de la Fase 3 (el cliente pidió sacarlo el 02-11); idempotente. **Correrlo de nuevo después de restaurar el curso** (una
   restauración del 21-10 borró los ajustes).
 - `classes/diseno.php` + `diseno.php?courseid=ID&etapa=N` — **Módulo 2, Fase 2**: las 6 etapas del Prompt
   Maestro como hojas de trabajo (propuesta de la IA, edición, ajustes, aceptación, Word). Requiere la ficha
@@ -112,7 +112,7 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ```bash
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
-  Deben pasar sin fallos. Al 02-11-2026 (M1-v1.21.5): **44 celdas de la matriz de acceso y 1487 claves de idioma**;
+  Deben pasar sin fallos. Al 02-11-2026 (M1-v1.21.5): **44 celdas de la matriz de acceso y 1489 claves de idioma**;
   `verificar_exante.php` 191 casos, `verificar_diseno.php` 227, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99
   y `verificar_documento_final.php` 94, entre otros, en 22 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:

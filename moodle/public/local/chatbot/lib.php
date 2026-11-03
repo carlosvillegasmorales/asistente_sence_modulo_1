@@ -110,7 +110,9 @@ function local_chatbot_standard_after_main_region_html(): string {
  * @return void
  */
 function local_chatbot_before_footer(): void {
-    echo local_chatbot_get_widget_html() . local_chatbot_get_analytics_button_html();
+    // El boton «?» de ayuda del pie de pagina se oculta (pedido del cliente del 02-11-2026, interruptor «sinayuda»).
+    echo local_chatbot_get_widget_html() . local_chatbot_get_analytics_button_html()
+        . \local_chatbot\ux::footer_help_css(\local_chatbot\ux::on('sinayuda'));
 }
 
 /**

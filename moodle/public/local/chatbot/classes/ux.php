@@ -67,6 +67,7 @@ class ux {
         'tablerom2' => 1,       // Modulo 2: tablero individual, agregado y de calidad del agente, con encuesta de cierre (v1.21.0).
         'avisosm2' => 1,        // Modulo 2: avisos automaticos del tablero por las notificaciones de Moodle (v1.21.0).
         'docfinal' => 1,        // Modulo 2, Fase 3: documento final en Word con el diseño del ejemplo del cliente (v1.21.4).
+        'sinayuda' => 1,          // Oculta el boton «?» de ayuda del pie de pagina de Moodle (pedido del cliente, v1.21.6).
         'revisioncontenido' => 1, // Modulo 2: revision automatica de lo que pide cada etapa (v1.21.5).
         'fabm2' => 1,           // Modulo 2: el boton flotante de indicadores lleva al tablero del curso (v1.21.5).
         'docetapa' => 1,        // Modulo 2: el Word de cada etapa con el mismo diseño del documento final (v1.21.5).
@@ -83,6 +84,17 @@ class ux {
             return false;
         }
         return self::resolve(get_config('local_chatbot', 'ux_' . $feature), self::DEFAULTS[$feature]);
+    }
+
+    /**
+     * Estilo que oculta el boton «?» de ayuda del pie de pagina del tema (Boost y sus derivados). Solo el boton: el pie,
+     * con sus scripts, sigue en la pagina. Funcion pura.
+     *
+     * @param bool $ocultar
+     * @return string
+     */
+    public static function footer_help_css(bool $ocultar): string {
+        return $ocultar ? '<style>#page-footer .btn-footer-popover{display:none !important;}</style>' : '';
     }
 
     /**

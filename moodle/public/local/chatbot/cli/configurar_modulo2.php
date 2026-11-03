@@ -8,8 +8,9 @@
  *  - La condicion de los recuadros de resultado queda centrada.
  *  - Al final de «Completa y valida el formulario» va el boton a la ficha ex-ante del asistente.
  *  - Al final de la pestana «Fase 2» va el boton a las hojas de trabajo del asistente (diseno.php).
- *  - Al final de la pestana «Fase 3» van el enlace a la rubrica (recurso oculto) y el boton a las etapas 7 y 8; debajo,
- *    la explicacion del tablero del Modulo 2 con su boton (interruptor «tablerom2»).
+ *  - Al final de la pestana «Fase 3» van el enlace a la rubrica (recurso oculto) y el boton a las etapas 7 y 8. El
+ *    recuadro con la explicacion del tablero y su boton, que se ponia debajo, se quita (pedido del cliente del
+ *    02-11-2026: al tablero se llega por el boton flotante de indicadores y por «Mi tablero» en la barra de fases).
  *
  * Los recursos y las secciones se buscan por su nombre y por las marcas del texto del cliente, no por id: el
  * mismo guion sirve en el VPS propio (curso 18) y en el del cliente (curso 4). Es idempotente. Con --simular
@@ -161,7 +162,6 @@ foreach ($modinfo->get_section_info_all() as $info) {
 $fase2 = modulo2_setup::tab_last_section($secciones, 2);
 $fase3 = modulo2_setup::tab_last_section($secciones, 3);
 $validacionurl = (new moodle_url('/local/chatbot/diseno.php', ['courseid' => $cursoid, 'etapa' => 7]))->out(false);
-$tablerourl = (new moodle_url('/local/chatbot/tablero_m2.php', ['courseid' => $cursoid]))->out(false);
 // Al final de la bienvenida, el boton que lleva al comienzo de la pestana «Fase 1».
 $bienvenida = modulo2_setup::welcome_last_section($secciones);
 $fase1 = \local_chatbot\exante::phase_section(array_map(static function($s) {
@@ -183,9 +183,8 @@ foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') 
     if ($fase3 !== null && (int) $seccion->section === $fase3) {
         $despues = modulo2_setup::add_validation_buttons($despues,
             isset($recursos['rubrica']) ? $url($recursos['rubrica']) : '', $validacionurl);
-        // Debajo, la explicacion del tablero del Modulo 2 y su boton (interruptor «tablerom2»).
-        $despues = \local_chatbot\ux::on('tablerom2') ? modulo2_setup::add_dashboard_block($despues, $tablerourl)
-            : modulo2_setup::remove_dashboard_block($despues);
+        // El recuadro del tablero que iba debajo se quita (pedido del cliente del 02-11-2026).
+        $despues = modulo2_setup::remove_dashboard_block($despues);
     }
     if (strpos($antes, '<!-- MATERIAL 1 -->') !== false) {
         $despues = modulo2_setup::link_materials($despues, [1 => $url($recursos['material1']),

@@ -1,5 +1,17 @@
 # Changelog
 
+## M1-v1.21.6 (2026-11-02)
+
+Pedidos del cliente del 02-11. Sin cambios en la base.
+
+- **Sin el recuadro del tablero en la pestaña Fase 3:** `cli/configurar_modulo2.php` ya no pone la explicación del tablero
+  con su botón «Ver mi tablero del Módulo 2» y la quita si está (`modulo2_setup::remove_dashboard_block()`). Al tablero se
+  llega por el botón flotante de indicadores y por «Mi tablero» en la barra de fases. Hay que correr el guion en cada
+  curso del Módulo 2.
+- **Sin el botón «?» de ayuda del pie de página** de Moodle (documentación, recorrido de la página, soporte): se oculta
+  en todas las páginas con un estilo que agrega el plugin (`ux::footer_help_css()`); el pie y sus scripts siguen.
+  Interruptor `sinayuda`.
+
 ## M1-v1.21.5 (2026-11-02)
 
 **Fórmulas en texto, no en LaTeX** (revisión del cliente del 02-11: la Etapa 6 mostraba
