@@ -4842,3 +4842,17 @@ body.m2d-capture .m1-dash-filter select {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* Etiqueta de alcance junto al título del Panorama integral (v1.21.13). */
+.pm2-modules {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #e3f2ee;
+    color: #0e7c66;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+}

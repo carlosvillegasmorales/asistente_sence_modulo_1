@@ -1611,12 +1611,12 @@ $string['aperturafecha'] = 'Fecha de apertura de la ruta del Módulo 1';
 $string['aperturafecha_desc'] = 'Día (AAAA-MM-DD, desde las 00:00 en la zona horaria del servidor) en que se abren las etapas posteriores a la Bienvenida y Perfilamiento. Solo cuenta con el interruptor «Módulo 1: solo Bienvenida y Perfilamiento» encendido. Al cambiarla se actualizan las pestañas de los cursos del Módulo 1.';
 
 // Perfiles en el Modulo 2 (pedido del cliente del 03-11-2026, v1.21.11).
-$string['ux_perfilesm2'] = 'Informe «Perfiles en el Módulo 2»';
+$string['ux_perfilesm2'] = 'Informe «Panorama integral» (Módulos 1, 2 y 3)';
 $string['ux_perfilesm2_desc'] = 'Botón flotante (encima del de indicadores) y página que cruza las respuestas del perfilamiento del Módulo 1 con el comportamiento de cada persona en el Módulo 2: inicio, ficha y Etapa 0, diseño y resultado. Solo para quien ve los indicadores y solo agregados (grupos de 3 personas o más). Apagado: sin botón ni página.';
-$string['pm2_title'] = 'Perfiles en el Módulo 2';
-$string['pm2_fab'] = 'Perfiles en el Módulo 2';
-$string['pm2_disabled'] = 'El informe «Perfiles en el Módulo 2» está apagado en los ajustes del asistente.';
-$string['pm2_intro'] = 'Cómo se comporta cada perfil del Módulo 1 (las respuestas del perfilamiento) en el uso del Módulo 2.';
+$string['pm2_title'] = 'Panorama integral';
+$string['pm2_fab'] = 'Panorama integral · Módulos 1, 2 y 3';
+$string['pm2_disabled'] = 'El informe «Panorama integral» está apagado en los ajustes del asistente.';
+$string['pm2_intro'] = 'Perfiles, avance y resultados de los facilitadores a lo largo de los Módulos 1, 2 y 3.';
 $string['pm2_privacy'] = 'Solo agregados · grupos de {$a} personas o más';
 $string['pm2_course'] = 'Curso del Módulo 2';
 $string['pm2_dim'] = 'Pregunta del perfil';
@@ -1807,3 +1807,4 @@ $string['pm2_p_m2_termino'] = 'Terminó y fue evaluado';
 $string['pm2_p_m2_aprobado'] = 'Diseño aprobado (25 puntos o más)';
 $string['pm2_audit_title'] = 'Cómo se agruparon los sectores';
 $string['pm2_audit_help'] = 'La pregunta «¿En qué sector o especialidad facilitas?» es abierta. Cada respuesta se agrupó en un sector productivo, al modo del Catálogo de ChileValora, según las palabras que contiene. Entre paréntesis, cuántas personas escribieron ese texto.';
+$string['pm2_modules'] = 'Módulos 1 · 2 · 3';

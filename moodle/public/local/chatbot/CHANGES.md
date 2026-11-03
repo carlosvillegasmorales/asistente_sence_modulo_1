@@ -18,6 +18,8 @@ Interfases (pedido del usuario: «saber si un TENS diseña mejor que un construc
 - **Solidez de cada conclusión:** «Diferencia sólida» o «A confirmar con más casos», con prueba de dos proporciones o de
   Welch al 95 % (`solid()`).
 - La demostración trae sector, rúbrica y Módulo 1, con tendencias inventadas por sector y rotuladas como tales.
+- **Nombre:** el informe pasa a llamarse **«Panorama integral»**, con la etiqueta «Módulos 1 · 2 · 3». El botón flotante
+  usa un ícono de torta segmentada.
 - Verificador: `verificar_perfiles_m2.php` (sectores, solidez, rúbrica, recorrido).
 
 ## M1-v1.21.12 (2026-11-03)

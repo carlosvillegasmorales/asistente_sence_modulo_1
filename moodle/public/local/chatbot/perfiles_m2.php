@@ -189,7 +189,8 @@ echo $OUTPUT->header();
 <div class="m1-dash pm2">
     <header class="m1-dash-head">
         <div class="m1-dash-titleblock">
-            <h1 class="m1-dash-title"><?php echo s(get_string('pm2_title', 'local_chatbot')); ?></h1>
+            <h1 class="m1-dash-title"><?php echo s(get_string('pm2_title', 'local_chatbot')); ?>
+                <span class="pm2-modules"><?php echo s(get_string('pm2_modules', 'local_chatbot')); ?></span></h1>
             <p class="m1-dash-subtitle"><?php echo s(get_string('pm2_intro', 'local_chatbot')); ?></p>
             <div class="m1-dash-meta">
                 <span class="m1-badge"><?php echo s(get_string('pm2_privacy', 'local_chatbot', perfiles_m2::MINIMO)); ?></span>

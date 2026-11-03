@@ -1609,12 +1609,12 @@ $string['aperturafecha'] = 'Module 1 route opening date';
 $string['aperturafecha_desc'] = 'Day (YYYY-MM-DD, from 00:00 in the server time zone) when the stages after Welcome and Profiling open. It only counts with the «Module 1: only Welcome and Profiling» switch on. Changing it updates the tabs of the Module 1 courses.';
 
 // Profiles in Module 2 (client request of 03-11-2026, v1.21.11).
-$string['ux_perfilesm2'] = 'Report «Profiles in Module 2»';
+$string['ux_perfilesm2'] = 'Report «Integrated overview» (Modules 1, 2 and 3)';
 $string['ux_perfilesm2_desc'] = 'Floating button (above the indicators one) and page that crosses the Module 1 profiling answers with how each person behaves in Module 2: start, form and Stage 0, design and result. Only for whoever sees the indicators and only aggregates (groups of 3 people or more). Off: no button and no page.';
-$string['pm2_title'] = 'Profiles in Module 2';
-$string['pm2_fab'] = 'Profiles in Module 2';
-$string['pm2_disabled'] = 'The «Profiles in Module 2» report is switched off in the assistant settings.';
-$string['pm2_intro'] = 'How each Module 1 profile (the profiling answers) behaves when using Module 2.';
+$string['pm2_title'] = 'Integrated overview';
+$string['pm2_fab'] = 'Integrated overview · Modules 1, 2 and 3';
+$string['pm2_disabled'] = 'The «Integrated overview» report is switched off in the assistant settings.';
+$string['pm2_intro'] = 'Profiles, progress and results of facilitators across Modules 1, 2 and 3.';
 $string['pm2_privacy'] = 'Aggregates only · groups of {$a} people or more';
 $string['pm2_course'] = 'Module 2 course';
 $string['pm2_dim'] = 'Profile question';
@@ -1805,3 +1805,4 @@ $string['pm2_p_m2_termino'] = 'Finished and was evaluated';
 $string['pm2_p_m2_aprobado'] = 'Design approved (25 points or more)';
 $string['pm2_audit_title'] = 'How the sectors were grouped';
 $string['pm2_audit_help'] = 'The question «In which sector or specialty do you facilitate?» is open. Each answer was grouped into a productive sector, in the manner of the ChileValora Catalogue, by the words it contains. In brackets, how many people wrote that text.';
+$string['pm2_modules'] = 'Modules 1 · 2 · 3';
