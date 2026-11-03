@@ -213,7 +213,7 @@ function local_chatbot_get_profiles_button_html(): string {
     $label = s(get_string('pm2_fab', 'local_chatbot'));
     return <<<HTML
     <a href="{$url}" class="chatbot-reports-fab chatbot-reports-fab--profiles" aria-label="{$label}">
-        <svg class="chatbot-reports-fab-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="7" r="3"></circle><path d="M3 20v-1a6 6 0 0 1 12 0v1"></path><path d="M16 3.5a3 3 0 0 1 0 6"></path><path d="M21 20v-1a5 5 0 0 0-3-4.6"></path></svg>
+        <svg class="chatbot-reports-fab-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"></path><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path></svg>
         <span class="chatbot-reports-fab-label">{$label}</span>
     </a>
 HTML;
