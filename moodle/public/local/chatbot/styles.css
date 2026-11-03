@@ -4362,7 +4362,7 @@ body.m2d-capture .m1-dash-filter select {
     color: var(--m1-accent);
 }
 
-/* Conclusiones: pregunta, comportamiento y los dos grupos que más se separan. */
+/* Conclusiones: una frase, el dato que la respalda y qué hacer. */
 .pm2-hl-list {
     list-style: none;
     margin: 0;
@@ -4374,11 +4374,12 @@ body.m2d-capture .m1-dash-filter select {
 .pm2-hl {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 12px 14px;
+    gap: 4px;
+    padding: 12px 14px 12px 16px;
     border: 1px solid var(--m1-hairline);
-    border-radius: 12px;
-    background: #f8fafc;
+    border-left: 4px solid #c2410c;
+    border-radius: 0 12px 12px 0;
+    background: #fffaf5;
     min-width: 0;
 }
 .pm2-hl-q {
@@ -4388,51 +4389,25 @@ body.m2d-capture .m1-dash-filter select {
     letter-spacing: 0.04em;
     color: var(--m1-accent) !important;
 }
-.pm2-hl-metric {
+.pm2-hl-title {
+    margin: 0;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 15.5px;
+    line-height: 1.35;
     color: var(--m1-ink);
 }
-.pm2-hl-pair {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: stretch;
-    gap: 8px;
-}
-.pm2-hl-side {
-    flex: 1 1 140px;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    min-width: 0;
-}
-.pm2-hl-side.is-good {
-    background: #e3f5eb;
-    border-left: 4px solid #1c8a5a;
-}
-.pm2-hl-side.is-bad {
-    background: #fdeee3;
-    border-left: 4px solid #c2410c;
-}
-.pm2-hl-side strong {
-    font-size: 20px;
-    font-variant-numeric: tabular-nums;
-}
-.pm2-hl-who {
-    font-size: 13px;
+.pm2-hl-detail {
+    margin: 0;
+    font-size: 14px;
     color: var(--m1-ink-2);
-    overflow-wrap: anywhere;
 }
-.pm2-hl-n {
-    font-size: 12px;
-    color: var(--m1-muted);
-}
-.pm2-hl-vs {
-    align-self: center;
-    font-size: 12px;
-    color: var(--m1-muted);
+.pm2-hl-do {
+    margin: 4px 0 0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #eef4fb;
+    font-size: 13.5px;
+    color: var(--m1-ink);
 }
 
 .pm2-card {
@@ -4465,6 +4440,8 @@ body.m2d-capture .m1-dash-filter select {
 
 /* Mapa de calor: se desplaza dentro de su caja, nunca la página. */
 .pm2-scroll {
+    /* Referencia de posicion: el texto oculto de las celdas (position: absolute) queda dentro y no desborda la pagina. */
+    position: relative;
     overflow-x: auto;
     max-width: 100%;
     border: 1px solid var(--m1-hairline);
@@ -4474,8 +4451,7 @@ body.m2d-capture .m1-dash-filter select {
     border-collapse: separate;
     border-spacing: 0;
     width: 100%;
-    min-width: 980px;
-    font-size: 12.5px;
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
 }
 .pm2-table th,
@@ -4579,5 +4555,150 @@ body.m2d-capture .m1-dash-filter select {
     .pm2-table .pm2-answer-col,
     .pm2-table .pm2-answer {
         min-width: 140px;
+    }
+}
+
+/* Claridad (v1.21.12): cómo leer, colores contra el promedio del curso y resumen de un perfil. */
+.pm2-scroll.is-all .pm2-table {
+    min-width: 980px;
+    font-size: 12.5px;
+}
+.pm2-howto {
+    margin: 0 0 16px;
+    padding: 14px 18px;
+    border: 1px solid #cfe0f3;
+    border-radius: 14px;
+    background: #f3f8fd;
+}
+.m1-dash .pm2-howto-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+.pm2-howto-list {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 4px;
+    font-size: 14px;
+    color: var(--m1-ink-2);
+}
+.pm2-legend {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0 0 12px;
+    padding: 0;
+    font-size: 13px;
+    color: var(--m1-ink-2);
+}
+.pm2-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.pm2-swatch {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+}
+.pm2-swatch.is-mejor,
+.pm2-cell.is-mejor { background: #d3f0df; }
+.pm2-swatch.is-igual,
+.pm2-cell.is-igual { background: #f1f4f8; }
+.pm2-swatch.is-peor,
+.pm2-cell.is-peor { background: #fde3cf; }
+.pm2-mark {
+    margin-left: 4px;
+    font-size: 10px;
+    vertical-align: 1px;
+}
+.pm2-cell.is-mejor .pm2-mark { color: #1c7a4f; }
+.pm2-cell.is-peor .pm2-mark { color: #b4410c; }
+.pm2-few {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 500;
+    font-style: normal;
+}
+.pm2-table tr.is-total th,
+.pm2-table tr.is-total td {
+    background: #eaf1f9;
+    font-weight: 700;
+    border-bottom: 2px solid #cfe0f3;
+}
+.pm2-table .pm2-answer a {
+    color: var(--m1-ink) !important;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+.pm2-table tr.is-picked .pm2-answer {
+    background: #fff4d6;
+}
+.pm2-pick {
+    margin: 0 0 12px;
+    font-size: 13.5px;
+    color: var(--m1-muted);
+}
+.pm2-profile {
+    position: relative;
+    margin: 0 0 14px;
+    padding: 14px 44px 14px 18px;
+    border: 1px solid #f0d9a8;
+    border-radius: 14px;
+    background: #fffbf0;
+}
+.m1-dash .pm2-profile-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 8px;
+}
+.pm2-profile-close {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--m1-muted) !important;
+    text-decoration: none !important;
+}
+.pm2-profile-sub {
+    margin: 6px 0 2px;
+    font-weight: 700;
+    font-size: 14px;
+}
+.pm2-profile-sub.is-peor { color: #b4410c; }
+.pm2-profile-sub.is-mejor { color: #1c7a4f; }
+.pm2-profile-list {
+    margin: 0 0 6px;
+    padding-left: 20px;
+    font-size: 14px;
+}
+.pm2-profile-rest {
+    font-size: 13px;
+    color: var(--m1-muted);
+}
+.pm2-more {
+    margin: 10px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+.pm2-glossary summary {
+    cursor: pointer;
+    margin: 0;
+}
+.pm2-glossary[open] summary {
+    margin-bottom: 12px;
+}
+@media (max-width: 767.98px) {
+    .pm2-table {
+        min-width: 620px;
     }
 }

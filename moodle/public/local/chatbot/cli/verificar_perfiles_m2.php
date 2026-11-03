@@ -188,6 +188,31 @@ foreach (range(1, 5) as $i) {
 }
 local_chatbot_verificar(perfiles_m2::highlights($otro) === [], '«Otro» no es un perfil que se pueda describir: no compite');
 
+// --- Claridad: todo el curso como referencia, mejor / parecido / peor, y el resumen de un perfil ---
+$curso = perfiles_m2::overall($personas);
+local_chatbot_verificar($curso['n'] === 18 && $curso['celdas']['aprob_primer']['valor'] === 71,
+    'todo el curso: 12 de 17 aprueban al primer intento (71 %)');
+local_chatbot_verificar(perfiles_m2::compare(100, 65, 'aprob_primer') === 'mejor'
+    && perfiles_m2::compare(0, 65, 'aprob_primer') === 'peor' && perfiles_m2::compare(70, 65, 'aprob_primer') === 'igual',
+    'mas aprobacion es mejor; cinco puntos de diferencia es «parecido»');
+local_chatbot_verificar(perfiles_m2::compare(90, 40, 'detenido') === 'peor' && perfiles_m2::compare(3.0, 5.0, 'dias_inicio') === 'mejor',
+    'mas detenidos es peor; menos dias para entregar es mejor');
+local_chatbot_verificar(perfiles_m2::compare(null, 65, 'aprob_primer') === '', 'sin dato no se compara');
+$dif = perfiles_m2::differences($cruce['menos1'], $curso);
+local_chatbot_verificar($dif && $dif[0]['metrica'] === 'aprob_primer' && $dif[0]['sentido'] === 'peor',
+    'resumen de «menos de 1 año»: lo mas marcado es que aprueban menos al primer intento');
+local_chatbot_verificar(!in_array('entrego', array_column($dif, 'metrica'), true), 'lo que es igual al curso no se menciona');
+$solodias = perfiles_m2::differences(['celdas' => ['dias_inicio' => ['valor' => 9.0], 'detenido' => ['valor' => 60]]
+    + array_fill_keys(array_keys(perfiles_m2::METRICAS), ['valor' => null])],
+    ['celdas' => ['dias_inicio' => ['valor' => 3.0], 'detenido' => ['valor' => 45]]
+    + array_fill_keys(array_keys(perfiles_m2::METRICAS), ['valor' => null])]);
+local_chatbot_verificar(array_column($solodias, 'metrica') === ['detenido', 'dias_inicio'],
+    'en el resumen va primero un comportamiento clave (detenido) que un detalle mas marcado (dias)');
+local_chatbot_verificar(perfiles_m2::out_of_ten(91) === 9 && perfiles_m2::out_of_ten(4) === 0 && perfiles_m2::out_of_ten(null) === null,
+    'porcentaje dicho como «X de cada 10»');
+local_chatbot_verificar(array_diff(perfiles_m2::CLAVE, array_keys(perfiles_m2::METRICAS)) === [] && count(perfiles_m2::CLAVE) === 6,
+    'los 6 comportamientos clave existen');
+
 // --- Cifras de cabecera ---
 $t = perfiles_m2::totals($personas);
 local_chatbot_verificar($t['inscritos'] === 18 && $t['con_perfil'] === 15 && $t['entregaron'] === 17,
@@ -214,6 +239,11 @@ $es = file_get_contents(__DIR__ . '/../lang/es/local_chatbot.php');
 foreach (array_keys(perfiles_m2::METRICAS) as $m) {
     local_chatbot_verificar(strpos($es, "\$string['pm2_m_{$m}']") !== false && strpos($es, "\$string['pm2_h_{$m}']") !== false,
         "nombre y explicacion de «{$m}»");
+    local_chatbot_verificar(strpos($es, "\$string['pm2_s_{$m}']") !== false && strpos($es, "\$string['pm2_do_{$m}']") !== false,
+        "conclusion en frase y sugerencia de «{$m}»");
+    if (perfiles_m2::METRICAS[$m]['tipo'] !== 'pct') {
+        local_chatbot_verificar(strpos($es, "\$string['pm2_u_{$m}']") !== false, "unidad de «{$m}» para las frases");
+    }
 }
 foreach (perfiles_m2::DIMENSIONES as $d) {
     local_chatbot_verificar(strpos($es, "\$string['pm2_dim_{$d}']") !== false, "nombre de la pregunta «{$d}»");

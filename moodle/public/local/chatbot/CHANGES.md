@@ -1,5 +1,23 @@
 # Changelog
 
+## M1-v1.21.12 (2026-11-03)
+
+«Perfiles en el Módulo 2» más claro para quien sabe del área pero no de datos (pedido del usuario). Sin cambios en la
+base.
+
+- **«Cómo leer este informe»:** tres líneas al comienzo.
+- **Conclusiones como frase, con qué hacer.** Por ejemplo: «Quienes respondieron «Menos de 1 hora» se detienen más: 9 de
+  cada 10 (91 %), frente a 1 de cada 10…» y una sugerencia fija por comportamiento (`pm2_s_*`, `pm2_do_*`).
+- **Comparación con todo el curso:** fila «Todo el curso» arriba de la tabla. Cada celda es mejor (verde ▲), parecida
+  (gris) o peor (ámbar ▼) que el promedio, con tolerancia por comportamiento (`perfiles_m2::compare()`). Antes los colores
+  solo comparaban dentro de la columna.
+- **Seis comportamientos clave a la vista** (entregó, aprobada en el primer intento, llegó al diseño, detenido, terminó y
+  puntaje final), con «Ver los 15 comportamientos» para el resto. Los nombres van completos y sin flechas.
+- **Resumen en palabras de un perfil:** al hacer clic en una respuesta aparece en qué le va mejor y peor que al curso
+  (`perfiles_m2::differences()`).
+- «Pocos datos» en vez de «·». El glosario queda plegado al final.
+- Verificador: `verificar_perfiles_m2.php` (+ casos de comparación, resumen y frases).
+
 ## M1-v1.21.11 (2026-11-03)
 
 Pedido del cliente del 03-11: saber **cómo se comportan los perfiles del Módulo 1 en el uso del Módulo 2**. Sin cambios en

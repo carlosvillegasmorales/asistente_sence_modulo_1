@@ -62,6 +62,16 @@ class perfiles_m2 {
     const UMBRALES = ['pct' => 20, 'dias_inicio' => 2, 'dias_correccion' => 2, 'duracion' => 3, 'ciclos' => 0.5,
         'rondas' => 0.5, 'puntaje' => 3, 'encuesta' => 0.5];
 
+    /** @var string[] Comportamientos que se ven sin pedir el detalle (los otros, con «ver los 15»). */
+    const CLAVE = ['entrego', 'aprob_primer', 'diseno', 'detenido', 'termino', 'puntaje'];
+
+    /**
+     * @var float[] Diferencia con el promedio del curso que se considera «parecido» (ni mejor ni peor): puntos
+     * porcentuales en los porcentajes y unidades de la metrica en el resto.
+     */
+    const TOLERANCIA = ['pct' => 10, 'dias_inicio' => 1, 'dias_correccion' => 1, 'duracion' => 2, 'ciclos' => 0.3,
+        'rondas' => 0.5, 'puntaje' => 2, 'encuesta' => 0.3];
+
     /**
      * Alternativas de cada pregunta, en el orden del formulario del perfil. Funcion pura.
      *
@@ -216,6 +226,87 @@ class perfiles_m2 {
             $filas[$respuesta] = ['n' => count($grupos[$respuesta]), 'celdas' => $celdas];
         }
         return $filas;
+    }
+
+    /**
+     * Todo el curso como un solo grupo: la referencia con que se compara cada perfil. Funcion pura.
+     *
+     * @param array $personas Como en cross().
+     * @param int $minimo
+     * @return array ['n' => personas, 'celdas' => metrica => ['valor', 'n', 'oculto']].
+     */
+    public static function overall(array $personas, int $minimo = self::MINIMO): array {
+        $metricas = array_column($personas, 'metricas');
+        $celdas = [];
+        foreach (self::METRICAS as $clave => $def) {
+            $valores = array_values(array_filter(array_column($metricas, $clave), static function($v) {
+                return $v !== null;
+            }));
+            $oculto = count($valores) < $minimo;
+            $celdas[$clave] = ['valor' => $oculto ? null : self::aggregate($valores, $def['tipo']), 'n' => count($valores),
+                'oculto' => $oculto];
+        }
+        return ['n' => count($personas), 'celdas' => $celdas];
+    }
+
+    /**
+     * Como esta un valor frente al promedio del curso: mejor, parecido o peor, segun lo que es mejor en la metrica y la
+     * tolerancia (TOLERANCIA). Funcion pura.
+     *
+     * @param float|int|null $valor
+     * @param float|int|null $total
+     * @param string $metrica
+     * @return string mejor, igual, peor, o '' si falta alguno de los dos.
+     */
+    public static function compare($valor, $total, string $metrica): string {
+        if ($valor === null || $total === null) {
+            return '';
+        }
+        $def = self::METRICAS[$metrica];
+        $tolerancia = $def['tipo'] === 'pct' ? self::TOLERANCIA['pct'] : (self::TOLERANCIA[$metrica] ?? 1);
+        $diferencia = (float) $valor - (float) $total;
+        if (abs($diferencia) < $tolerancia) {
+            return 'igual';
+        }
+        return ($diferencia > 0) === ($def['mejor'] === 'alto') ? 'mejor' : 'peor';
+    }
+
+    /**
+     * En que se distingue un grupo del promedio del curso: primero los comportamientos clave, y dentro de cada tipo de lo
+     * mas a lo menos marcado. Funcion pura.
+     *
+     * @param array $fila Una fila de cross().
+     * @param array $total Salida de overall().
+     * @return array Lista de ['metrica', 'sentido' (mejor o peor), 'valor', 'total'].
+     */
+    public static function differences(array $fila, array $total): array {
+        $salida = [];
+        foreach (self::METRICAS as $clave => $def) {
+            $v = $fila['celdas'][$clave]['valor'];
+            $t = $total['celdas'][$clave]['valor'];
+            $sentido = self::compare($v, $t, $clave);
+            if ($sentido !== 'mejor' && $sentido !== 'peor') {
+                continue;
+            }
+            // Los comportamientos clave van primero: son los que el resumen debe decir antes que el detalle.
+            $peso = ($def['tipo'] === 'pct' ? abs($v - $t) / 100 : abs($v - $t) / max(abs((float) $t), 1.0))
+                + (in_array($clave, self::CLAVE, true) ? 100 : 0);
+            $salida[] = ['metrica' => $clave, 'sentido' => $sentido, 'valor' => $v, 'total' => $t, 'peso' => $peso];
+        }
+        usort($salida, static function($a, $b) {
+            return $b['peso'] <=> $a['peso'];
+        });
+        return $salida;
+    }
+
+    /**
+     * Un porcentaje dicho como «X de cada 10». Funcion pura.
+     *
+     * @param int $pct
+     * @return int|null 0 a 10; null si no hay dato.
+     */
+    public static function out_of_ten(?int $pct): ?int {
+        return $pct === null ? null : (int) round($pct / 10);
     }
 
     /**
