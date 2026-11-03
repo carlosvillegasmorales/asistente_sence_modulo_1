@@ -672,6 +672,14 @@ class documento_final {
             . $titulo('Heading2', 'heading 2', 1, '<w:b/><w:bCs/><w:color w:val="' . self::TITULO2 . '"/><w:sz w:val="24"/><w:szCs w:val="24"/>')
             . $titulo('Heading3', 'heading 3', 2, '<w:b/><w:bCs/><w:color w:val="' . self::TITULO2 . '"/><w:sz w:val="22"/><w:szCs w:val="22"/>')
             . $titulo('Heading4', 'heading 4', 3, '<w:b/><w:bCs/><w:i/><w:iCs/><w:color w:val="' . self::AZUL . '"/>')
+            // Estilos del indice: los usa Word si la persona actualiza la tabla de contenidos.
+            . '<w:style w:type="paragraph" w:styleId="TOC1"><w:name w:val="toc 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>'
+            . '<w:uiPriority w:val="39"/><w:pPr><w:keepNext/><w:tabs><w:tab w:val="right" w:leader="dot" w:pos="' . self::ANCHO_V . '"/></w:tabs>'
+            . '<w:spacing w:before="50" w:after="10" w:line="240" w:lineRule="exact"/></w:pPr><w:rPr><w:b/><w:bCs/><w:color w:val="' . self::NAVY . '"/><w:sz w:val="19"/>'
+            . '<w:szCs w:val="19"/></w:rPr></w:style>'
+            . '<w:style w:type="paragraph" w:styleId="TOC2"><w:name w:val="toc 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>'
+            . '<w:uiPriority w:val="39"/><w:pPr><w:tabs><w:tab w:val="right" w:leader="dot" w:pos="' . self::ANCHO_V . '"/></w:tabs>'
+            . '<w:spacing w:line="185" w:lineRule="exact"/><w:ind w:left="400"/></w:pPr><w:rPr><w:color w:val="' . self::TITULO2 . '"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>'
             . '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/></w:style>'
             . '</w:styles>';
     }
@@ -781,6 +789,46 @@ class documento_final {
         return $x . '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
     }
 
+    /** @var array[] Niveles de compactacion del indice: letra (medios puntos), espacio y altura de linea de cada nivel de entrada. */
+    const TOC_NIVELES = [
+        // Normal: lineas «auto», unos 409 y 212 twips por entrada de nivel 1 y 2.
+        ['sz1' => 21, 'sz2' => 18, 'antes1' => 110, 'despues1' => 30, 'linea1' => 'w:line="252" w:lineRule="auto"',
+            'linea2' => 'w:line="232" w:lineRule="auto"', 'alto1' => 409, 'alto2' => 212],
+        ['sz1' => 20, 'sz2' => 17, 'antes1' => 70, 'despues1' => 20, 'linea1' => 'w:line="260" w:lineRule="exact"',
+            'linea2' => 'w:line="200" w:lineRule="exact"', 'alto1' => 350, 'alto2' => 200],
+        ['sz1' => 19, 'sz2' => 16, 'antes1' => 50, 'despues1' => 10, 'linea1' => 'w:line="240" w:lineRule="exact"',
+            'linea2' => 'w:line="185" w:lineRule="exact"', 'alto1' => 300, 'alto2' => 185],
+        ['sz1' => 18, 'sz2' => 15, 'antes1' => 30, 'despues1' => 0, 'linea1' => 'w:line="230" w:lineRule="exact"',
+            'linea2' => 'w:line="170" w:lineRule="exact"', 'alto1' => 260, 'alto2' => 170],
+    ];
+
+    /** @var string Comienzo del campo TOC que envuelve las entradas del indice (la primera lo lleva antes de su enlace). */
+    const TOC_INICIO = '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> TOC \o "1-2" \h \z \u </w:instrText></w:r>'
+        . '<w:r><w:fldChar w:fldCharType="separate"/></w:r>';
+
+    /** @var string Cierre de ese campo (lo lleva la ultima entrada). */
+    const TOC_FIN = '<w:r><w:fldChar w:fldCharType="end"/></w:r>';
+
+    /** @var int Alto util de una pagina vertical para el indice, en twips, ya descontados el titulo y un margen de seguridad. */
+    const TOC_ALTO = 11800;
+
+    /**
+     * Nivel de compactacion del indice: el primero (el mas legible) en que las entradas caben en una pagina. Si ni el
+     * ultimo alcanza (un documento enorme), se usa el ultimo y el indice sigue en la pagina siguiente. Funcion pura.
+     *
+     * @param int $titulos Entradas de nivel 1 (etapas y anexo).
+     * @param int $secciones Entradas de nivel 2.
+     * @return int Indice en TOC_NIVELES.
+     */
+    public static function toc_level(int $titulos, int $secciones): int {
+        foreach (self::TOC_NIVELES as $i => $t) {
+            if ($titulos * $t['alto1'] + $secciones * $t['alto2'] <= self::TOC_ALTO) {
+                return $i;
+            }
+        }
+        return count(self::TOC_NIVELES) - 1;
+    }
+
     /**
      * Tabla de contenidos: titulos de etapa y de seccion, con enlace y numero de pagina (campo PAGEREF que Word calcula
      * al abrir el documento).
@@ -790,18 +838,26 @@ class documento_final {
     private function indice(): string {
         $x = $this->p($this->run('Tabla de contenidos', ['b' => 1, 'color' => self::NAVY, 'sz' => 36]),
             ['pBdr' => '<w:bottom w:val="single" w:sz="12" w:space="6" w:color="' . self::AZUL . '"/>', 'spacing' => 'w:after="240"']);
-        foreach ($this->toc as [$nivel, $texto, $marca]) {
-            $f = $nivel === 1 ? ['b' => 1, 'color' => self::NAVY, 'sz' => 21] : ['color' => self::TITULO2, 'sz' => 18];
+        // El tamaño y el espacio de las lineas se ajustan al numero de entradas para que el indice quepa en una pagina.
+        $n1 = 0;
+        foreach ($this->toc as [$nivel]) {
+            $n1 += $nivel === 1 ? 1 : 0;
+        }
+        $nivelindice = self::toc_level($n1, count($this->toc) - $n1);
+        $t = self::TOC_NIVELES[$nivelindice];
+        $ultimaentrada = count($this->toc) - 1;
+        foreach ($this->toc as $i => [$nivel, $texto, $marca]) {
+            $f = $nivel === 1 ? ['b' => 1, 'color' => self::NAVY, 'sz' => $t['sz1']] : ['color' => self::TITULO2, 'sz' => $t['sz2']];
             $rpr = $this->rpr($f);
             $pagina = '<w:r>' . $rpr . '<w:fldChar w:fldCharType="begin"/></w:r><w:r>' . $rpr . '<w:instrText xml:space="preserve"> PAGEREF '
                 . $marca . ' \h </w:instrText></w:r><w:r>' . $rpr . '<w:fldChar w:fldCharType="separate"/></w:r><w:r>' . $rpr
                 . '<w:t></w:t></w:r><w:r>' . $rpr . '<w:fldChar w:fldCharType="end"/></w:r>';
-            $x .= $this->p('<w:hyperlink w:anchor="' . $marca . '" w:history="1">' . $this->run($texto, $f) . '<w:r>' . $rpr . '<w:tab/></w:r>'
-                . $pagina . '</w:hyperlink>', $nivel === 1
+            $x .= $this->p(($i === 0 ? self::TOC_INICIO : '') . '<w:hyperlink w:anchor="' . $marca . '" w:history="1">' . $this->run($texto, $f)
+                . '<w:r>' . $rpr . '<w:tab/></w:r>' . $pagina . '</w:hyperlink>' . ($i === $ultimaentrada ? self::TOC_FIN : ''), $nivel === 1
                 ? ['keepNext' => 1, 'tabs' => '<w:tab w:val="right" w:leader="dot" w:pos="' . self::ANCHO_V . '"/>',
-                    'spacing' => 'w:before="110" w:after="30" w:line="252" w:lineRule="auto"']
+                    'spacing' => 'w:before="' . $t['antes1'] . '" w:after="' . $t['despues1'] . '" ' . $t['linea1']]
                 : ['tabs' => '<w:tab w:val="right" w:leader="dot" w:pos="' . self::ANCHO_V . '"/>',
-                    'spacing' => 'w:line="232" w:lineRule="auto"', 'ind' => 'w:left="400"']);
+                    'spacing' => $t['linea2'], 'ind' => 'w:left="400"']);
         }
         return $x;
     }
@@ -1240,6 +1296,11 @@ class documento_final {
                 $this->seccion = $num;
                 $this->ultima = max($this->ultima, (int) $num);
                 $num = $this->etapa . '.' . $num;
+            } else if ($this->etapa > 0 && preg_match('/^' . $this->etapa . '\.(\d+)$/', $num, $ya)) {
+                // Ya viene con el numero de la etapa («3.4»): cuenta igual, o la seccion sin numero que sigue («Verificación
+                // de calidad de la etapa») repetiria el «3.1».
+                $this->seccion = $ya[1];
+                $this->ultima = max($this->ultima, (int) $ya[1]);
             } else if ($this->etapa > 0 && $num === '') {
                 // Una seccion sin numero dentro de la etapa («Verificación de calidad de la etapa») sigue la numeracion,
                 // como en el ejemplo («2.11»).
@@ -1520,7 +1581,7 @@ class documento_final {
         $ancha = !$diagrama && self::is_wide($cols, $caracteres / count($filas));
         if ($ancha) {
             // El titulo de la tabla (por ejemplo «3.3 Matriz...») pasa a la pagina horizontal junto con ella.
-            $titulo = $this->sacar_titulo();
+            $titulo = $this->sacar_cola();
             $this->cerrar_seccion('h');
             $this->xml .= $titulo;
         } else {
@@ -1637,6 +1698,46 @@ class documento_final {
             $nuevo = '<w:p><w:pPr><w:keepNext/></w:pPr>' . substr($ultimo, strlen('<w:p>'));
         }
         $this->xml = substr($this->xml, 0, $pos) . $nuevo;
+    }
+
+    /**
+     * Saca del final de la seccion en curso el titulo de la tabla ancha que viene y el texto corto que la presenta, para
+     * llevarlos a la pagina horizontal junto con ella. Sin esto, el titulo, su introduccion y a veces el titulo de la etapa
+     * quedan solos en una pagina vertical casi vacia.
+     *
+     * Solo se mueve si, hacia atras, se llega a un titulo de seccion con a lo mas cuatro parrafos cortos (1100 caracteres)
+     * de por medio; si el texto es mas largo, se queda donde esta y la tabla va sola.
+     *
+     * @return string XML de lo que se saco, o '' si no se movio nada.
+     */
+    private function sacar_cola(): string {
+        $xml = $this->xml;
+        $cola = [];
+        $texto = 0;
+        while (($pos = strrpos($xml, '<w:p>')) !== false) {
+            $ultimo = substr($xml, $pos);
+            if (substr_count($ultimo, '</w:p>') !== 1 || substr($ultimo, -6) !== '</w:p>' || strpos($ultimo, '<w:sectPr') !== false) {
+                return '';
+            }
+            $esttitulo = preg_match('/<w:pStyle w:val="Heading([1-4])"\/>/', $ultimo, $m) === 1;
+            if (!$esttitulo) {
+                $largo = \core_text::strlen(trim(html_entity_decode(strip_tags($ultimo), ENT_QUOTES | ENT_XML1, 'UTF-8')));
+                $texto += $largo;
+                // Un parrafo vacio, mas de cuatro o demasiado texto: la tabla no tiene una introduccion corta que llevarse.
+                if ($largo === 0 || count($cola) >= 4 || $texto > 1100) {
+                    return '';
+                }
+            }
+            $xml = substr($xml, 0, $pos);
+            // El salto de seccion ya empieza pagina nueva.
+            array_unshift($cola, str_replace('<w:pageBreakBefore/>', '', $ultimo));
+            if ($esttitulo) {
+                $this->xml = $xml;
+                // Si el titulo de seccion venia justo despues del titulo de la etapa, este tambien se va.
+                return ($m[1] !== '1' ? $this->sacar_titulo_etapa() : '') . implode('', $cola);
+            }
+        }
+        return '';
     }
 
     /**

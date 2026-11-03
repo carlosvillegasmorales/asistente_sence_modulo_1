@@ -112,9 +112,9 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ```bash
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
-  Deben pasar sin fallos. Al 03-11-2026 (M1-v1.21.7): **44 celdas de la matriz de acceso y 1494 claves de idioma**;
+  Deben pasar sin fallos. Al 03-11-2026 (M1-v1.21.8): **44 celdas de la matriz de acceso y 1494 claves de idioma**;
   `verificar_exante.php` 191 casos, `verificar_diseno.php` 227, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99
-  y `verificar_documento_final.php` 94, entre otros, en 22 scripts.
+  y `verificar_documento_final.php` 110, entre otros, en 22 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:
   solo corren en el servidor. `verificar_idiomas.php` compara `lang/en` con `lang/es`:
   toda cadena nueva va en **los dos**, porque Moodle arma las claves desde el

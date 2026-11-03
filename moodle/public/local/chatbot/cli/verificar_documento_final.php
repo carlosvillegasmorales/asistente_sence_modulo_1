@@ -390,5 +390,54 @@ local_chatbot_verificar($z2->getFromName('word/media/logo.png') === false && str
 $z2->close();
 @unlink($ruta2);
 
+// --- Pedido del 03-11: numeracion que sigue y tablas anchas con su introduccion ---
+// La verificacion sin numero sigue a la ultima seccion ya numerada con el numero de la etapa («3.4» -> «3.5», no «3.1»).
+$d11 = $construir('<h1>Etapa 3: Secuencia instruccional</h1><h2>3.1 Estructura general</h2><p>a</p><h2>3.2 Desglose</h2><p>b</p>'
+    . '<h2>3.3 Matriz</h2><p>c</p><h2>3.4 Vacíos</h2><p>d</p><h2>Verificación de calidad de la etapa</h2><p>e</p>');
+local_chatbot_verificar(strpos($d11, '3.5  ') !== false && substr_count($d11, '3.1  ') === 1,
+    'la verificacion sin numero sigue la numeracion de la etapa (3.5) y no repite el 3.1');
+$d12 = $construir('<h1>Etapa 2: A</h1><h2>1. Uno</h2><p>a</p><h2>2. Dos</h2><p>b</p><h2>Verificación de calidad de la etapa</h2><p>e</p>');
+local_chatbot_verificar(strpos($d12, '2.3  ') !== false, 'con secciones «1.», «2.» la verificacion sigue siendo la «2.3»');
+
+// El titulo de la etapa, el de la seccion y su introduccion corta van a la pagina horizontal con la tabla ancha.
+$d13 = $construir('<h1>Etapa 1: A</h1><p>texto largo de la etapa</p><h1>Etapa 5: Plan de evaluación</h1><h2>5.1 Matriz del plan</h2>'
+    . '<p>La presente matriz operacionaliza el sistema evaluativo.</p><p>Se estructura una fila por cada criterio:</p>' . $ancha);
+$corte13 = strpos($d13, 'w:orient="landscape"');
+local_chatbot_verificar($corte13 !== false && strrpos($d13, 'Matriz del plan') > strpos($d13, '</w:sectPr></w:pPr></w:p>')
+    && strpos($d13, '>ETAPA 5<') > strpos($d13, '</w:sectPr></w:pPr></w:p>') && strpos($d13, 'Se estructura una fila') > strpos($d13, '</w:sectPr></w:pPr></w:p>'),
+    'la introduccion corta de una tabla ancha viaja con su titulo y el de la etapa: no queda una pagina vertical casi vacia');
+// Con un texto largo antes de la tabla, el texto se queda donde esta (solo se lleva el titulo).
+$largo = '<p>' . str_repeat('Texto largo de la introduccion de la seccion. ', 40) . '</p>';
+$d14 = $construir('<h1>Etapa 5: Plan</h1><h2>5.1 Matriz</h2>' . $largo . '<h2>5.2 Otra</h2>' . $ancha);
+local_chatbot_verificar(strpos($d14, 'Texto largo de la introduccion') < strpos($d14, '</w:sectPr></w:pPr></w:p>')
+    && strpos($d14, '5.2  ') > strpos($d14, '</w:sectPr></w:pPr></w:p>'),
+    'un texto largo antes de la tabla no se mueve a la pagina horizontal; solo el titulo que la presenta');
+// Un parrafo suelto sin titulo no se lleva: la tabla va sola.
+$d15 = $construir('<h1>Etapa 5: Plan</h1><h2>5.1 Matriz</h2><p>Primero va esto.</p><p>Y luego lo otro.</p><p>Y otro mas.</p><p>Cuarto.</p><p>Quinto.</p>' . $ancha);
+local_chatbot_verificar(strpos($d15, 'Quinto') < strpos($d15, '</w:sectPr></w:pPr></w:p>'),
+    'con mas de cuatro parrafos entre el titulo y la tabla, nada se mueve');
+
+// El indice se compacta solo cuando no cabe en una pagina (el de 52 entradas de un diseño real se pasaba unas lineas).
+local_chatbot_verificar(documento_final::toc_level(8, 36) === 0, 'un indice de 44 entradas va con el tamaño normal');
+local_chatbot_verificar(documento_final::toc_level(7, 45) === 1, 'uno de 52 entradas (el que se desbordaba) pasa al primer nivel compacto');
+local_chatbot_verificar(documento_final::toc_level(10, 80) >= 2 && documento_final::toc_level(10, 400) === count(documento_final::TOC_NIVELES) - 1,
+    'cuantas mas entradas, mas compacto; uno enorme usa el ultimo nivel y sigue en la pagina siguiente');
+$antes = 0;
+foreach ([[8, 36], [7, 45], [9, 45], [8, 50]] as [$a, $b]) {
+    $t = documento_final::TOC_NIVELES[documento_final::toc_level($a, $b)];
+    local_chatbot_verificar($a * $t['alto1'] + $b * $t['alto2'] <= documento_final::TOC_ALTO, "el indice de $a titulos y $b secciones cabe en una pagina");
+}
+$d16 = $construir('<h1>Etapa 1: A</h1>' . str_repeat('<h2>1. Sec</h2><p>x</p>', 1));
+local_chatbot_verificar(strpos($d16, 'w:lineRule="auto"') !== false, 'un indice corto conserva el espacio normal entre lineas');
+// Las entradas del indice van dentro de un campo TOC de Word: al actualizarlo al abrir, Word pagina antes de calcular los numeros.
+// Con campos PAGEREF sueltos dejaba un «1» en cada entrada.
+local_chatbot_verificar(substr_count($doc, ' TOC \o "1-2" \h \z \u ') === 1, 'el indice es un campo TOC de Word, uno solo');
+$posini = strpos($doc, ' TOC \o');
+$posfin = strrpos(substr($doc, 0, strpos($doc, 'ETAPA 1')), 'w:fldCharType="end"');
+local_chatbot_verificar($posini !== false && $posfin !== false && $posfin > $posini && strpos($doc, 'Tabla de contenidos') < $posini,
+    'el campo TOC empieza en la primera entrada y termina en la ultima, antes de la primera etapa');
+local_chatbot_verificar(substr_count($partes['word/settings.xml'] ?? '', '<w:updateFields w:val="true"/>') === 1
+    && strpos($partes['word/styles.xml'] ?? '', 'w:styleId="TOC1"') !== false && strpos($partes['word/styles.xml'] ?? '', 'w:styleId="TOC2"') !== false,
+    'el Word se actualiza al abrir y trae los estilos TOC 1 y TOC 2 por si se actualiza la tabla');
 echo "Documento final conforme al ejemplo del cliente: {$total} casos verificados | Fallidos: {$fallidos}\n";
 exit($fallidos > 0 ? 1 : 0);

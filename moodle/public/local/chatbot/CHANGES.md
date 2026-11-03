@@ -1,5 +1,24 @@
 # Changelog
 
+## M1-v1.21.8 (2026-11-03)
+
+Pedido del cliente del 03-11 sobre el documento final de la Fase 3. Sin cambios en la base.
+
+- **El índice cabe en una página:** si las entradas (etapas y secciones) no caben con el tamaño normal, el índice reduce
+  letra y espacio entre líneas en hasta tres niveles (`documento_final::toc_level()`); el de 52 entradas de un diseño real
+  se pasaba unas líneas y dejaba una página casi vacía. Un índice corto no cambia.
+- **Numeración sin repetidos:** una sección sin número («Verificación de calidad de la etapa») sigue a la última sección
+  de la etapa aunque esta venga ya numerada («3.4» → «3.5»); antes salía «3.1» por segunda vez, en el texto y en el índice.
+- **Sin páginas verticales casi vacías antes de una tabla ancha:** el título de la tabla, el título de la etapa y el texto
+  corto que la presenta (hasta cuatro párrafos o 1100 caracteres) pasan a la página horizontal junto con ella
+  (`documento_final::sacar_cola()`); con un texto más largo, solo se lleva el título como antes.
+- **Índice con todos los números en «1»:** las entradas eran campos PAGEREF sueltos y Word, al actualizarlos justo al
+  abrir, los calcula antes de paginar el documento (probado con Word 16: todos «1», y «3,3,3…» en una segunda pasada). Ahora
+  las entradas van dentro de un campo `TOC` de Word (con sus estilos TOC 1 y TOC 2): Word pagina antes de calcular y los
+  57 números del diseño de prueba coinciden con la paginación real. Si el archivo se abre en Vista protegida, o se responde
+  «No» al aviso de actualizar campos, el índice sale sin números hasta habilitar la edición y actualizarlo (clic derecho →
+  Actualizar campo).
+
 ## M1-v1.21.7 (2026-11-03)
 
 Pedido del cliente del 03-11. Sin cambios en la base.
