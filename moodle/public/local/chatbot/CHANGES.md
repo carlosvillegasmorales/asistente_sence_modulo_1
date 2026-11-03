@@ -1,5 +1,18 @@
 # Changelog
 
+## M1-v1.21.7 (2026-11-03)
+
+Pedido del cliente del 03-11. Sin cambios en la base.
+
+- **Tablero del Módulo 2 descargable en PDF, sin diálogo:** el botón «Descargar PDF» (interruptor `pdfm2`) baja el
+  archivo solo, con la vista y el período que se ven en pantalla (persona, programa o calidad del agente) y el nombre
+  `Tablero_Modulo2_<vista>_<fecha>.pdf`. Lo arma el navegador (`js/pdf_tablero.js`, con html2canvas 1.4.1 y jsPDF 2.5.1
+  guardadas en `js/vendor/` y declaradas en `thirdpartylibs.xml`: sin depender de internet): A4 vertical, sin botones,
+  pestañas ni formulario de la encuesta, y las páginas se cortan entre tarjetas, no por la mitad de una. Moodle trae
+  RequireJS, así que el cargador suspende `define` mientras carga las librerías, o se registrarían como módulo AMD y no
+  quedarían en `window`. Si algo falla, abre la impresión del navegador con el estilo `@media print` de `styles.css`.
+  El informe PDF del Módulo 1 (`indicadores_informe.php`) no cambia.
+
 ## M1-v1.21.6 (2026-11-02)
 
 Pedidos del cliente del 02-11. Sin cambios en la base.

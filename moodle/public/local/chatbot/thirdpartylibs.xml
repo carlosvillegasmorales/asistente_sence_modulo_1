@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<libraries>
+  <library>
+    <location>js/vendor/html2canvas.min.js</location>
+    <name>html2canvas</name>
+    <description>Dibuja un elemento de la página en un canvas. Lo usa el botón «Descargar PDF» del tablero del Módulo 2.</description>
+    <version>1.4.1</version>
+    <license>MIT</license>
+    <repository>https://github.com/niklasvh/html2canvas</repository>
+    <copyrights>
+      <copyright>2022 Niklas von Hertzen</copyright>
+    </copyrights>
+  </library>
+  <library>
+    <location>js/vendor/jspdf.umd.min.js</location>
+    <name>jsPDF</name>
+    <description>Genera archivos PDF en el navegador. Lo usa el botón «Descargar PDF» del tablero del Módulo 2.</description>
+    <version>2.5.1</version>
+    <license>MIT</license>
+    <repository>https://github.com/parallax/jsPDF</repository>
+    <copyrights>
+      <copyright>2010-2021 James Hall, https://github.com/MrRio/jsPDF</copyright>
+    </copyrights>
+  </library>
+</libraries>

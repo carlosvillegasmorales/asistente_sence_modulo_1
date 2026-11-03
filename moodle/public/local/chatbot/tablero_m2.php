@@ -300,6 +300,18 @@ echo $OUTPUT->header();
         </div>
     </header>
 
+    <?php if (\local_chatbot\ux::on('pdfm2')): ?>
+        <div class="m2d-tools">
+            <button type="button" class="m1-export m1-export-pdf m2d-pdf" id="m2d-pdf"
+                    data-name="<?php echo s('Tablero_Modulo2_' . $vista . '_' . date('Y-m-d')); ?>"
+                    data-wait="<?php echo s(get_string('m2dash_pdf_wait', 'local_chatbot')); ?>"
+                    data-html2canvas="<?php echo (new moodle_url('/local/chatbot/js/vendor/html2canvas.min.js'))->out(); ?>"
+                    data-jspdf="<?php echo (new moodle_url('/local/chatbot/js/vendor/jspdf.umd.min.js'))->out(); ?>"><?php
+                echo s(get_string('m2dash_pdf', 'local_chatbot')); ?></button>
+            <span class="m2d-tools-help"><?php echo s(get_string('m2dash_pdf_help', 'local_chatbot')); ?></span>
+        </div>
+    <?php endif; ?>
+
     <?php if (count(array_filter($puede)) > 1): ?>
         <nav class="m2d-tabs" aria-label="<?php echo s(get_string('m2dash_views', 'local_chatbot')); ?>">
             <?php foreach (array_keys(array_filter($puede)) as $v): ?>
@@ -1204,5 +1216,7 @@ elseif ($vista === 'agente'):
     root.addEventListener('focusout', hide);
 })();
 </script>
-<?php
+<?php if (\local_chatbot\ux::on('pdfm2')): ?>
+<script src="<?php echo (new moodle_url('/local/chatbot/js/pdf_tablero.js', ['v' => (string) get_config('local_chatbot', 'version')]))->out(); ?>"></script>
+<?php endif;
 echo $OUTPUT->footer();

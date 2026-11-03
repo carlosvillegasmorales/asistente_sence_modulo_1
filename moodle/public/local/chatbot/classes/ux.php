@@ -71,6 +71,7 @@ class ux {
         'revisioncontenido' => 1, // Modulo 2: revision automatica de lo que pide cada etapa (v1.21.5).
         'fabm2' => 1,           // Modulo 2: el boton flotante de indicadores lleva al tablero del curso (v1.21.5).
         'docetapa' => 1,        // Modulo 2: el Word de cada etapa con el mismo diseño del documento final (v1.21.5).
+        'pdfm2' => 1,           // Modulo 2: boton «Descargar PDF» en el tablero, con estilo de impresion (v1.21.7).
     ];
 
     /**

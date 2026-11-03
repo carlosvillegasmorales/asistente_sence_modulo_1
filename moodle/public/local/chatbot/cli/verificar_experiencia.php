@@ -64,7 +64,7 @@ foreach (['iaapoyo', 'avisosficha', 'descargafinal', 'bienvenidam2', 'libreriam2
     local_chatbot_verificar(array_key_exists($f, ux::DEFAULTS) && ux::DEFAULTS[$f] === 1, "la mejora '{$f}' (v1.20.6) tiene interruptor, encendido");
 }
 // --- Mejoras del 02-11-2026 (v1.21.4 a v1.21.6): todas con interruptor, encendidas ---
-foreach (['docfinal', 'docetapa', 'fabm2', 'revisioncontenido', 'sinayuda'] as $f) {
+foreach (['docfinal', 'docetapa', 'fabm2', 'revisioncontenido', 'sinayuda', 'pdfm2'] as $f) {
     local_chatbot_verificar(array_key_exists($f, ux::DEFAULTS) && ux::DEFAULTS[$f] === 1, "la mejora '{$f}' tiene interruptor, encendido");
 }
 local_chatbot_verificar(ux::footer_help_css(true) === '<style>#page-footer .btn-footer-popover{display:none !important;}</style>'

@@ -4146,3 +4146,112 @@ body.local-chatbot-dash-page #page-header {
         flex-wrap: wrap;
     }
 }
+
+/* Tablero del Modulo 2: boton «Descargar PDF» y estilo de impresion (v1.21.7). */
+.m2d-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin: 0 0 16px;
+}
+.m2d-tools .m2d-pdf {
+    border: 1px solid var(--m1-accent);
+    cursor: pointer;
+    font-family: inherit;
+}
+.m2d-tools-help {
+    font-size: 13px;
+    color: var(--m1-muted);
+}
+/* Mientras se dibuja el PDF descargable (js/pdf_tablero.js): sin botones, pestañas ni formulario de la encuesta. */
+body.m2d-capture .m2d-tools,
+body.m2d-capture .m2d-tabs,
+body.m2d-capture .m2d-actions,
+body.m2d-capture #encuesta form {
+    display: none !important;
+}
+body.m2d-capture .m1-dash {
+    box-shadow: none;
+}
+body.m2d-capture .m1-dash-filter select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    background: transparent;
+    font-weight: 600;
+}
+@media print {
+    @page {
+        size: A4 landscape;
+        margin: 10mm;
+    }
+    html, body.local-chatbot-dash-page {
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    /* Sin el marco de Moodle ni el asistente: solo el tablero. */
+    body.local-chatbot-dash-page .navbar,
+    body.local-chatbot-dash-page nav.navbar,
+    body.local-chatbot-dash-page #page-header,
+    body.local-chatbot-dash-page .drawer,
+    body.local-chatbot-dash-page .drawer-toggles,
+    body.local-chatbot-dash-page [data-region="drawer"],
+    body.local-chatbot-dash-page [data-region="fixed-drawer"],
+    body.local-chatbot-dash-page .secondary-navigation,
+    body.local-chatbot-dash-page #page-footer,
+    body.local-chatbot-dash-page .footer-popover,
+    body.local-chatbot-dash-page .chatbot-widget-container,
+    body.local-chatbot-dash-page .chatbot-reports-fab,
+    body.local-chatbot-dash-page .m2d-tools,
+    body.local-chatbot-dash-page .m2d-tabs,
+    body.local-chatbot-dash-page .m2d-actions,
+    body.local-chatbot-dash-page #encuesta form {
+        display: none !important;
+    }
+    body.local-chatbot-dash-page #page,
+    body.local-chatbot-dash-page #page.drawers,
+    body.local-chatbot-dash-page #topofscroll,
+    body.local-chatbot-dash-page #page-content,
+    body.local-chatbot-dash-page #region-main-box,
+    body.local-chatbot-dash-page #region-main,
+    body.local-chatbot-dash-page .main-inner {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: none !important;
+        width: auto !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+    body.local-chatbot-dash-page .m1-dash {
+        max-width: none;
+        padding: 0;
+    }
+    body.local-chatbot-dash-page .m1-card,
+    body.local-chatbot-dash-page .m1-kpi,
+    body.local-chatbot-dash-page .m2d-aviso {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        box-shadow: none;
+    }
+    body.local-chatbot-dash-page .m1-card-title,
+    body.local-chatbot-dash-page h2,
+    body.local-chatbot-dash-page h3 {
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+    /* Los filtros se ven como texto con el valor elegido, sin la flecha del selector. */
+    body.local-chatbot-dash-page .m1-dash-filter select {
+        appearance: none;
+        -webkit-appearance: none;
+        border: 0;
+        background: transparent;
+        font-weight: 600;
+    }
+}
