@@ -296,15 +296,31 @@ echo $OUTPUT->header();
     </div>
     <?php // Terminar un paso y no saber que sigue es donde la gente se detiene. ?>
     <?php if ($acta && $hasconsent): ?>
-        <?php // Acta del 13-10-2026: siempre lleva a la etapa siguiente (el autodiagnostico), aunque ya este hecho. ?>
+        <?php // Acta del 13-10-2026: siempre lleva a la etapa siguiente (el autodiagnostico), aunque ya este hecho.
+        // Hasta la fecha de apertura de la ruta no hay etapa siguiente: se dice cuando se abre.
+        $apertura = \local_chatbot\course_bridge::closed_until($USER->id, $courseid);
+        // Mientras tanto, el Modulo 2 desde su portada (pedido del cliente del 03-11-2026, interruptor perfilm2).
+        $modulo2 = $apertura ? \local_chatbot\course_bridge::module2_shortcut($USER->id, $courseid) : null; ?>
         <div class="card border-success shadow-sm mt-4 mb-4"><div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-            <h6 class="mb-0"><?php echo get_string('next_title_perfil', 'local_chatbot'); ?></h6>
+            <div>
+                <h6 class="mb-0"><?php echo get_string('next_title_perfil', 'local_chatbot'); ?></h6>
+                <?php if ($apertura): ?>
+                    <p class="small text-muted mb-0 mt-1"><?php echo get_string('next_opening_body', 'local_chatbot',
+                        \local_chatbot\course_bridge::opening_text($apertura)); ?>
+                        <?php if ($modulo2) { echo get_string('next_m2_body', 'local_chatbot'); } ?></p>
+                <?php endif; ?>
+            </div>
             <div class="d-flex flex-wrap gap-2">
                 <?php // Solo en ventana emergente (revision final del 17-10-2026): la cierra y recarga el curso. ?>
                 <button type="button" class="btn btn-outline-secondary text-nowrap chatbot-cerrar-emergente d-none">
                     <?php echo get_string('profile_close_popup', 'local_chatbot'); ?></button>
+                <?php if (!$apertura): ?>
                 <a href="<?php echo \local_chatbot\course_bridge::step_url($courseid, 'diagnostico'); ?>" class="btn btn-success text-nowrap">
                     <?php echo get_string('profile_next_stage', 'local_chatbot'); ?></a>
+                <?php elseif ($modulo2): ?>
+                <a href="<?php echo $modulo2->out(); ?>" class="btn btn-success text-nowrap chatbot-ir-m2">
+                    <?php echo get_string('profile_go_m2', 'local_chatbot'); ?></a>
+                <?php endif; ?>
             </div>
         </div></div>
     <?php elseif (!$acta): ?>
@@ -331,6 +347,16 @@ echo $OUTPUT->header();
         boton.addEventListener('click', function() {
             try { window.opener.location.reload(); } catch (e) { /* otra pestana u otro dominio */ }
             window.close();
+        });
+    });
+    // «Ir al Modulo 2» abre el curso en la ventana principal, no dentro de la emergente.
+    document.querySelectorAll('.chatbot-ir-m2').forEach(function(enlace) {
+        enlace.addEventListener('click', function(evento) {
+            try {
+                window.opener.location.href = enlace.href;
+                evento.preventDefault();
+                window.close();
+            } catch (e) { /* sin acceso a la ventana principal: se sigue el enlace aqui */ }
         });
     });
 })();

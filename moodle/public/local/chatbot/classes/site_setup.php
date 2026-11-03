@@ -180,4 +180,74 @@ class site_setup {
             return 'href="' . htmlspecialchars($url, ENT_COMPAT) . '"';
         }, $html);
     }
+
+    /**
+     * Secciones del curso que se cierran hasta la fecha de apertura: las que tienen una actividad del recorrido
+     * posterior al perfil (M1-PASO-DIAG, -PROY, -PDP, -CIERRE) o un recurso fijo de una unidad (U1-LF-01). La
+     * seccion 0 y las demas (Bienvenida y Perfilamiento, sus subsecciones) quedan abiertas. Funcion pura.
+     *
+     * @param array $sections Numero de seccion => lista de idnumber de sus actividades.
+     * @return int[] Numeros de seccion, en orden.
+     */
+    public static function opening_sections(array $sections): array {
+        $cerrar = [];
+        foreach ($sections as $numero => $codigos) {
+            if ((int) $numero <= 0) {
+                continue;
+            }
+            foreach ($codigos as $codigo) {
+                $codigo = strtoupper(trim((string) $codigo));
+                if (preg_match('/^M1-PASO-(DIAG|PDP|PROY|CIERRE)$/', $codigo) || preg_match('/^U\d+-(LF|CA|ER|QF)-\d+$/', $codigo)) {
+                    $cerrar[] = (int) $numero;
+                    break;
+                }
+            }
+        }
+        sort($cerrar);
+        return $cerrar;
+    }
+
+    /**
+     * Restriccion de acceso de una seccion con la condicion «desde la fecha de apertura» agregada, reemplazada o
+     * quitada. Las demas condiciones de la seccion (por ejemplo, completar el diagnostico) se conservan. Funcion pura.
+     *
+     * Con fecha, la condicion va arriba con «mostrar en gris»: la pestana se ve con «Disponible desde ...». Sin fecha
+     * (0) se quitan las condiciones «desde» de primer nivel y, si no queda ninguna, la seccion queda sin restriccion.
+     *
+     * @param string|null $json Restriccion actual (course_sections.availability).
+     * @param int $opening Fecha de apertura, o 0 para quitarla.
+     * @return string|null Restriccion nueva (null = sin restriccion).
+     */
+    public static function with_opening(?string $json, int $opening): ?string {
+        $arbol = ($json !== null && trim($json) !== '') ? json_decode($json, true) : null;
+        if (!is_array($arbol) || !isset($arbol['op'], $arbol['c']) || !is_array($arbol['c'])) {
+            $arbol = null;
+        }
+        $fecha = ['type' => 'date', 'd' => '>=', 't' => $opening];
+        if ($arbol !== null && $arbol['op'] !== '&') {
+            // Otro operador (o, ninguno de): se anida bajo un «y» con la fecha. Sin fecha no hay nada que quitar.
+            if ($opening <= 0) {
+                return $json;
+            }
+            unset($arbol['show'], $arbol['showc']);
+            return json_encode(['op' => '&', 'c' => [$fecha, $arbol], 'showc' => [true, true]]);
+        }
+        $condiciones = [];
+        $mostrar = [];
+        foreach ($arbol['c'] ?? [] as $i => $c) {
+            if (($c['type'] ?? '') === 'date' && ($c['d'] ?? '') === '>=') {
+                continue;
+            }
+            $condiciones[] = $c;
+            $mostrar[] = $arbol['showc'][$i] ?? true;
+        }
+        if ($opening > 0) {
+            array_unshift($condiciones, $fecha);
+            array_unshift($mostrar, true);
+        }
+        if (!$condiciones) {
+            return null;
+        }
+        return json_encode(['op' => '&', 'c' => $condiciones, 'showc' => $mostrar]);
+    }
 }

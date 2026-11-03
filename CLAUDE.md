@@ -49,6 +49,12 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   del documento del cliente, textuales (`journey::NAMES6` y `stage6_*`, fijados
   en `verificar_ruta.php`): no acortarlos, porque el cliente pide que la barra
   tenga «la misma estructura».
+  **Cierre por fecha** (v1.21.9, interruptor `aperturaruta` + ajuste `aperturafecha`): hasta esa fecha solo la
+  Bienvenida y Perfilamiento; `course_bridge::closed_until()` manda en la ruta, las páginas (`require_open()`), el
+  widget y las pestañas del curso (restricción «desde la fecha», `sync_opening()`). Quien ignora restricciones (admin,
+  profesor con edición) lo ve abierto: para revisar, usar una cuenta de estudiante. Con `perfilm2` + `aperturam2`
+  (v1.21.10), al terminar el perfil se matricula en el Módulo 2 y aparece «Ir al Módulo 2». Ambos se aplican con
+  `configurar_modulo1.php --apertura=AAAA-MM-DD --modulo2=ID`.
 - `classes/profile.php` — consentimiento versionado (`RU-CONS-002`):
   `has_consent()` compara contra `disclosure_version()` (hash de los 4
   antecedentes de transparencia) y fuerza reconsentimiento si cambian. **No

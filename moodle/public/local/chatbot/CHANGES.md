@@ -1,5 +1,46 @@
 # Changelog
 
+## M1-v1.21.10 (2026-11-03)
+
+Pedido del cliente del 03-11: mientras el Módulo 1 espera su fecha de apertura, quien termina el perfilamiento pasa al
+**Módulo 2**. Sin cambios en la base.
+
+- **Interruptor `perfilm2`** (apagado por defecto) y ajuste **«Curso del Módulo 2 desde el perfil»** (`aperturam2`).
+  Con la ruta cerrada (`aperturaruta`) y las condiciones aceptadas:
+  - La persona queda matriculada como estudiante en ese curso (`closure::enrol_student()`, la misma matrícula manual
+    que abre los módulos siguientes al cierre, ahora compartida).
+  - La tarjeta «Tu perfil quedó listo» agrega «Mientras tanto, ya puedes comenzar el Módulo 2.» y el botón «Ir al
+    Módulo 2», que lleva a la portada del curso. Desde la ventana emergente del perfil, el botón abre el curso en la
+    ventana principal y cierra la emergente.
+  - Desde la fecha de apertura el botón desaparece. Las matrículas ya hechas se mantienen.
+  - La regla vive en `journey::offers_module2()`, que es pura.
+- `cli/configurar_modulo1.php --modulo2=ID|no`: ajuste e interruptor, y deja visible el curso del Módulo 2. Un curso
+  oculto no deja entrar a una persona matriculada como estudiante.
+- Verificador: `verificar_ruta.php` (+6 casos).
+
+## M1-v1.21.9 (2026-11-03)
+
+Pedido del cliente del 03-11: por esta etapa, solo la **Bienvenida y Perfilamiento**; el resto del Módulo 1 se habilita
+desde enero. Sin cambios en la base.
+
+- **Interruptor `aperturaruta`** (apagado por defecto) y ajuste **«Fecha de apertura de la ruta del Módulo 1»**
+  (`aperturafecha`, AAAA-MM-DD, por defecto 2027-01-01, a las 00:00 de la zona del servidor). Hasta esa fecha, en los
+  cursos con actividades del recorrido:
+  - Las pestañas posteriores a la Bienvenida (las secciones con `M1-PASO-DIAG/PROY/PDP/CIERRE` o recursos `U1-*`) llevan
+    la restricción de Moodle «desde la fecha», en gris. Las condiciones que ya tenían se conservan
+    (`site_setup::opening_sections()`, `site_setup::with_opening()`).
+  - Diagnóstico, PDP, Proyecto y Cierre muestran «Esta etapa todavía no está disponible… se habilitan el 1 de enero de
+    2027» antes de procesar cualquier formulario (`course_bridge::require_open()`).
+  - La tarjeta «Tu perfil quedó listo» dice la fecha en vez de «Ir a la siguiente etapa». El próximo paso es `apertura`
+    y la ruta queda bloqueada desde la etapa 2 (`journey::lock_until_opening()`).
+  - El asistente (widget) no aparece en el curso.
+  - Quien puede saltarse las restricciones del curso (`moodle/course:ignoreavailabilityrestrictions`) lo ve abierto,
+    como en Moodle. Ese día todo se abre solo.
+- Al cambiar el interruptor o la fecha en los ajustes se actualizan las pestañas de todos los cursos del Módulo 1
+  (`course_bridge::sync_opening_all()`). `cli/configurar_modulo1.php --apertura=AAAA-MM-DD|no` hace lo mismo para un
+  curso y, sin la opción, pone las pestañas de acuerdo con los ajustes (también después de restaurar el curso).
+- Verificadores: `verificar_ruta.php` (+18 casos) y `verificar_configuracion.php` (+11).
+
 ## M1-v1.21.8 (2026-11-03)
 
 Pedido del cliente del 03-11 sobre el documento final de la Fase 3. Sin cambios en la base.

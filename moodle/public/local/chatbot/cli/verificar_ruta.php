@@ -206,6 +206,42 @@ $todo6 = [1 => true, 2 => true, 3 => true, 4 => true, 5 => false, 6 => true];
 $r = journey::summary_state(journey::view($todo6, 0, 6, [5]), 0, [], 6);
 local_chatbot_verificar($r['state'] === 'alldone', 'en la portada con todo lo obligatorio hecho (sin el PDP opcional): ruta completa');
 
+// Fecha de apertura (pedido del cliente del 03-11-2026): hasta ese dia solo la Bienvenida y Perfilamiento.
+$utc = new DateTimeZone('UTC');
+$stgo = new DateTimeZone('America/Santiago');
+local_chatbot_verificar(journey::parse_opening('2027-01-01', $utc) === 1798761600, 'la fecha de apertura es el 1 de enero a las 00:00');
+local_chatbot_verificar(journey::parse_opening(' 2027-01-01 ', $stgo) === 1798761600 + 3 * 3600,
+    'la fecha se toma en la zona del servidor (Santiago en verano, UTC-3)');
+foreach (['', 'enero', '2027-1-1', '2027-02-30', '2027-13-01', '01-01-2027', '2027-01-01 10:00'] as $malo) {
+    local_chatbot_verificar(journey::parse_opening($malo, $utc) === 0, "fecha no valida: '{$malo}'");
+}
+local_chatbot_verificar(journey::is_before_opening(1000, 999) && !journey::is_before_opening(1000, 1000)
+    && !journey::is_before_opening(0, 5), 'cerrada antes de la fecha, abierta desde la fecha y sin fecha');
+$sincierre = journey::locked([1 => true, 2 => true, 3 => false, 4 => false, 5 => false, 6 => false], $r6);
+local_chatbot_verificar(journey::lock_until_opening($sincierre, 6, false) === $sincierre, 'sin cierre el bloqueo es el de siempre');
+$cerrada = journey::lock_until_opening($sincierre, 6, true);
+local_chatbot_verificar(empty($cerrada[1]) && $cerrada[2] && $cerrada[3] && $cerrada[4] && $cerrada[5] && $cerrada[6],
+    'cerrada: solo la Bienvenida y Perfilamiento queda abierta, aunque el diagnostico ya este hecho');
+$v = journey::view([1 => true], 0, 6, [5], $cerrada);
+local_chatbot_verificar($v['next'] === 0, 'cerrada: no hay etapa siguiente a la que mandar');
+$hechos = ['route6' => true, 'consent' => true, 'diagnostic' => false, 'ruta' => false, 'ruta_missing' => [],
+    'project' => false, 'closure' => false, 'plan_validated' => false, 'proposed' => 0, 'inplan' => 0];
+$a = journey::next_action(['opening' => 1798761600] + $hechos);
+local_chatbot_verificar($a['key'] === 'apertura' && $a['a'] === 1798761600 && $a['stepkey'] === '' && $a['step'] === 0,
+    'cerrada: el proximo paso dice la fecha de apertura y no lleva a ninguna pantalla');
+local_chatbot_verificar(journey::next_action(['opening' => 1798761600, 'consent' => false] + $hechos)['key'] === 'perfil',
+    'cerrada y sin perfil: lo primero sigue siendo el perfil');
+local_chatbot_verificar(journey::next_action(['opening' => 0] + $hechos)['key'] === 'diagnostico', 'abierta: el proximo paso de siempre');
+
+// Boton al Modulo 2 desde el perfil mientras la ruta esta cerrada (pedido del cliente del 03-11-2026).
+local_chatbot_verificar(journey::offers_module2(true, true, true, 18, 20), 'cerrada, con perfil aceptado y curso configurado: se ofrece');
+local_chatbot_verificar(!journey::offers_module2(false, true, true, 18, 20), 'con el interruptor apagado no se ofrece');
+local_chatbot_verificar(!journey::offers_module2(true, false, true, 18, 20), 'desde la fecha de apertura (ruta abierta) ya no se ofrece');
+local_chatbot_verificar(!journey::offers_module2(true, true, false, 18, 20), 'sin aceptar las condiciones no se ofrece');
+local_chatbot_verificar(!journey::offers_module2(true, true, true, 0, 20) && !journey::offers_module2(true, true, true, 1, 20),
+    'sin curso configurado (o el del sitio) no se ofrece');
+local_chatbot_verificar(!journey::offers_module2(true, true, true, 20, 20), 'nunca lleva al mismo curso del Modulo 1');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Ruta del módulo conforme: la pantalla abierta manda para decir dónde está la persona.\n";

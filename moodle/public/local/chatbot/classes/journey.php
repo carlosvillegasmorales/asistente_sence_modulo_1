@@ -216,6 +216,66 @@ class journey {
     }
 
     /**
+     * Bloqueo mientras la ruta espera su fecha de apertura: solo la primera etapa (Bienvenida y
+     * Perfilamiento) queda abierta, incluso las ya hechas (el curso tambien las cierra). Funcion pura.
+     *
+     * @param bool[] $locked Bloqueo normal (salida de locked()).
+     * @param int $total Cantidad de pasos.
+     * @param bool $closed Si la ruta sigue cerrada.
+     * @return bool[] Paso (1 a N) => bloqueado.
+     */
+    public static function lock_until_opening(array $locked, int $total, bool $closed): array {
+        if (!$closed) {
+            return $locked;
+        }
+        for ($i = 2; $i <= $total; $i++) {
+            $locked[$i] = true;
+        }
+        return $locked;
+    }
+
+    /**
+     * Fecha de apertura escrita en el ajuste (AAAA-MM-DD) a las 00:00 de la zona dada. Funcion pura.
+     *
+     * @param string $raw
+     * @param \DateTimeZone $tz Zona horaria del servidor.
+     * @return int Marca de tiempo, o 0 si no es una fecha valida.
+     */
+    public static function parse_opening(string $raw, \DateTimeZone $tz): int {
+        $raw = trim($raw);
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $raw, $m) || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            return 0;
+        }
+        return (new \DateTimeImmutable($raw . ' 00:00:00', $tz))->getTimestamp();
+    }
+
+    /**
+     * Si al terminar el perfil se ofrece ir al Modulo 2 mientras la ruta espera su fecha de apertura (pedido del
+     * cliente del 03-11-2026). Funcion pura.
+     *
+     * @param bool $on Interruptor «perfilm2».
+     * @param bool $closed Si la ruta sigue cerrada para la persona.
+     * @param bool $consent Si la persona ya acepto las condiciones en su perfil.
+     * @param int $target Curso del Modulo 2 configurado (0 = ninguno).
+     * @param int $current Curso del Modulo 1 en el que esta.
+     * @return bool
+     */
+    public static function offers_module2(bool $on, bool $closed, bool $consent, int $target, int $current): bool {
+        return $on && $closed && $consent && $target > 1 && $target !== $current;
+    }
+
+    /**
+     * Si la ruta sigue cerrada: hay fecha de apertura y todavia no llega. Funcion pura.
+     *
+     * @param int $opening Fecha de apertura (0 = sin fecha).
+     * @param int $now
+     * @return bool
+     */
+    public static function is_before_opening(int $opening, int $now): bool {
+        return $opening > 0 && $now < $opening;
+    }
+
+    /**
      * Estado de la Ruta Formativa Base a partir de sus recursos fijos. Funcion pura.
      *
      * @param array $resources Lista de ['code' (U1-LF-01), 'kind' (LF, CA, ER, QF), 'done' (bool)].
@@ -255,7 +315,8 @@ class journey {
      * @param array $f Hechos: consent, diagnostic, plan_validated, project, closure (bool);
      *                 proposed, inplan (int); supports (lista de ['n', 'id', 'kind'] con kind
      *                 decidir, evidencia o iniciar); deadlines (lista de ['n', 'id', 'plazo']); now (int);
-     *                 project_first, route6, ruta (bool); ruta_missing (tipos que faltan).
+     *                 project_first, route6, ruta (bool); ruta_missing (tipos que faltan);
+     *                 opening (fecha de apertura si las etapas siguientes al perfil siguen cerradas, si no 0).
      * @return array ['key', 'a' (dato para la cadena), 'step' (posicion en la ruta, 0 si ninguno),
      *               'stepkey', 'anchor'].
      */
@@ -268,6 +329,10 @@ class journey {
         };
         if (empty($f['consent'])) {
             return $accion('perfil', 'perfil');
+        }
+        // Etapas cerradas hasta la fecha de apertura: no hay a donde ir todavia.
+        if (!empty($f['opening'])) {
+            return $accion('apertura', '', (int) $f['opening']);
         }
         if (empty($f['diagnostic'])) {
             return $accion('diagnostico', 'diagnostico');

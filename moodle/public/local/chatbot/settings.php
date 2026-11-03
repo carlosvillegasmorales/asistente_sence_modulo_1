@@ -40,13 +40,36 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading('local_chatbot/heading_ux',
         get_string('ux_heading', 'local_chatbot'), get_string('ux_heading_desc', 'local_chatbot')));
     foreach (\local_chatbot\ux::DEFAULTS as $feature => $default) {
-        $settings->add(new admin_setting_configcheckbox(
+        $interruptor = new admin_setting_configcheckbox(
             'local_chatbot/ux_' . $feature,
             get_string('ux_' . $feature, 'local_chatbot'),
             get_string('ux_' . $feature . '_desc', 'local_chatbot'),
             $default
-        ));
+        );
+        if ($feature === 'aperturaruta') {
+            $interruptor->set_updatedcallback('local_chatbot\course_bridge::sync_opening_all');
+        }
+        $settings->add($interruptor);
     }
+    // Fecha de apertura de la ruta del Modulo 1 (interruptor «aperturaruta»): hasta ese dia solo la Bienvenida y
+    // Perfilamiento. Al cambiarla se actualizan tambien las restricciones de las pestanas del curso.
+    $apertura = new admin_setting_configtext(
+        'local_chatbot/aperturafecha',
+        get_string('aperturafecha', 'local_chatbot'),
+        get_string('aperturafecha_desc', 'local_chatbot'),
+        '2027-01-01',
+        '/^\d{4}-\d{2}-\d{2}$/'
+    );
+    $apertura->set_updatedcallback('local_chatbot\course_bridge::sync_opening_all');
+    $settings->add($apertura);
+    // Curso del Modulo 2 al que lleva el perfil mientras la ruta esta cerrada (interruptor «perfilm2»).
+    $settings->add(new admin_setting_configtext(
+        'local_chatbot/aperturam2',
+        get_string('aperturam2', 'local_chatbot'),
+        get_string('aperturam2_desc', 'local_chatbot'),
+        0,
+        PARAM_INT
+    ));
     // Plazos «X» de los avisos del tablero del Modulo 2: los define el cliente antes de la puesta en produccion.
     $settings->add(new admin_setting_configtext(
         'local_chatbot/m2plazocorreccion',

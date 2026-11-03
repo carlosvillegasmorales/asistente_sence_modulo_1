@@ -86,25 +86,41 @@ class closure {
         if (empty($ids) || !ux::on('unlockmodules')) {
             return [];
         }
-        $plugin = enrol_get_plugin('manual');
-        $rol = (int) $DB->get_field('role', 'id', ['shortname' => 'student']);
         $abiertos = [];
         foreach ($ids as $id) {
             $curso = $DB->get_record('course', ['id' => $id], 'id, fullname, visible');
-            if (!$curso) {
+            if (!$curso || !self::enrol_student($userid, $id)) {
                 continue;
-            }
-            $contexto = \context_course::instance($id);
-            if (!is_enrolled($contexto, $userid)) {
-                $instancia = $DB->get_record('enrol', ['courseid' => $id, 'enrol' => 'manual', 'status' => ENROL_INSTANCE_ENABLED]);
-                if (!$plugin || !$instancia || !$rol) {
-                    continue;
-                }
-                $plugin->enrol_user($instancia, $userid, $rol);
             }
             $abiertos[] = ['id' => (int) $curso->id, 'name' => format_string($curso->fullname), 'visible' => (bool) $curso->visible];
         }
         return $abiertos;
+    }
+
+    /**
+     * Matricula a una persona como estudiante en un curso, por la matricula manual. Idempotente.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @return bool Si la persona queda matriculada (ya lo estaba o se la matriculo).
+     */
+    public static function enrol_student(int $userid, int $courseid): bool {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/enrollib.php');
+        if (!$DB->record_exists('course', ['id' => $courseid])) {
+            return false;
+        }
+        if (is_enrolled(\context_course::instance($courseid), $userid)) {
+            return true;
+        }
+        $plugin = enrol_get_plugin('manual');
+        $rol = (int) $DB->get_field('role', 'id', ['shortname' => 'student']);
+        $instancia = $DB->get_record('enrol', ['courseid' => $courseid, 'enrol' => 'manual', 'status' => ENROL_INSTANCE_ENABLED]);
+        if (!$plugin || !$instancia || !$rol) {
+            return false;
+        }
+        $plugin->enrol_user($instancia, $userid, $rol);
+        return true;
     }
 
     /**

@@ -24,6 +24,8 @@ if (!\local_chatbot\profile::has_consent($USER->id, $courseid)) {
     echo $OUTPUT->footer();
     exit;
 }
+// Hasta la fecha de apertura de la ruta solo esta abierta la Bienvenida y Perfilamiento.
+\local_chatbot\course_bridge::require_open($USER->id, $courseid);
 
 // El documento condiciona la habilitacion del proyecto a que exista una
 // primera version del PDP. El avance por las cuatro unidades se controla con

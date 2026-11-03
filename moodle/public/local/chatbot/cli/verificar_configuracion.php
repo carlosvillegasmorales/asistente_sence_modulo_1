@@ -100,6 +100,38 @@ local_chatbot_verificar(strpos($reescrito, 'href="https://moodle.cliente.cl/loca
     && strpos($reescrito, 'href="https://otro.cl/"') !== false, 'el boton de la etiqueta se reescribe y los demas enlaces quedan');
 local_chatbot_verificar(site_setup::rewrite_links($reescrito, $destino, 12) === $reescrito, 'reescribir dos veces no cambia nada');
 
+// --- Fecha de apertura de la ruta (pedido del cliente del 03-11-2026) ---
+// Las secciones del curso 20 del VPS propio: Bienvenida (0), Diagnostico (1), Ruta Formativa (2), Proyecto (3), PDP (4),
+// Articulacion (5) y las subsecciones de la Bienvenida (6 a 10).
+$curso = [0 => ['', 'M1-PASO-PERFIL', ''], 1 => ['', 'M1-PASO-DIAG'], 2 => ['U1-LF-01', 'U1-CA-01', 'U1-ER-01', 'U1-QF-01'],
+    3 => ['M1-PASO-PROY'], 4 => ['m1-paso-pdp'], 5 => ['M1-PASO-CIERRE'], 6 => [''], 8 => ['M1-CONSENTIMIENTO'], 9 => ['']];
+local_chatbot_verificar(site_setup::opening_sections($curso) === [1, 2, 3, 4, 5],
+    'se cierran el diagnostico, la ruta formativa, el proyecto, el PDP y la articulacion; la bienvenida y sus subsecciones no');
+local_chatbot_verificar(site_setup::opening_sections([3 => ['M1-PASO-PERFIL'], 4 => ['U1-QF-01-P01']]) === [],
+    'una seccion con el perfil o con una pregunta del quiz (no un recurso) no se cierra');
+
+$fecha = 1798761600;
+$conapertura = json_decode(site_setup::with_opening(null, $fecha), true);
+local_chatbot_verificar($conapertura === ['op' => '&', 'c' => [['type' => 'date', 'd' => '>=', 't' => $fecha]], 'showc' => [true]],
+    'sin restriccion previa: solo la fecha, con la pestana en gris');
+local_chatbot_verificar(site_setup::with_opening(null, 0) === null && site_setup::with_opening('', 0) === null,
+    'sin restriccion y sin fecha: nada');
+$diag = '{"op":"&","c":[{"type":"completion","cm":524,"e":1}],"showc":[true]}';
+$cerrada = site_setup::with_opening($diag, $fecha);
+local_chatbot_verificar(json_decode($cerrada, true) === ['op' => '&', 'c' => [['type' => 'date', 'd' => '>=', 't' => $fecha],
+    ['type' => 'completion', 'cm' => 524, 'e' => 1]], 'showc' => [true, true]], 'la condicion de completar el diagnostico se conserva');
+local_chatbot_verificar(site_setup::with_opening($cerrada, $fecha) === $cerrada, 'aplicar dos veces no duplica la fecha');
+$otra = json_decode(site_setup::with_opening($cerrada, $fecha + 86400), true);
+local_chatbot_verificar($otra['c'][0]['t'] === $fecha + 86400 && count($otra['c']) === 2, 'cambiar la fecha la reemplaza');
+local_chatbot_verificar(site_setup::with_opening($cerrada, 0) === $diag, 'quitar la fecha deja la restriccion como estaba');
+local_chatbot_verificar(site_setup::with_opening(site_setup::with_opening(null, $fecha), 0) === null,
+    'quitar la fecha de una seccion que no tenia otra restriccion la deja sin restriccion');
+$o = '{"op":"|","show":true,"c":[{"type":"completion","cm":1,"e":1},{"type":"completion","cm":2,"e":1}]}';
+$anidada = json_decode(site_setup::with_opening($o, $fecha), true);
+local_chatbot_verificar($anidada['op'] === '&' && $anidada['c'][0]['type'] === 'date' && $anidada['c'][1]['op'] === '|'
+    && !isset($anidada['c'][1]['show']) && $anidada['showc'] === [true, true], 'una restriccion «o» queda anidada bajo la fecha');
+local_chatbot_verificar(site_setup::with_opening($o, 0) === $o, 'una restriccion «o» sin fecha no se toca');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Configuracion del Modulo 1 conforme: bloques del sitio, fusion idempotente y enlaces al restaurar.\n";

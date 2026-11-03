@@ -72,6 +72,9 @@ class ux {
         'fabm2' => 1,           // Modulo 2: el boton flotante de indicadores lleva al tablero del curso (v1.21.5).
         'docetapa' => 1,        // Modulo 2: el Word de cada etapa con el mismo diseño del documento final (v1.21.5).
         'pdfm2' => 1,           // Modulo 2: boton «Descargar PDF» en el tablero, con estilo de impresion (v1.21.7).
+        // Pedido del cliente del 03-11-2026: por ahora solo la Bienvenida y Perfilamiento; el resto desde enero.
+        'aperturaruta' => 0,    // Modulo 1: hasta la fecha «aperturafecha» se cierran las demas etapas, sus pestanas y el asistente (v1.21.9). Apagado por defecto: se enciende en cada servidor.
+        'perfilm2' => 0,        // Mientras la ruta esta cerrada, al terminar el perfil: matricula en el Modulo 2 («aperturam2») y boton a su portada (v1.21.10). Apagado por defecto.
     ];
 
     /**

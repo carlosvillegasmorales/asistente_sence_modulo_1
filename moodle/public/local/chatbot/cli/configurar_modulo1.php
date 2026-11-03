@@ -12,12 +12,16 @@
  *    consentimiento y sin las tarjetas que el cliente pidio ocultar).
  *  - Curso: sin foro «Avisos» ni anuncios, enlaces del asistente apuntando a este sitio y a este curso
  *    (necesario despues de restaurar el curso desde una copia de otro servidor) y consentimiento que se marca solo.
+ *  - Fecha de apertura de la ruta (--apertura): hasta ese dia solo la Bienvenida y Perfilamiento. Sin la opcion se
+ *    respeta lo que ya tengan los ajustes, y las pestanas del curso se ponen de acuerdo con ellos (tambien tras restaurar).
+ *  - Boton al Modulo 2 desde el perfil mientras la ruta esta cerrada (--modulo2=ID): ajuste, interruptor y curso visible.
  *
  * Es idempotente: se puede correr de nuevo sin duplicar nada. Con --simular muestra lo que haria.
  * No toca claves ni proveedores de IA: esos datos son de cada servidor.
  *
  * Uso (como el usuario del servidor web):
- *   php cli/configurar_modulo1.php --curso=6 [--siguientes=4,5] [--sin-sitio] [--simular]
+ *   php cli/configurar_modulo1.php --curso=6 [--siguientes=4,5] [--apertura=2027-01-01|no] [--modulo2=ID|no] [--sin-sitio]
+ *       [--simular]
  *
  * @package local_chatbot
  */
@@ -31,13 +35,16 @@ use local_chatbot\course_bridge;
 use local_chatbot\site_setup;
 
 [$options, $unrecognised] = cli_get_params(
-    ['curso' => 0, 'siguientes' => '', 'sin-sitio' => false, 'simular' => false, 'help' => false],
+    ['curso' => 0, 'siguientes' => '', 'apertura' => '', 'modulo2' => '', 'sin-sitio' => false, 'simular' => false,
+        'help' => false],
     ['c' => 'curso', 'h' => 'help']);
 
 if ($options['help'] || empty($options['curso'])) {
     echo "Configura un Moodle para el Modulo 1 (lo que el plugin no trae en su codigo).\n\n"
         . "  --curso=ID         curso del Modulo 1 (obligatorio)\n"
         . "  --siguientes=A,B   cursos de los Modulos 2 y 3 (se abren al cerrar el Modulo 1)\n"
+        . "  --apertura=FECHA   AAAA-MM-DD: hasta ese dia solo la Bienvenida y Perfilamiento; «no» lo quita\n"
+        . "  --modulo2=ID       mientras tanto, al terminar el perfil: matricula y boton al curso ID (lo deja visible); «no» lo quita\n"
         . "  --sin-sitio        solo el curso: no toca ajustes ni HTML adicional del sitio\n"
         . "  --simular          muestra lo que haria, sin escribir\n";
     exit(0);
@@ -91,6 +98,36 @@ if (!$options['sin-sitio']) {
     if ((string) $options['siguientes'] !== '') {
         $ids = \local_chatbot\closure::parse_course_ids((string) $options['siguientes']);
         chatbot_cfg('local_chatbot', 'nextmodules', implode(',', $ids), $simular);
+    }
+    $apertura = trim((string) $options['apertura']);
+    if ($apertura === 'no') {
+        chatbot_cfg('local_chatbot', 'ux_aperturaruta', '0', $simular);
+    } else if ($apertura !== '') {
+        if (!\local_chatbot\journey::parse_opening($apertura, \core_date::get_server_timezone_object())) {
+            cli_error("--apertura debe ser una fecha AAAA-MM-DD o «no»: '$apertura'");
+        }
+        chatbot_cfg('local_chatbot', 'aperturafecha', $apertura, $simular);
+        chatbot_cfg('local_chatbot', 'ux_aperturaruta', '1', $simular);
+    }
+    $modulo2 = trim((string) $options['modulo2']);
+    if ($modulo2 === 'no') {
+        chatbot_cfg('local_chatbot', 'ux_perfilm2', '0', $simular);
+    } else if ($modulo2 !== '') {
+        $curso2 = $DB->get_record('course', ['id' => (int) $modulo2]);
+        if (!ctype_digit($modulo2) || !$curso2 || (int) $modulo2 === $cursoid || (int) $modulo2 <= (int) SITEID) {
+            cli_error("--modulo2 debe ser el id de un curso distinto del Modulo 1, o «no»: '$modulo2'");
+        }
+        chatbot_cfg('local_chatbot', 'aperturam2', (string) (int) $modulo2, $simular);
+        chatbot_cfg('local_chatbot', 'ux_perfilm2', '1', $simular);
+        // Un curso oculto no deja entrar a quien esta matriculada como estudiante: el boton no serviria.
+        if (!(int) $curso2->visible) {
+            echo "  " . ($simular ? '~' : '*') . " curso {$curso2->id} «{$curso2->shortname}»: oculto -> visible\n";
+            if (!$simular) {
+                course_change_visibility((int) $curso2->id, true);
+            }
+        } else {
+            echo "  = curso {$curso2->id} «{$curso2->shortname}» ya esta visible\n";
+        }
     }
 
     echo "\n-- Sitio\n";
@@ -196,6 +233,19 @@ if ($activadas && !$simular) {
         }
     }
     echo "  * avance sincronizado para $marcadas persona(s) con perfil en este curso\n";
+}
+
+// Pestanas posteriores a la Bienvenida y Perfilamiento: cerradas hasta la fecha de apertura, o sin esa restriccion.
+$fecha = course_bridge::opening_date();
+$secciones = course_bridge::sync_opening($cursoid, $simular);
+if ($secciones) {
+    echo "  " . ($simular ? '~' : '*') . " secciones " . implode(', ', $secciones) . ": "
+        . ($fecha ? 'cerradas hasta el ' . date('Y-m-d', $fecha) : 'sin fecha de apertura') . "\n";
+} else {
+    echo "  = las pestanas ya estan " . ($fecha ? 'cerradas hasta el ' . date('Y-m-d', $fecha) : 'sin fecha de apertura') . "\n";
+}
+if ($simular && trim((string) $options['apertura']) !== '') {
+    echo "    (en la simulacion las pestanas se calculan con los ajustes actuales, no con --apertura)\n";
 }
 
 if (!$simular) {

@@ -230,6 +230,10 @@ function local_chatbot_get_widget_html(): string {
     if (\local_chatbot\ux::hidden_in_course($courseid)) {
         return '';
     }
+    // Hasta la fecha de apertura de la ruta la persona solo hace la Bienvenida y Perfilamiento, que no usa el asistente.
+    if (\local_chatbot\course_bridge::closed_until($USER->id, $courseid) > 0) {
+        return '';
+    }
     // Actividad desde la que se abre el asistente: el Anexo E §11 pide registrar el recurso
     // de origen (source_resource). El servidor comprueba que pertenezca al curso.
     // $PAGE->cm se lee directo: moodle_page no define __isset, asi que empty($PAGE->cm) daba

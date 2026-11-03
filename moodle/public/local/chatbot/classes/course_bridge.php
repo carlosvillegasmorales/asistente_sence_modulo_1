@@ -219,11 +219,173 @@ class course_bridge {
         $opcionales = journey::optional_positions($keys);
         // El bloqueo es de la ruta de 6 etapas: con el interruptor apagado vuelve la ruta de 5 tal cual era.
         $bloqueos = in_array('ruta', $keys, true) ? journey::locked($done, $keys) : [];
+        // Hasta la fecha de apertura solo queda abierta la Bienvenida y Perfilamiento.
+        $bloqueos = journey::lock_until_opening($bloqueos, count($keys), self::closed_until($userid, $courseid) > 0);
         return [
             'keys' => $keys, 'total' => count($keys), 'done' => $done, 'optional' => $opcionales,
             'locked' => $bloqueos, 'screen' => $screen,
             'view' => journey::view($done, $screen, count($keys), $opcionales, $bloqueos),
         ];
+    }
+
+    /**
+     * Fecha de apertura de la ruta (interruptor «aperturaruta» y ajuste «aperturafecha»): hasta ese dia solo
+     * queda abierta la Bienvenida y Perfilamiento.
+     *
+     * @return int Marca de tiempo, o 0 si el interruptor esta apagado o la fecha no es valida.
+     */
+    public static function opening_date(): int {
+        if (!ux::on('aperturaruta')) {
+            return 0;
+        }
+        return journey::parse_opening((string) get_config('local_chatbot', 'aperturafecha'),
+            \core_date::get_server_timezone_object());
+    }
+
+    /**
+     * Hasta cuando esta cerrada la ruta para una persona en un curso del Modulo 1.
+     *
+     * Quien puede saltarse las restricciones de acceso del curso (profesor con edicion, gestor) la ve abierta,
+     * como en Moodle. Solo cuenta en cursos con actividades del recorrido.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @return int Fecha de apertura si sigue cerrada, si no 0.
+     */
+    public static function closed_until(int $userid, int $courseid): int {
+        static $cache = [];
+        if ($courseid <= 0 || $courseid === (int) SITEID) {
+            return 0;
+        }
+        $clave = $userid . ':' . $courseid;
+        if (isset($cache[$clave])) {
+            return $cache[$clave];
+        }
+        $apertura = self::opening_date();
+        if (!journey::is_before_opening($apertura, time()) || empty(self::step_cms($courseid))
+                || has_capability('moodle/course:ignoreavailabilityrestrictions', \context_course::instance($courseid), $userid)) {
+            $apertura = 0;
+        }
+        return $cache[$clave] = $apertura;
+    }
+
+    /**
+     * Acceso al Modulo 2 desde el perfil mientras la ruta espera su fecha de apertura: si corresponde, matricula a la
+     * persona como estudiante en el curso del Modulo 2 (ajuste «aperturam2») y devuelve su portada.
+     *
+     * @param int $userid
+     * @param int $courseid Curso del Modulo 1.
+     * @return \moodle_url|null Null si no corresponde o no se pudo matricular.
+     */
+    public static function module2_shortcut(int $userid, int $courseid): ?\moodle_url {
+        $destino = (int) get_config('local_chatbot', 'aperturam2');
+        if (!journey::offers_module2(ux::on('perfilm2'), self::closed_until($userid, $courseid) > 0,
+                profile::has_consent($userid, $courseid), $destino, $courseid)) {
+            return null;
+        }
+        if (!closure::enrol_student($userid, $destino)) {
+            return null;
+        }
+        return new \moodle_url('/course/view.php', ['id' => $destino]);
+    }
+
+    /**
+     * Fecha de apertura en palabras («1 de enero de 2027»).
+     *
+     * @param int $opening
+     * @return string
+     */
+    public static function opening_text(int $opening): string {
+        return userdate($opening, get_string('strftimedate', 'langconfig'));
+    }
+
+    /**
+     * Aviso de etapa cerrada hasta la fecha de apertura, con el boton para volver al curso.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @return string HTML, o cadena vacia si la ruta esta abierta.
+     */
+    public static function opening_html(int $userid, int $courseid): string {
+        $apertura = self::closed_until($userid, $courseid);
+        if ($apertura === 0) {
+            return '';
+        }
+        return '<div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2">'
+            . '<span>🔒 ' . get_string('gate_opening', 'local_chatbot', self::opening_text($apertura)) . '</span>'
+            . '<a class="chatbot-gatebtn" href="' . (new \moodle_url('/course/view.php', ['id' => $courseid]))->out() . '">'
+            . get_string('gate_opening_back', 'local_chatbot') . '</a></div>';
+    }
+
+    /**
+     * Corta una pantalla del recorrido posterior al perfil mientras la ruta espera su fecha de apertura. Va antes
+     * de procesar cualquier formulario, para que tampoco se pueda guardar nada.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @return void Sale con el aviso si la ruta sigue cerrada.
+     */
+    public static function require_open(int $userid, int $courseid): void {
+        global $OUTPUT;
+        $aviso = self::opening_html($userid, $courseid);
+        if ($aviso === '') {
+            return;
+        }
+        echo $OUTPUT->header();
+        echo '<div class="container-fluid" style="max-width: 900px;">' . $aviso . '</div>';
+        echo $OUTPUT->footer();
+        exit;
+    }
+
+    /**
+     * Pone (o quita) la fecha de apertura en las restricciones de acceso de las secciones del curso posteriores al
+     * perfil (site_setup::opening_sections()), con la fecha vigente de opening_date(): 0 la quita.
+     *
+     * @param int $courseid
+     * @param bool $simular Solo informa, no escribe.
+     * @return int[] Numeros de las secciones que cambian.
+     */
+    public static function sync_opening(int $courseid, bool $simular = false): array {
+        global $DB;
+        $apertura = self::opening_date();
+        $modinfo = get_fast_modinfo($courseid);
+        $porseccion = [];
+        foreach ($modinfo->cms as $cm) {
+            $porseccion[(int) $cm->sectionnum][] = (string) $cm->idnumber;
+        }
+        $cambios = [];
+        foreach (site_setup::opening_sections($porseccion) as $numero) {
+            $seccion = $modinfo->get_section_info($numero);
+            $actual = $DB->get_field('course_sections', 'availability', ['id' => $seccion->id]);
+            $actual = ($actual === false || $actual === null) ? null : (string) $actual;
+            $nueva = site_setup::with_opening($actual, $apertura);
+            if (json_decode((string) $actual, true) == json_decode((string) $nueva, true)) {
+                continue;
+            }
+            $cambios[] = $numero;
+            if (!$simular) {
+                $DB->set_field('course_sections', 'availability', $nueva, ['id' => $seccion->id]);
+            }
+        }
+        if ($cambios && !$simular) {
+            rebuild_course_cache($courseid, true);
+        }
+        return $cambios;
+    }
+
+    /**
+     * sync_opening() en todos los cursos con actividades del recorrido. Corre al cambiar el interruptor o la fecha
+     * en los ajustes del plugin, para que las pestanas del curso y el asistente se abran el mismo dia.
+     *
+     * @return void
+     */
+    public static function sync_opening_all(): void {
+        global $DB;
+        $cursos = $DB->get_fieldset_sql("SELECT DISTINCT course FROM {course_modules}
+            WHERE idnumber LIKE 'M1-PASO-%' AND deletioninprogress = 0");
+        foreach ($cursos as $curso) {
+            self::sync_opening((int) $curso);
+        }
     }
 
     /**
@@ -639,6 +801,7 @@ class course_bridge {
             'route6' => ux::on('route6'),
             'ruta' => !empty($estados['ruta']),
             'ruta_missing' => journey::ruta_status(self::ruta_resources($userid, $courseid))['missing'],
+            'opening' => self::closed_until($userid, $courseid),
         ];
         $plan = $DB->get_record('local_chatbot_pdp', ['userid' => $userid, 'courseid' => $courseid]);
         if (!$plan) {
@@ -693,6 +856,9 @@ class course_bridge {
         $a = $accion['a'];
         if ($accion['key'] === 'plazo') {
             $a = ['n' => $a['n'], 'fecha' => userdate($a['plazo'], get_string('strftimedateshort', 'langconfig'))];
+        }
+        if ($accion['key'] === 'apertura') {
+            $a = self::opening_text((int) $a);
         }
         if ($accion['key'] === 'ruta') {
             // «te falta el caso y el quiz»: los tipos de recurso que faltan, en palabras.
@@ -776,6 +942,20 @@ class course_bridge {
      */
     public static function next_step_card(int $userid, int $courseid, string $paso): string {
         $estados = self::step_states($userid, $courseid);
+        // Hasta la fecha de apertura no hay a donde seguir: se dice cuando se abre lo que viene.
+        $apertura = self::closed_until($userid, $courseid);
+        if ($apertura > 0) {
+            if (empty($estados[$paso])) {
+                return '';
+            }
+            $modulo2 = $paso === 'perfil' ? self::module2_shortcut($userid, $courseid) : null;
+            return '<div class="alert alert-info mt-4"><strong>' . get_string('next_title_' . $paso, 'local_chatbot')
+                . '</strong><br><span class="small">' . get_string('next_opening_body', 'local_chatbot', self::opening_text($apertura))
+                . ($modulo2 ? ' ' . get_string('next_m2_body', 'local_chatbot') : '') . '</span>'
+                . ($modulo2 ? '<div class="mt-2"><a class="chatbot-gatebtn chatbot-ir-m2" href="' . $modulo2->out() . '">'
+                    . get_string('profile_go_m2', 'local_chatbot') . '</a></div>' : '')
+                . '</div>';
+        }
         $orden = self::route_keys();
         $siguiente = self::next_step($paso, $estados, $orden);
 
