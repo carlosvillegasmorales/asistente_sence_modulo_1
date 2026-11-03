@@ -1,5 +1,25 @@
 # Changelog
 
+## M1-v1.21.13 (2026-11-03)
+
+«Perfiles en el Módulo 2» con sector productivo, calidad del diseño por perfil y recorrido por los módulos, para mostrar a
+Interfases (pedido del usuario: «saber si un TENS diseña mejor que un constructor»). Sin cambios en la base.
+
+- **Sector productivo como pregunta del informe.** La respuesta abierta «¿En qué sector o especialidad facilitas?» se
+  agrupa al modo del Catálogo de ChileValora, base del MCTP de la librería del Módulo 2 (`perfiles_m2::sector_of()`, 12
+  sectores por palabras clave al comienzo de palabra: «tens» no se lee en «intensiva»). Se muestra cómo se agrupó cada
+  texto escrito (`sector_audit()`).
+- **Calidad del diseño por perfil:** puntaje promedio de los 9 criterios de la rúbrica de la Etapa 8 por respuesta, con
+  la fila «Todo el curso», y frases como «Quienes respondieron «Salud…» diseñan mejor en «Instrumentos evaluativos» que
+  quienes respondieron «Construcción»», con su sugerencia (`rubric_cross()`, `rubric_highlights()`, `pm2_rdo_*`).
+- **Recorrido por los módulos:** del perfil del Módulo 1 (diagnóstico, Ruta Formativa Base, proyecto, cierre) al diseño
+  aprobado del Módulo 2, para el curso y para la respuesta elegida, con la mayor pérdida en palabras (`path()`,
+  `biggest_drop()`). El Módulo 3 queda indicado para cuando exista.
+- **Solidez de cada conclusión:** «Diferencia sólida» o «A confirmar con más casos», con prueba de dos proporciones o de
+  Welch al 95 % (`solid()`).
+- La demostración trae sector, rúbrica y Módulo 1, con tendencias inventadas por sector y rotuladas como tales.
+- Verificador: `verificar_perfiles_m2.php` (sectores, solidez, rúbrica, recorrido).
+
 ## M1-v1.21.12 (2026-11-03)
 
 «Perfiles en el Módulo 2» más claro para quien sabe del área pero no de datos (pedido del usuario). Sin cambios en la

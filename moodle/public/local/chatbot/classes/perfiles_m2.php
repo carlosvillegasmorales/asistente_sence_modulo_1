@@ -7,9 +7,10 @@ defined('MOODLE_INTERNAL') || die();
  * Perfiles del Modulo 1 en el uso del Modulo 2 (pedido del cliente del 03-11-2026: «saber como se comportan los perfiles
  * en el uso del Modulo 2»).
  *
- * Cruza las respuestas del perfilamiento del Modulo 1 (rol, programa, modalidad, experiencia, familiaridad, tiempo y
- * aspecto a fortalecer) con el comportamiento de la misma persona en el Modulo 2, calculado con los mismos hechos que el
- * tablero (tablero_m2::facts()). Solo agregados: un grupo con menos de MINIMO personas con el dato no se muestra.
+ * Cruza las respuestas del perfilamiento del Modulo 1 (sector productivo, rol, programa, modalidad, experiencia,
+ * familiaridad, tiempo y aspecto a fortalecer) con el comportamiento de la misma persona en el Modulo 2 (los mismos hechos
+ * del tablero, tablero_m2::facts()), con la calidad de su diseno por criterio de la rubrica y con su recorrido por los
+ * modulos. Solo agregados: un grupo con menos de MINIMO personas con el dato no se muestra.
  *
  * Todo es puro salvo load() y los cursos, que leen la base. Lo ejercita cli/verificar_perfiles_m2.php.
  */
@@ -24,8 +25,40 @@ class perfiles_m2 {
      */
     const MINIMO_CONCLUSION = 5;
 
-    /** @var string[] Preguntas del perfil que se cruzan, en el orden del selector. */
-    const DIMENSIONES = ['experiencia', 'familiaridad', 'rol', 'programa', 'modalidad', 'tiempo', 'fortalecer'];
+    /**
+     * @var string[] Preguntas del perfil que se cruzan, en el orden del selector. «sector» es la pregunta abierta «¿En que
+     * sector o especialidad facilitas?», agrupada con sector_of().
+     */
+    const DIMENSIONES = ['sector', 'experiencia', 'familiaridad', 'rol', 'programa', 'modalidad', 'tiempo', 'fortalecer'];
+
+    /**
+     * @var string[][] Sectores productivos, al modo del Catalogo de ChileValora (base del MCTP de la libreria del Modulo 2),
+     * con las palabras que los reconocen en lo que escribio la persona (sin tildes, en minusculas). El orden importa: gana
+     * el primer sector con alguna palabra («soldadura en obra» es metalmecanica, no construccion).
+     */
+    const SECTORES = [
+        'salud' => ['enfermer', 'tens', 'salud', 'cuidado de persona', 'cuidador', 'adulto mayor', 'geriatr', 'paramedic',
+            'farmac', 'clinic', 'hospital', 'odontolog', 'kinesiolog', 'primeros auxilios', 'podolog', 'nutricion'],
+        'mecanica' => ['mecanic', 'metalmec', 'soldad', 'tornero', 'torneria', 'automotr', 'maquinaria', 'mantencion',
+            'mantenimiento', 'cnc', 'matriceria', 'refrigeracion', 'climatizacion'],
+        'electricidad' => ['electric', 'electronic', 'energia', 'solar', 'fotovolta'],
+        'construccion' => ['constru', 'obra', 'albanil', 'carpinter', 'gasfiter', 'edificacion', 'ceramic', 'terminaciones',
+            'topograf', 'hormigon', 'enfierradur', 'moldaje', 'sanitari', 'pintura'],
+        'mineria' => ['miner', 'mina', 'faena', 'chancado', 'perforacion', 'tronadura'],
+        'gastronomia' => ['gastronom', 'cocina', 'cocinero', 'chef', 'pasteler', 'panader', 'banqueter', 'garzon',
+            'turism', 'hotel', 'alimentos', 'barista'],
+        'logistica' => ['logistic', 'transporte', 'bodega', 'grua', 'horquilla', 'conductor', 'conduccion', 'chofer',
+            'despacho', 'inventario', 'suministro'],
+        'agricola' => ['agric', 'agro', 'ganad', 'fruti', 'viti', 'vinic', 'forestal', 'riego', 'invernader', 'apicul',
+            'acuicul', 'pesca', 'poda', 'cosecha'],
+        'ti' => ['informatic', 'computacion', 'computador', 'programacion', 'software', 'tecnologias de la informacion',
+            'ofimatic', 'excel', 'ciberseg', 'desarrollo web', 'soporte tecnico', 'digital'],
+        'comercio' => ['comerci', 'venta', 'administra', 'contab', 'secretari', 'atencion al cliente', 'retail',
+            'recursos humanos', 'oficina', 'emprend', 'marketing', 'finanz'],
+        'educacion' => ['educa', 'docen', 'pedagog', 'parvul', 'psicopedag', 'trabajo social', 'comunitari', 'monitor',
+            'deport', 'infancia'],
+        'otro' => [],
+    ];
 
     /** @var string Grupo de quienes estan en el Modulo 2 sin perfil del Modulo 1 (o sin consentimiento vigente). */
     const SIN_PERFIL = 'sinperfil';
@@ -79,7 +112,74 @@ class perfiles_m2 {
      * @return string[]
      */
     public static function options(string $dim): array {
+        if ($dim === 'sector') {
+            // Orden de lectura (el de SECTORES es el de reconocimiento de palabras).
+            return ['salud', 'construccion', 'gastronomia', 'electricidad', 'mecanica', 'mineria', 'logistica', 'agricola',
+                'ti', 'comercio', 'educacion', 'otro'];
+        }
         return profile::get_options()[$dim] ?? [];
+    }
+
+    /**
+     * Sector productivo de lo que escribio la persona en «¿En que sector o especialidad facilitas?». Funcion pura.
+     *
+     * @param string $texto
+     * @return string Clave de SECTORES («otro» si no se reconoce; cadena vacia si no escribio nada).
+     */
+    public static function sector_of(string $texto): string {
+        $t = ' ' . self::normalize($texto) . ' ';
+        if (trim($t) === '') {
+            return '';
+        }
+        foreach (self::SECTORES as $sector => $palabras) {
+            foreach ($palabras as $palabra) {
+                // Al comienzo de una palabra: «tens» no se lee en «intensivo» ni «venta» en «inventario», y «obras» sigue
+                // siendo «obra».
+                if (preg_match('/(?<![a-z])' . preg_quote($palabra, '/') . '/', $t)) {
+                    return $sector;
+                }
+            }
+        }
+        return 'otro';
+    }
+
+    /**
+     * Texto en minusculas, sin tildes y con espacios simples. Funcion pura.
+     *
+     * @param string $texto
+     * @return string
+     */
+    public static function normalize(string $texto): string {
+        $t = mb_strtolower(trim($texto), 'UTF-8');
+        $t = strtr($t, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
+        return preg_replace('/\s+/', ' ', $t);
+    }
+
+    /**
+     * Como se agruparon los sectores: cada texto escrito con su sector y cuantas personas lo escribieron. Funcion pura.
+     *
+     * @param array $personas Como en cross().
+     * @return array sector => [texto => personas], en el orden de SECTORES y de mas a menos frecuente.
+     */
+    public static function sector_audit(array $personas): array {
+        $salida = [];
+        foreach ($personas as $p) {
+            $texto = trim((string) ($p['perfil']['sector'] ?? ''));
+            if ($p['perfil'] === null || $texto === '') {
+                continue;
+            }
+            $sector = self::sector_of($texto);
+            $clave = preg_replace('/\s+/', ' ', $texto);
+            $salida[$sector][$clave] = ($salida[$sector][$clave] ?? 0) + 1;
+        }
+        $orden = [];
+        foreach (self::options('sector') as $sector) {
+            if (isset($salida[$sector])) {
+                arsort($salida[$sector]);
+                $orden[$sector] = $salida[$sector];
+            }
+        }
+        return $orden;
     }
 
     /**
@@ -166,6 +266,9 @@ class perfiles_m2 {
         $valor = trim((string) ($perfil[$dim] ?? ''));
         if ($valor === '') {
             return [self::SIN_RESPUESTA];
+        }
+        if ($dim === 'sector') {
+            return [self::sector_of($valor)];
         }
         $partes = $dim === 'fortalecer' ? array_filter(array_map('trim', explode(',', $valor))) : [$valor];
         $validas = array_values(array_intersect($partes, self::options($dim)));
@@ -359,6 +462,7 @@ class perfiles_m2 {
         $salida = [];
         foreach (self::DIMENSIONES as $dim) {
             $cruce = self::cross($personas, $dim, $minimo);
+            $grupos = null;
             foreach (self::METRICAS as $clave => $def) {
                 $visibles = [];
                 foreach ($cruce as $respuesta => $fila) {
@@ -383,25 +487,287 @@ class perfiles_m2 {
                 }
                 [$mejor, $peor] = $def['mejor'] === 'alto' ? [$alto, $bajo] : [$bajo, $alto];
                 $peso = $def['tipo'] === 'pct' ? ($va - $vb) / 100 : ($va - $vb) / max(abs($va), 1.0);
+                $grupos = $grupos ?? self::group_values($personas, $dim);
                 $salida[] = ['dim' => $dim, 'metrica' => $clave,
                     'mejor' => ['respuesta' => $mejor, 'valor' => $visibles[$mejor]['valor'], 'n' => $visibles[$mejor]['n']],
                     'peor' => ['respuesta' => $peor, 'valor' => $visibles[$peor]['valor'], 'n' => $visibles[$peor]['n']],
-                    'peso' => round($peso, 3)];
+                    'peso' => round($peso, 3),
+                    'solida' => self::solid($def['tipo'], $grupos[$mejor][$clave] ?? [], $grupos[$peor][$clave] ?? [])];
             }
         }
         usort($salida, static function($a, $b) {
             return $b['peso'] <=> $a['peso'];
         });
-        // Una sola conclusion por metrica (la de la pregunta que mas la separa), para que no se repita la misma idea.
+        // Una sola conclusion por metrica (la de la pregunta que mas la separa) y hasta dos por pregunta, para que no se
+        // repita la misma idea ni una sola pregunta tape a las demas.
+        return self::varied($salida, 'metrica', $maximo);
+    }
+
+    /** @var int Conclusiones como maximo de una misma pregunta del perfil. */
+    const MAX_POR_PREGUNTA = 2;
+
+    /**
+     * Conclusiones variadas, en el orden recibido: una por metrica (o criterio) y hasta MAX_POR_PREGUNTA por pregunta.
+     * Funcion pura.
+     *
+     * @param array $lista Conclusiones ordenadas de la mas a la menos importante.
+     * @param string $clave metrica o criterio.
+     * @param int $maximo
+     * @return array
+     */
+    public static function varied(array $lista, string $clave, int $maximo): array {
         $vistas = [];
-        $unicas = [];
-        foreach ($salida as $h) {
-            if (!isset($vistas[$h['metrica']])) {
-                $vistas[$h['metrica']] = true;
-                $unicas[] = $h;
+        $porpregunta = [];
+        $salida = [];
+        foreach ($lista as $h) {
+            if (isset($vistas[$h[$clave]]) || ($porpregunta[$h['dim']] ?? 0) >= self::MAX_POR_PREGUNTA) {
+                continue;
+            }
+            $vistas[$h[$clave]] = true;
+            $porpregunta[$h['dim']] = ($porpregunta[$h['dim']] ?? 0) + 1;
+            $salida[] = $h;
+        }
+        return array_slice($salida, 0, $maximo);
+    }
+
+    /**
+     * Valores sin agrupar de cada grupo: respuesta => clave => lista (sin null). Funcion pura.
+     *
+     * @param array $personas Como en cross().
+     * @param string $dim
+     * @param string $campo metricas (comportamientos) o criterios (rubrica de la Etapa 8).
+     * @return array
+     */
+    public static function group_values(array $personas, string $dim, string $campo = 'metricas'): array {
+        $grupos = [];
+        foreach ($personas as $p) {
+            foreach (self::answers($p['perfil'] ?? null, $dim) as $respuesta) {
+                foreach ((array) ($p[$campo] ?? []) as $clave => $v) {
+                    if ($v !== null) {
+                        $grupos[$respuesta][$clave][] = $v;
+                    }
+                }
             }
         }
-        return array_slice($unicas, 0, $maximo);
+        return $grupos;
+    }
+
+    /** @var float Valor critico de la prueba (95 % de confianza, dos colas). */
+    const Z_SOLIDA = 1.96;
+
+    /**
+     * Si una diferencia entre dos grupos es solida (dificil de explicar por azar) o hay que confirmarla con mas casos.
+     * Porcentajes: prueba de dos proporciones; promedios y medianas: prueba de Welch sobre los promedios. Funcion pura.
+     *
+     * @param string $tipo pct, mediana o promedio.
+     * @param array $a Valores de un grupo (bool en los porcentajes).
+     * @param array $b Valores del otro grupo.
+     * @return bool
+     */
+    public static function solid(string $tipo, array $a, array $b): bool {
+        $na = count($a);
+        $nb = count($b);
+        if ($na < 2 || $nb < 2) {
+            return false;
+        }
+        if ($tipo === 'pct') {
+            $sa = count(array_filter($a));
+            $sb = count(array_filter($b));
+            $p = ($sa + $sb) / ($na + $nb);
+            $error = sqrt($p * (1 - $p) * (1 / $na + 1 / $nb));
+            return $error > 0 ? abs($sa / $na - $sb / $nb) / $error >= self::Z_SOLIDA : $sa / $na !== $sb / $nb;
+        }
+        $media = static function(array $x): float {
+            return array_sum(array_map('floatval', $x)) / count($x);
+        };
+        $varianza = static function(array $x, float $m): float {
+            return array_sum(array_map(static function($v) use ($m) {
+                return ((float) $v - $m) ** 2;
+            }, $x)) / (count($x) - 1);
+        };
+        [$ma, $mb] = [$media($a), $media($b)];
+        $error = sqrt($varianza($a, $ma) / $na + $varianza($b, $mb) / $nb);
+        return $error > 0 ? abs($ma - $mb) / $error >= self::Z_SOLIDA : $ma != $mb;
+    }
+
+    /** @var float Diferencia minima de puntaje promedio (escala 1 a 4) entre grupos para una conclusion de la rubrica. */
+    const UMBRAL_RUBRICA = 0.5;
+
+    /** @var float Diferencia con el curso que se considera «parecido» en un criterio de la rubrica. */
+    const TOLERANCIA_RUBRICA = 0.3;
+
+    /**
+     * Puntaje promedio de cada criterio de la rubrica de la Etapa 8 (r1 a r9, de 1 a 4) por respuesta. Funcion pura.
+     *
+     * @param array $personas Como en cross(), con 'criterios' (r1..r9 => puntaje) en quien fue evaluado.
+     * @param string $dim
+     * @param int $minimo
+     * @return array respuesta => ['n' => evaluados, 'celdas' => criterio => ['valor', 'n', 'oculto']].
+     */
+    public static function rubric_cross(array $personas, string $dim, int $minimo = self::MINIMO): array {
+        $grupos = self::group_values($personas, $dim, 'criterios');
+        $orden = array_merge(self::options($dim), [self::SIN_RESPUESTA, self::SIN_PERFIL]);
+        $filas = [];
+        foreach ($orden as $respuesta) {
+            if (!isset($grupos[$respuesta])) {
+                continue;
+            }
+            $filas[$respuesta] = self::rubric_row($grupos[$respuesta], $minimo);
+        }
+        return $filas;
+    }
+
+    /**
+     * La rubrica de todo el curso, como referencia. Funcion pura.
+     *
+     * @param array $personas
+     * @param int $minimo
+     * @return array Como una fila de rubric_cross().
+     */
+    public static function rubric_overall(array $personas, int $minimo = self::MINIMO): array {
+        $valores = [];
+        foreach ($personas as $p) {
+            foreach ((array) ($p['criterios'] ?? []) as $c => $v) {
+                $valores[$c][] = $v;
+            }
+        }
+        return self::rubric_row($valores, $minimo);
+    }
+
+    /**
+     * Fila de la rubrica a partir de los puntajes de un grupo. Funcion pura.
+     *
+     * @param array $valores criterio => puntajes.
+     * @param int $minimo
+     * @return array
+     */
+    private static function rubric_row(array $valores, int $minimo): array {
+        $celdas = [];
+        $n = 0;
+        foreach (self::CRITERIOS as $c) {
+            $lista = $valores[$c] ?? [];
+            $n = max($n, count($lista));
+            $oculto = count($lista) < $minimo;
+            $celdas[$c] = ['valor' => $oculto ? null : tablero_m2::mean($lista), 'n' => count($lista), 'oculto' => $oculto];
+        }
+        return ['n' => $n, 'celdas' => $celdas];
+    }
+
+    /** @var string[] Criterios de la rubrica de validacion tecnica del diseno (diseno::rubrica()). */
+    const CRITERIOS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'];
+
+    /**
+     * Las diferencias mas grandes en la calidad del diseno (criterios de la rubrica) entre perfiles, en todas las
+     * preguntas: «Salud obtiene 3,6 en Instrumentos evaluativos y Construccion 2,4». Una por criterio. Funcion pura.
+     *
+     * @param array $personas
+     * @param int $maximo
+     * @param int $minimo
+     * @return array Lista de ['dim', 'criterio', 'mejor' => [respuesta, valor, n], 'peor' => [...], 'solida', 'peso'].
+     */
+    public static function rubric_highlights(array $personas, int $maximo = 4, int $minimo = self::MINIMO_CONCLUSION): array {
+        $salida = [];
+        foreach (self::DIMENSIONES as $dim) {
+            $grupos = self::group_values($personas, $dim, 'criterios');
+            foreach (self::CRITERIOS as $c) {
+                $visibles = [];
+                foreach ($grupos as $respuesta => $valores) {
+                    if (count($valores[$c] ?? []) >= $minimo
+                            && !in_array($respuesta, [self::SIN_PERFIL, self::SIN_RESPUESTA, 'nr', 'otro'], true)) {
+                        $visibles[$respuesta] = tablero_m2::mean($valores[$c]);
+                    }
+                }
+                if (count($visibles) < 2) {
+                    continue;
+                }
+                asort($visibles);
+                $peor = array_key_first($visibles);
+                $mejor = array_key_last($visibles);
+                $diferencia = $visibles[$mejor] - $visibles[$peor];
+                if ($diferencia < self::UMBRAL_RUBRICA) {
+                    continue;
+                }
+                $salida[] = ['dim' => $dim, 'criterio' => $c,
+                    'mejor' => ['respuesta' => $mejor, 'valor' => $visibles[$mejor], 'n' => count($grupos[$mejor][$c])],
+                    'peor' => ['respuesta' => $peor, 'valor' => $visibles[$peor], 'n' => count($grupos[$peor][$c])],
+                    'solida' => self::solid('promedio', $grupos[$mejor][$c], $grupos[$peor][$c]),
+                    'peso' => round($diferencia, 3)];
+            }
+        }
+        usort($salida, static function($a, $b) {
+            return [(int) $b['solida'], $b['peso']] <=> [(int) $a['solida'], $a['peso']];
+        });
+        return self::varied($salida, 'criterio', $maximo);
+    }
+
+    /**
+     * @var string[] Pasos del recorrido por los modulos, en orden: el Modulo 1 (perfil, diagnostico, Ruta Formativa
+     * Base, proyecto integrador, cierre) y el Modulo 2 (ficha entregada, aprobada, diseno, termino, diseno aprobado).
+     */
+    const RECORRIDO = ['m1_perfil', 'm1_diagnostico', 'm1_ruta', 'm1_proyecto', 'm1_cierre',
+        'm2_entrego', 'm2_aprobada', 'm2_diseno', 'm2_termino', 'm2_aprobado'];
+
+    /**
+     * Pasos del Modulo 2 cumplidos, a partir del comportamiento de la persona. Funcion pura.
+     *
+     * @param array $m Salida de person().
+     * @return bool[] paso => cumplido.
+     */
+    public static function m2_path(array $m): array {
+        return ['m2_entrego' => !empty($m['entrego']), 'm2_aprobada' => !empty($m['aprob_primer']) || $m['ciclos'] !== null,
+            'm2_diseno' => !empty($m['diseno']), 'm2_termino' => !empty($m['termino']),
+            'm2_aprobado' => $m['puntaje'] !== null && (int) $m['puntaje'] >= diseno::APROBADO_DESDE];
+    }
+
+    /**
+     * Cuantas personas de un grupo llegaron a cada paso del recorrido. Funcion pura.
+     *
+     * @param array $personas Con 'recorrido' (paso => bool).
+     * @return array paso => ['n', 'pct'].
+     */
+    public static function path(array $personas): array {
+        $total = count($personas);
+        $salida = [];
+        foreach (self::RECORRIDO as $paso) {
+            $n = count(array_filter($personas, static function($p) use ($paso) {
+                return !empty($p['recorrido'][$paso]);
+            }));
+            $salida[$paso] = ['n' => $n, 'pct' => tablero_m2::pct($n, $total)];
+        }
+        return $salida;
+    }
+
+    /**
+     * Donde se pierde mas gente en el recorrido: la mayor caida de un paso al siguiente. Funcion pura.
+     *
+     * @param array $recorrido Salida de path().
+     * @return array|null ['desde', 'hasta', 'pct_desde', 'pct_hasta'] o null si no hay caida.
+     */
+    public static function biggest_drop(array $recorrido): ?array {
+        $mejor = null;
+        $pasos = array_keys($recorrido);
+        for ($i = 1; $i < count($pasos); $i++) {
+            $antes = (int) $recorrido[$pasos[$i - 1]]['pct'];
+            $despues = (int) $recorrido[$pasos[$i]]['pct'];
+            if ($antes - $despues > 0 && ($mejor === null || $antes - $despues > $mejor['pct_desde'] - $mejor['pct_hasta'])) {
+                $mejor = ['desde' => $pasos[$i - 1], 'hasta' => $pasos[$i], 'pct_desde' => $antes, 'pct_hasta' => $despues];
+            }
+        }
+        return $mejor;
+    }
+
+    /**
+     * Las personas de un grupo (una respuesta de una pregunta). Funcion pura.
+     *
+     * @param array $personas
+     * @param string $dim
+     * @param string $respuesta
+     * @return array
+     */
+    public static function members(array $personas, string $dim, string $respuesta): array {
+        return array_values(array_filter($personas, static function($p) use ($dim, $respuesta) {
+            return in_array($respuesta, self::answers($p['perfil'] ?? null, $dim), true);
+        }));
     }
 
     /**
@@ -421,14 +787,54 @@ class perfiles_m2 {
     }
 
     /**
+     * @var array Textos de ejemplo de «¿En que sector o especialidad facilitas?» en la demostracion, por sector (como los
+     * escribiria una persona: con y sin tildes, siglas y oficios).
+     */
+    const DEMO_SECTORES = [
+        'salud' => ['TENS', 'Técnico en enfermería', 'Cuidado de personas mayores', 'Auxiliar de farmacia'],
+        'construccion' => ['Maestro constructor', 'Obras civiles', 'Carpintería en obra', 'Gasfitería e instalaciones sanitarias'],
+        'gastronomia' => ['Gastronomía', 'Cocina internacional', 'Pastelería y panadería'],
+        'electricidad' => ['Electricidad domiciliaria', 'Instalaciones eléctricas', 'Energía solar fotovoltaica'],
+        'mecanica' => ['Mecánica automotriz', 'Soldadura', 'Mantención industrial'],
+        'logistica' => ['Operador de grúa horquilla', 'Bodega y logística'],
+        'comercio' => ['Ventas y atención al cliente', 'Administración y contabilidad'],
+        'ti' => ['Computación básica', 'Programación web'],
+        'agricola' => ['Agricultura', 'Viticultura'],
+        'educacion' => ['Educación parvularia', 'Trabajo comunitario'],
+        'otro' => ['Peluquería y estética', 'Artesanía'],
+    ];
+
+    /** @var string[] Orden en que se reparten los sectores en la demostracion (salud y construccion, los mas frecuentes). */
+    const DEMO_PATRON = ['salud', 'construccion', 'gastronomia', 'salud', 'construccion', 'mecanica', 'electricidad',
+        'educacion', 'salud', 'construccion', 'comercio', 'logistica', 'agricola', 'ti', 'otro'];
+
+    /**
+     * @var array Tendencias inventadas de la demostracion por sector: ajuste general y criterios de la rubrica en que el
+     * sector es mas fuerte (+) o mas debil (-). Se dicen como inventadas en la pagina.
+     */
+    const DEMO_TENDENCIAS = [
+        'salud' => ['k' => 0.08, 'r' => ['r6' => 0.6, 'r7' => 0.8, 'r2' => 0.3]],
+        'construccion' => ['k' => -0.05, 'r' => ['r6' => -0.6, 'r7' => -0.8, 'r8' => 0.5]],
+        'gastronomia' => ['k' => 0.02, 'r' => ['r3' => 0.6, 'r5' => 0.3, 'r7' => -0.3]],
+        'electricidad' => ['k' => 0.0, 'r' => ['r8' => 0.4, 'r3' => -0.3]],
+        'mecanica' => ['k' => -0.02, 'r' => ['r8' => 0.5, 'r4' => -0.3]],
+        'logistica' => ['k' => -0.04, 'r' => ['r9' => -0.4]],
+        'comercio' => ['k' => 0.03, 'r' => ['r9' => 0.4, 'r5' => 0.2]],
+        'ti' => ['k' => 0.05, 'r' => ['r5' => 0.6, 'r9' => 0.4]],
+        'agricola' => ['k' => -0.06, 'r' => ['r8' => 0.3, 'r5' => -0.4]],
+        'educacion' => ['k' => 0.1, 'r' => ['r3' => 0.5, 'r4' => 0.5]],
+        'otro' => ['k' => 0.0, 'r' => []],
+    ];
+
+    /**
      * Cohorte ficticia para mostrar el informe antes de tener datos (modo demostracion). Determinista: la misma semilla da
      * siempre las mismas personas. Las tendencias son inventadas y se dicen como tales en la pagina. Funcion pura.
      *
      * @param int $n
      * @param int $semilla
-     * @return array Lista de ['perfil', 'metricas'] como en cross().
+     * @return array Lista de ['userid', 'perfil', 'metricas', 'criterios', 'recorrido'] como en cross().
      */
-    public static function demo(int $n = 60, int $semilla = 20261103): array {
+    public static function demo(int $n = 90, int $semilla = 20261103): array {
         mt_srand($semilla);
         $azar = static function(): float {
             return mt_rand() / mt_getrandmax();
@@ -448,11 +854,15 @@ class perfiles_m2 {
         $tiempo = ['menos1' => -0.12, 'entre1y2' => -0.03, 'entre3y5' => 0.05, 'mas5' => 0.1];
         $personas = [];
         for ($i = 0; $i < $n; $i++) {
+            $sector = null;
             if ($azar() < 0.07) {
                 $perfil = null;
                 $k = 0.4;
             } else {
                 $o = profile::get_options();
+                // Reparto parejo y fijo, para que cada sector tenga casos suficientes para comparar.
+                $sector = self::DEMO_PATRON[$i % count(self::DEMO_PATRON)];
+                $textos = self::DEMO_SECTORES[$sector];
                 $perfil = [
                     'rol' => $elegir($o['rol'], [4, 3, 3, 1, 1]),
                     'programa' => $elegir($o['programa'], [4, 3, 2, 2, 1]),
@@ -460,15 +870,29 @@ class perfiles_m2 {
                     'experiencia' => $elegir($o['experiencia'], [3, 4, 3, 3, 1]),
                     'familiaridad' => $elegir($o['familiaridad'], [2, 4, 4, 2, 1]),
                     'tiempo' => $elegir($o['tiempo'], [2, 4, 3, 2]),
+                    'sector' => $textos[(int) floor($azar() * count($textos)) % count($textos)],
                 ];
                 $f1 = $elegir($o['fortalecer'], [3, 3, 4, 4, 2, 3, 1, 1]);
                 $f2 = $elegir($o['fortalecer'], [3, 3, 4, 4, 2, 3, 1, 1]);
                 $perfil['fortalecer'] = implode(',', array_unique([$f1, $f2]));
                 $k = $base[$perfil['experiencia']] + $fam[$perfil['familiaridad']] + $tiempo[$perfil['tiempo']]
-                    + ($perfil['modalidad'] === 'virtual' ? -0.05 : 0);
+                    + ($perfil['modalidad'] === 'virtual' ? -0.05 : 0) + self::DEMO_TENDENCIAS[$sector]['k'];
             }
             $k = max(0.05, min(0.95, $k + ($azar() - 0.5) * 0.2));
+
+            // Modulo 1: perfil, diagnostico, Ruta Formativa Base, proyecto y cierre, cada paso solo si se dio el anterior.
+            $recorrido = array_fill_keys(self::RECORRIDO, false);
+            $recorrido['m1_perfil'] = $perfil !== null;
+            $prob = ['m1_diagnostico' => 0.8 + 0.15 * $k, 'm1_ruta' => 0.6 + 0.35 * $k, 'm1_proyecto' => 0.45 + 0.45 * $k,
+                'm1_cierre' => 0.6 + 0.35 * $k];
+            $anterior = $recorrido['m1_perfil'];
+            foreach ($prob as $paso => $p) {
+                $recorrido[$paso] = $anterior && $azar() < $p;
+                $anterior = $recorrido[$paso];
+            }
+
             $m = array_fill_keys(array_keys(self::METRICAS), null);
+            $criterios = null;
             $m['entrego'] = $azar() < 0.55 + 0.4 * $k;
             if ($m['entrego']) {
                 $m['dias_inicio'] = round(1 + (1 - $k) * 9 * $azar() + (1 - $k) * 3, 1);
@@ -486,7 +910,13 @@ class perfiles_m2 {
                     $m['termino'] = $azar() < 0.35 + 0.55 * $k;
                     if ($m['termino']) {
                         $m['duracion'] = round(8 + (1 - $k) * 18 + 6 * $azar(), 1);
-                        $m['puntaje'] = (int) max(9, min(36, round(18 + 16 * $k + ($azar() - 0.5) * 6)));
+                        // Rubrica: nivel general por la persona y fortalezas o debilidades de su sector.
+                        $criterios = [];
+                        foreach (self::CRITERIOS as $c) {
+                            $ajuste = $sector !== null ? (self::DEMO_TENDENCIAS[$sector]['r'][$c] ?? 0) : 0;
+                            $criterios[$c] = (int) max(1, min(4, round(1.4 + 2.4 * $k + $ajuste + ($azar() - 0.5) * 0.9)));
+                        }
+                        $m['puntaje'] = array_sum($criterios);
                         $m['encuesta'] = round(max(1, min(5, 2.6 + 2 * $k + ($azar() - 0.5))), 1);
                     }
                 } else {
@@ -494,7 +924,9 @@ class perfiles_m2 {
                 }
                 $m['detenido'] = !$m['termino'] && $azar() < 0.7;
             }
-            $personas[] = ['userid' => -($i + 1), 'perfil' => $perfil, 'metricas' => $m];
+            $recorrido = array_merge($recorrido, self::m2_path($m));
+            $personas[] = ['userid' => -($i + 1), 'perfil' => $perfil, 'metricas' => $m, 'criterios' => $criterios,
+                'recorrido' => $recorrido];
         }
         mt_srand();
         return $personas;
@@ -558,6 +990,7 @@ class perfiles_m2 {
             $inscritos = array_values(array_intersect($inscritos, array_keys($porpersona)));
         }
         $perfiles = [];
+        $cursom1 = [];
         $m1 = self::m1_courses();
         if ($m1) {
             [$incursos, $p1] = $DB->get_in_or_equal($m1, SQL_PARAMS_NAMED, 'c');
@@ -568,7 +1001,8 @@ class perfiles_m2 {
                     $perfiles[(int) $p->userid] = ['rol' => $p->rol ?? '', 'programa' => $p->programa ?? '',
                         'modalidad' => $p->modalidad ?? '', 'experiencia' => $p->experiencia ?? '',
                         'familiaridad' => $p->familiaridad ?? '', 'tiempo' => $p->tiempo ?? '',
-                        'fortalecer' => $p->fortalecer ?? ''];
+                        'fortalecer' => $p->fortalecer ?? '', 'sector' => $p->sector ?? ''];
+                    $cursom1[(int) $p->userid] = (int) $p->courseid;
                 }
             }
         }
@@ -576,8 +1010,15 @@ class perfiles_m2 {
         $plazos = tablero_m2::plazos();
         $personas = [];
         foreach ($inscritos as $uid) {
-            $personas[] = ['userid' => $uid, 'perfil' => $perfiles[$uid] ?? null,
-                'metricas' => self::person($porpersona[$uid] ?? [], $now, $plazos)];
+            $metricas = self::person($porpersona[$uid] ?? [], $now, $plazos);
+            $principal = isset($porpersona[$uid]) ? self::main_ficha($porpersona[$uid]) : null;
+            // Recorrido por los modulos: el Modulo 1 desde el puente del curso donde la persona hizo su perfil.
+            $estados = isset($cursom1[$uid]) ? course_bridge::step_states($uid, $cursom1[$uid]) : [];
+            $recorrido = ['m1_perfil' => !empty($estados['perfil']), 'm1_diagnostico' => !empty($estados['diagnostico']),
+                'm1_ruta' => !empty($estados['ruta']), 'm1_proyecto' => !empty($estados['proyecto']),
+                'm1_cierre' => !empty($estados['cierre'])] + self::m2_path($metricas);
+            $personas[] = ['userid' => $uid, 'perfil' => $perfiles[$uid] ?? null, 'metricas' => $metricas,
+                'criterios' => $principal['evaluacion']['criterios'] ?? null, 'recorrido' => $recorrido];
         }
         return $personas;
     }

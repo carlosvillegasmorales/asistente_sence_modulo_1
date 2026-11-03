@@ -69,11 +69,46 @@ local_chatbot_verificar(perfiles_m2::answers(['fortalecer' => 'evaluacion, ia'],
     'dos aspectos a fortalecer: la persona cuenta en ambos grupos');
 local_chatbot_verificar(perfiles_m2::answers(['rol' => 'astronauta'], 'rol') === [perfiles_m2::SIN_RESPUESTA],
     'una alternativa que no existe no inventa un grupo');
-local_chatbot_verificar(perfiles_m2::DIMENSIONES === ['experiencia', 'familiaridad', 'rol', 'programa', 'modalidad', 'tiempo',
-    'fortalecer'], 'las siete preguntas cerradas del perfil del acta del 13-10');
+local_chatbot_verificar(perfiles_m2::DIMENSIONES === ['sector', 'experiencia', 'familiaridad', 'rol', 'programa', 'modalidad',
+    'tiempo', 'fortalecer'], 'el sector productivo y las siete preguntas cerradas del perfil del acta del 13-10');
 foreach (perfiles_m2::DIMENSIONES as $d) {
     local_chatbot_verificar(perfiles_m2::options($d) !== [], "la pregunta «{$d}» tiene sus alternativas");
 }
+
+// --- Sector productivo: la pregunta abierta agrupada al modo de ChileValora ---
+foreach (perfiles_m2::DEMO_SECTORES as $sector => $textos) {
+    foreach ($textos as $texto) {
+        local_chatbot_verificar(perfiles_m2::sector_of($texto) === $sector, "«{$texto}» es del sector «{$sector}»");
+    }
+}
+local_chatbot_verificar(perfiles_m2::sector_of('  TÉCNICO EN ENFERMERÍA ') === 'salud', 'sin importar mayusculas, tildes ni espacios');
+$ordenlectura = perfiles_m2::options('sector');
+sort($ordenlectura);
+$reconocidos = array_keys(perfiles_m2::SECTORES);
+sort($reconocidos);
+local_chatbot_verificar($ordenlectura === $reconocidos, 'el orden de lectura trae los mismos sectores que se reconocen');
+local_chatbot_verificar(perfiles_m2::sector_of('Pintura intensiva') === 'construccion', '«tens» no se lee dentro de «intensiva»');
+local_chatbot_verificar(perfiles_m2::sector_of('Control de inventario') === 'logistica', '«venta» no se lee dentro de «inventario»');
+local_chatbot_verificar(perfiles_m2::sector_of('Soldadura en obra') === 'mecanica', 'el primer sector gana: soldadura es metalmecanica');
+local_chatbot_verificar(perfiles_m2::sector_of('') === '' && perfiles_m2::sector_of('Malabarismo') === 'otro',
+    'sin texto: sin sector; texto no reconocido: «otros sectores»');
+local_chatbot_verificar(perfiles_m2::answers(['sector' => 'TENS'], 'sector') === ['salud']
+    && perfiles_m2::answers(['sector' => ''], 'sector') === [perfiles_m2::SIN_RESPUESTA], 'el sector como grupo del informe');
+$audit = perfiles_m2::sector_audit([['perfil' => ['sector' => 'TENS']], ['perfil' => ['sector' => 'TENS']],
+    ['perfil' => ['sector' => 'Obras civiles']], ['perfil' => null], ['perfil' => ['sector' => '']]]);
+local_chatbot_verificar($audit === ['salud' => ['TENS' => 2], 'construccion' => ['Obras civiles' => 1]],
+    'como se agruparon los sectores: texto escrito y cuantas personas');
+
+// --- Solidez de una diferencia ---
+local_chatbot_verificar(perfiles_m2::solid('pct', array_fill(0, 20, true), array_fill(0, 20, false)),
+    '20 de 20 frente a 0 de 20: diferencia solida');
+local_chatbot_verificar(!perfiles_m2::solid('pct', [true, true, true, false, true], [true, false, true, false, false]),
+    '4 de 5 frente a 2 de 5: a confirmar');
+local_chatbot_verificar(perfiles_m2::solid('promedio', [30, 31, 32, 33, 34, 30], [20, 21, 22, 20, 21, 22]),
+    'puntajes muy separados y parejos: solida');
+local_chatbot_verificar(!perfiles_m2::solid('promedio', [20, 36, 25, 30, 18], [22, 34, 19, 28, 26]),
+    'promedios parecidos y muy dispersos: a confirmar');
+local_chatbot_verificar(!perfiles_m2::solid('pct', [true], [false]), 'con una persona por grupo nunca es solida');
 
 // --- Agregados ---
 local_chatbot_verificar(perfiles_m2::aggregate([true, false, true, true], 'pct') === 75, 'porcentaje de verdaderos');
@@ -173,6 +208,11 @@ local_chatbot_verificar(isset($porm['puntaje']) && $porm['puntaje']['mejor']['re
     'el mejor puntaje es de un perfil real: «prefiero no responder» y «sin perfil» no compiten');
 local_chatbot_verificar(!isset($porm['entrego']), 'sin diferencia (todos entregaron) no hay conclusion');
 local_chatbot_verificar(count($hl) === count(array_unique(array_column($hl, 'metrica'))), 'una conclusion por comportamiento');
+local_chatbot_verificar(max(array_count_values(array_column(perfiles_m2::highlights(perfiles_m2::demo()), 'dim'))) <= 2,
+    'hasta dos conclusiones por pregunta, para que se vean las demas');
+$varias = perfiles_m2::varied([['dim' => 'a', 'm' => 1], ['dim' => 'a', 'm' => 2], ['dim' => 'a', 'm' => 3],
+    ['dim' => 'b', 'm' => 1], ['dim' => 'b', 'm' => 4]], 'm', 10);
+local_chatbot_verificar(array_column($varias, 'm') === [1, 2, 4], 'variadas: una por metrica y dos por pregunta');
 $chica = [];
 foreach (range(1, 5) as $i) {
     $chica[] = local_chatbot_persona(['experiencia' => 'mas7'], ['puntaje' => 26]);
@@ -213,6 +253,43 @@ local_chatbot_verificar(perfiles_m2::out_of_ten(91) === 9 && perfiles_m2::out_of
 local_chatbot_verificar(array_diff(perfiles_m2::CLAVE, array_keys(perfiles_m2::METRICAS)) === [] && count(perfiles_m2::CLAVE) === 6,
     'los 6 comportamientos clave existen');
 
+// --- Calidad del diseno por perfil (criterios de la rubrica) ---
+$r = [];
+foreach (range(1, 6) as $i) {
+    $r[] = ['perfil' => ['sector' => 'TENS'], 'metricas' => [],
+        'criterios' => ['r6' => 4, 'r7' => 4] + array_fill_keys(perfiles_m2::CRITERIOS, 3)];
+    $r[] = ['perfil' => ['sector' => 'Maestro constructor'], 'metricas' => [],
+        'criterios' => ['r6' => 2, 'r7' => 1 + $i % 2] + array_fill_keys(perfiles_m2::CRITERIOS, 3)];
+}
+$r[] = ['perfil' => ['sector' => 'Artesanía'], 'metricas' => [], 'criterios' => null];
+$rc = perfiles_m2::rubric_cross($r, 'sector');
+local_chatbot_verificar(array_keys($rc) === ['salud', 'construccion'], 'rubrica por sector: solo grupos con disenos evaluados');
+local_chatbot_verificar($rc['salud']['celdas']['r7']['valor'] === 4.0 && $rc['construccion']['celdas']['r7']['valor'] === 1.5
+    && $rc['salud']['n'] === 6, 'promedio del criterio por grupo');
+local_chatbot_verificar(perfiles_m2::rubric_overall($r)['celdas']['r1']['valor'] === 3.0, 'rubrica de todo el curso');
+$porc = array_column(perfiles_m2::rubric_highlights($r), null, 'criterio');
+local_chatbot_verificar(isset($porc['r7']) && $porc['r7']['dim'] === 'sector' && $porc['r7']['mejor']['respuesta'] === 'salud'
+    && $porc['r7']['peor']['respuesta'] === 'construccion' && $porc['r7']['solida'],
+    'la TENS disena mejores instrumentos de evaluacion que el constructor, y es una diferencia solida');
+local_chatbot_verificar(!isset($porc['r1']), 'sin diferencia en un criterio no hay conclusion');
+
+// --- Recorrido por los modulos ---
+local_chatbot_verificar(perfiles_m2::m2_path(['entrego' => true, 'aprob_primer' => false, 'ciclos' => 2, 'diseno' => true,
+    'termino' => true, 'puntaje' => 24]) === ['m2_entrego' => true, 'm2_aprobada' => true, 'm2_diseno' => true,
+    'm2_termino' => true, 'm2_aprobado' => false], 'Modulo 2: aprobo la ficha al segundo intento; diseno con 24, no aprobado');
+$camino = [['recorrido' => ['m1_perfil' => true, 'm1_diagnostico' => true, 'm1_ruta' => true]],
+    ['recorrido' => ['m1_perfil' => true, 'm1_diagnostico' => true]], ['recorrido' => ['m1_perfil' => true]],
+    ['recorrido' => ['m1_perfil' => true]]];
+$pc = perfiles_m2::path($camino);
+local_chatbot_verificar($pc['m1_perfil']['pct'] === 100 && $pc['m1_diagnostico']['pct'] === 50 && $pc['m1_ruta']['pct'] === 25
+    && $pc['m2_entrego']['n'] === 0, 'cuantas personas llegan a cada paso');
+$caida = perfiles_m2::biggest_drop($pc);
+local_chatbot_verificar($caida['desde'] === 'm1_perfil' && $caida['hasta'] === 'm1_diagnostico',
+    'la mayor perdida: del perfil al diagnostico');
+local_chatbot_verificar(perfiles_m2::biggest_drop(['a' => ['pct' => 50], 'b' => ['pct' => 50]]) === null,
+    'sin perdida no hay caida');
+local_chatbot_verificar(count(perfiles_m2::members($r, 'sector', 'salud')) === 6, 'personas de un grupo');
+
 // --- Cifras de cabecera ---
 $t = perfiles_m2::totals($personas);
 local_chatbot_verificar($t['inscritos'] === 18 && $t['con_perfil'] === 15 && $t['entregaron'] === 17,
@@ -220,7 +297,7 @@ local_chatbot_verificar($t['inscritos'] === 18 && $t['con_perfil'] === 15 && $t[
 
 // --- Cohorte de demostracion ---
 $demo = perfiles_m2::demo();
-local_chatbot_verificar(count($demo) === 60 && $demo === perfiles_m2::demo(), 'demostracion: 60 personas, siempre las mismas');
+local_chatbot_verificar(count($demo) === 90 && $demo === perfiles_m2::demo(), 'demostracion: 90 personas, siempre las mismas');
 local_chatbot_verificar(in_array(null, array_column($demo, 'perfil'), true), 'la demostracion incluye personas sin perfil');
 local_chatbot_verificar(array_keys($demo[0]['metricas']) === array_keys(perfiles_m2::METRICAS), 'con todas las metricas');
 local_chatbot_verificar(count(perfiles_m2::highlights($demo)) >= 4, 'la demostracion muestra conclusiones');
@@ -233,6 +310,23 @@ foreach ($demo as $persona) {
     }
 }
 local_chatbot_verificar($todos, 'demostracion coherente: puntajes de 9 a 36, nadie termina sin disenar ni disena sin entregar');
+$coherente = true;
+$ordenm1 = ['m1_perfil', 'm1_diagnostico', 'm1_ruta', 'm1_proyecto', 'm1_cierre'];
+foreach ($demo as $persona) {
+    for ($i = 1; $i < 5; $i++) {
+        $coherente = $coherente && (!$persona['recorrido'][$ordenm1[$i]] || $persona['recorrido'][$ordenm1[$i - 1]]);
+    }
+    if ($persona['criterios'] !== null && array_sum($persona['criterios']) !== $persona['metricas']['puntaje']) {
+        $coherente = false;
+    }
+}
+local_chatbot_verificar($coherente, 'demostracion: el Modulo 1 en orden y el puntaje es la suma de los criterios');
+local_chatbot_verificar(count(perfiles_m2::rubric_highlights($demo)) >= 2,
+    'la demostracion muestra diferencias en la calidad del diseno');
+$sectorial = array_filter(perfiles_m2::rubric_highlights($demo), static function($h) {
+    return $h['dim'] === 'sector';
+});
+local_chatbot_verificar((bool) $sectorial, 'la demostracion compara la calidad del diseno entre sectores');
 
 // --- Cadenas de idioma de cada pregunta y comportamiento ---
 $es = file_get_contents(__DIR__ . '/../lang/es/local_chatbot.php');

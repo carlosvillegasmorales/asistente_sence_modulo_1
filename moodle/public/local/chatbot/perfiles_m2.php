@@ -60,6 +60,11 @@ $cruce = perfiles_m2::cross($personas, $dim);
 $total = perfiles_m2::overall($personas);
 $destacados = perfiles_m2::highlights($personas);
 $totales = perfiles_m2::totals($personas);
+$rubrica = perfiles_m2::rubric_cross($personas, $dim);
+$rubricacurso = perfiles_m2::rubric_overall($personas);
+$rdestacados = perfiles_m2::rubric_highlights($personas);
+$recorridocurso = perfiles_m2::path($personas);
+$criterios = \local_chatbot\diseno::rubrica();
 $columnas = $todas ? array_keys(perfiles_m2::METRICAS) : perfiles_m2::CLAVE;
 if (!isset($cruce[$elegido])) {
     $elegido = '';
@@ -75,6 +80,9 @@ if (!isset($cruce[$elegido])) {
 function local_chatbot_pm2_answer(string $dim, string $respuesta): string {
     if (in_array($respuesta, [perfiles_m2::SIN_PERFIL, perfiles_m2::SIN_RESPUESTA], true)) {
         return get_string('pm2_' . $respuesta, 'local_chatbot');
+    }
+    if ($dim === 'sector') {
+        return get_string('pm2_sector_' . $respuesta, 'local_chatbot');
     }
     $prefijo = ['rol' => 'rol_', 'programa' => 'prog_', 'modalidad' => 'mod_', 'experiencia' => 'exp_',
         'familiaridad' => 'fam_', 'tiempo' => 'tiempo_', 'fortalecer' => 'fort_'][$dim];
@@ -124,6 +132,28 @@ function local_chatbot_pm2_phrase(string $metrica, $valor): string {
     }
     $texto = format_float((float) $valor, 1, true, true);
     return get_string('pm2_u_' . $metrica, 'local_chatbot', $texto);
+}
+
+/**
+ * Marca de cuan solida es una diferencia: «Diferencia sólida» o «A confirmar con más casos».
+ *
+ * @param bool $solida
+ * @return string HTML.
+ */
+function local_chatbot_pm2_strength(bool $solida): string {
+    $clave = $solida ? 'solida' : 'confirmar';
+    return '<span class="pm2-strength is-' . $clave . '" title="' . s(get_string('pm2_strength_' . $clave . '_h', 'local_chatbot'))
+        . '">' . s(get_string('pm2_strength_' . $clave, 'local_chatbot')) . '</span>';
+}
+
+/**
+ * Puntaje de un criterio de la rubrica: «3,4 de 4».
+ *
+ * @param float|null $valor
+ * @return string
+ */
+function local_chatbot_pm2_score($valor): string {
+    return $valor === null ? '—' : get_string('pm2_of4', 'local_chatbot', format_float((float) $valor, 1, true, true));
 }
 
 // --- Exportar a CSV (se abre en Excel): el curso y cada respuesta, con los 15 comportamientos ---
@@ -261,9 +291,10 @@ echo $OUTPUT->header();
             <ol class="pm2-hl-list">
                 <?php foreach ($destacados as $h): $m = $h['metrica']; ?>
                     <li class="pm2-hl">
-                        <a class="pm2-hl-q" href="<?php echo (new moodle_url($pageurl, ['dim' => $h['dim'],
+                        <span class="pm2-hl-head"><a class="pm2-hl-q" href="<?php echo (new moodle_url($pageurl, ['dim' => $h['dim'],
                             'perfil' => $h['peor']['respuesta']], 'pm2-perfil'))->out(); ?>"><?php
                             echo s(get_string('pm2_dim_' . $h['dim'], 'local_chatbot')); ?></a>
+                            <?php echo local_chatbot_pm2_strength($h['solida']); ?></span>
                         <p class="pm2-hl-title"><?php echo s(get_string('pm2_s_' . $m, 'local_chatbot',
                             local_chatbot_pm2_answer($h['dim'], $h['peor']['respuesta']))); ?></p>
                         <p class="pm2-hl-detail"><?php echo s(get_string('pm2_vs_detail', 'local_chatbot', (object) [
@@ -276,6 +307,127 @@ echo $OUTPUT->header();
                 <?php endforeach; ?>
             </ol>
         <?php endif; ?>
+    </section>
+
+    <?php // Calidad del diseno por perfil: los 9 criterios de la rubrica de la Etapa 8 por respuesta. ?>
+    <section class="m1-card pm2-card" id="pm2-rubrica" aria-labelledby="pm2-rub-title">
+        <h2 class="m1-card-title" id="pm2-rub-title"><?php echo s(get_string('pm2_rub_title', 'local_chatbot')); ?></h2>
+        <p class="m1-card-help"><?php echo s(get_string('pm2_rub_help', 'local_chatbot')); ?></p>
+        <?php if ($rdestacados): ?>
+            <ul class="pm2-rhl-list">
+                <?php foreach ($rdestacados as $h): $nombre = $criterios[$h['criterio']]['nombre']; ?>
+                    <li class="pm2-hl pm2-rhl">
+                        <span class="pm2-hl-head"><span class="pm2-hl-q"><?php echo s(get_string('pm2_dim_' . $h['dim'], 'local_chatbot')); ?></span>
+                            <?php echo local_chatbot_pm2_strength($h['solida']); ?></span>
+                        <p class="pm2-hl-title"><?php echo s(get_string('pm2_rub_s', 'local_chatbot', (object) [
+                            'mejor' => local_chatbot_pm2_answer($h['dim'], $h['mejor']['respuesta']),
+                            'peor' => local_chatbot_pm2_answer($h['dim'], $h['peor']['respuesta']), 'criterio' => $nombre])); ?></p>
+                        <p class="pm2-hl-detail"><?php echo s(get_string('pm2_rub_detail', 'local_chatbot', (object) [
+                            'vmejor' => local_chatbot_pm2_score($h['mejor']['valor']), 'nmejor' => $h['mejor']['n'],
+                            'vpeor' => local_chatbot_pm2_score($h['peor']['valor']), 'npeor' => $h['peor']['n']])); ?></p>
+                        <p class="pm2-hl-do"><span aria-hidden="true">👉 </span><?php echo s(get_string('pm2_rdo_' . $h['criterio'],
+                            'local_chatbot', local_chatbot_pm2_answer($h['dim'], $h['peor']['respuesta']))); ?></p>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php else: ?>
+            <p class="m1-muted"><?php echo s(get_string('pm2_rub_none', 'local_chatbot', perfiles_m2::MINIMO_CONCLUSION)); ?></p>
+        <?php endif; ?>
+        <h3 class="pm2-subtitle"><?php echo s(get_string('pm2_rub_table', 'local_chatbot', get_string('pm2_dim_' . $dim, 'local_chatbot'))); ?></h3>
+        <div class="pm2-scroll" tabindex="0" role="region" aria-labelledby="pm2-rub-title">
+            <table class="pm2-table pm2-rtable">
+                <thead>
+                    <tr>
+                        <th scope="col" class="pm2-answer-col"><?php echo s(get_string('pm2_answer', 'local_chatbot')); ?></th>
+                        <th scope="col" class="pm2-n-col"><?php echo s(get_string('pm2_evaluated', 'local_chatbot')); ?></th>
+                        <?php foreach (perfiles_m2::CRITERIOS as $c): ?>
+                            <th scope="col" class="pm2-metric" title="<?php echo s($criterios[$c]['nombre']); ?>"><?php
+                                echo s($criterios[$c]['nombre']); ?></th>
+                        <?php endforeach; ?>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="is-total">
+                        <th scope="row" class="pm2-answer"><?php echo s(get_string('pm2_total_row', 'local_chatbot')); ?></th>
+                        <td class="pm2-n"><?php echo (int) $rubricacurso['n']; ?></td>
+                        <?php foreach (perfiles_m2::CRITERIOS as $c): $v = $rubricacurso['celdas'][$c]; ?>
+                            <td class="pm2-cell"><?php echo $v['oculto'] ? '<span class="pm2-few">'
+                                . s(get_string('pm2_fewdata', 'local_chatbot')) . '</span>'
+                                : s(format_float((float) $v['valor'], 1, true, true)); ?></td>
+                        <?php endforeach; ?>
+                    </tr>
+                    <?php foreach ($rubrica as $respuesta => $fila): ?>
+                        <tr class="<?php echo in_array($respuesta, [perfiles_m2::SIN_PERFIL, perfiles_m2::SIN_RESPUESTA], true) ? 'is-aside' : ''; ?>">
+                            <th scope="row" class="pm2-answer"><?php echo s(local_chatbot_pm2_answer($dim, $respuesta)); ?></th>
+                            <td class="pm2-n"><?php echo (int) $fila['n']; ?></td>
+                            <?php foreach (perfiles_m2::CRITERIOS as $c): $v = $fila['celdas'][$c]; ?>
+                                <?php if ($v['oculto']): ?>
+                                    <td class="pm2-cell is-hidden"><span class="pm2-few"><?php echo s(get_string('pm2_fewdata', 'local_chatbot')); ?></span></td>
+                                <?php else:
+                                    $t = $rubricacurso['celdas'][$c]['valor'];
+                                    $sentido = $t === null ? '' : (abs($v['valor'] - $t) < perfiles_m2::TOLERANCIA_RUBRICA ? 'igual'
+                                        : ($v['valor'] > $t ? 'mejor' : 'peor')); ?>
+                                    <td class="pm2-cell<?php echo $sentido ? ' is-' . $sentido : ''; ?>"><?php
+                                        echo s(format_float((float) $v['valor'], 1, true, true));
+                                        if ($sentido === 'mejor' || $sentido === 'peor'): ?><span class="pm2-mark" aria-hidden="true"><?php
+                                            echo $sentido === 'mejor' ? '▲' : '▼'; ?></span><span class="visually-hidden"> (<?php
+                                            echo s(get_string('pm2_leg_' . $sentido, 'local_chatbot')); ?>)</span><?php endif; ?></td>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <p class="m1-card-help mb-0 mt-2"><?php echo s(get_string('pm2_rub_scale', 'local_chatbot')); ?></p>
+    </section>
+
+    <?php // Recorrido por los modulos: el curso y, si se eligio una respuesta, ese grupo. ?>
+    <?php
+    $grupo = $elegido !== '' ? perfiles_m2::members($personas, $dim, $elegido) : [];
+    $recorridogrupo = count($grupo) >= perfiles_m2::MINIMO ? perfiles_m2::path($grupo) : null;
+    $caida = perfiles_m2::biggest_drop($recorridogrupo ?? $recorridocurso);
+    $quien = $recorridogrupo ? get_string('pm2_path_group', 'local_chatbot', local_chatbot_pm2_answer($dim, $elegido))
+        : get_string('pm2_total_row', 'local_chatbot');
+    ?>
+    <section class="m1-card pm2-card" id="pm2-recorrido" aria-labelledby="pm2-path-title">
+        <h2 class="m1-card-title" id="pm2-path-title"><?php echo s(get_string('pm2_path_title', 'local_chatbot')); ?></h2>
+        <p class="m1-card-help"><?php echo s(get_string('pm2_path_help', 'local_chatbot')); ?></p>
+        <?php if ($caida): ?>
+            <p class="pm2-path-drop"><?php echo s(get_string('pm2_path_drop', 'local_chatbot', (object) ['quien' => $quien,
+                'desde' => get_string('pm2_p_' . $caida['desde'], 'local_chatbot'),
+                'hasta' => get_string('pm2_p_' . $caida['hasta'], 'local_chatbot'),
+                'antes' => local_chatbot_pm2_phrase('entrego', $caida['pct_desde']),
+                'despues' => local_chatbot_pm2_phrase('entrego', $caida['pct_hasta'])])); ?></p>
+        <?php endif; ?>
+        <div class="pm2-path-legend">
+            <span><span class="pm2-swatch is-curso" aria-hidden="true"></span><?php echo s(get_string('pm2_total_row', 'local_chatbot')); ?></span>
+            <?php if ($recorridogrupo): ?>
+                <span><span class="pm2-swatch is-grupo" aria-hidden="true"></span><?php echo s($quien); ?></span>
+            <?php else: ?>
+                <span class="m1-muted"><?php echo s(get_string('pm2_path_pick', 'local_chatbot')); ?></span>
+            <?php endif; ?>
+        </div>
+        <ol class="pm2-path">
+            <?php foreach (perfiles_m2::RECORRIDO as $i => $paso):
+                $modulo = substr($paso, 0, 2);
+                if ($i === 0 || substr(perfiles_m2::RECORRIDO[$i - 1], 0, 2) !== $modulo): ?>
+                    <li class="pm2-path-module"><?php echo s(get_string('pm2_path_' . $modulo, 'local_chatbot')); ?></li>
+                <?php endif; ?>
+                <li class="pm2-path-step">
+                    <span class="pm2-path-name"><?php echo s(get_string('pm2_p_' . $paso, 'local_chatbot')); ?></span>
+                    <span class="pm2-path-bars">
+                        <span class="pm2-path-bar is-curso"><span style="width:<?php echo (int) $recorridocurso[$paso]['pct']; ?>%"></span>
+                            <em><?php echo (int) $recorridocurso[$paso]['pct']; ?> %</em></span>
+                        <?php if ($recorridogrupo): ?>
+                            <span class="pm2-path-bar is-grupo"><span style="width:<?php echo (int) $recorridogrupo[$paso]['pct']; ?>%"></span>
+                                <em><?php echo (int) $recorridogrupo[$paso]['pct']; ?> %</em></span>
+                        <?php endif; ?>
+                    </span>
+                </li>
+            <?php endforeach; ?>
+            <li class="pm2-path-module is-soon"><?php echo s(get_string('pm2_path_m3', 'local_chatbot')); ?></li>
+        </ol>
     </section>
 
     <section class="m1-card pm2-card" id="pm2-tabla" aria-labelledby="pm2-table-title">
@@ -383,6 +535,21 @@ echo $OUTPUT->header();
         <p class="pm2-more"><a href="<?php echo (new moodle_url($pageurl, ['todas' => $todas ? 0 : 1], 'pm2-tabla'))->out(); ?>"><?php
             echo s(get_string($todas ? 'pm2_show_key' : 'pm2_show_all', 'local_chatbot', count(perfiles_m2::METRICAS))); ?></a></p>
     </section>
+
+    <?php if ($dim === 'sector' && ($auditoria = perfiles_m2::sector_audit($personas))): ?>
+        <details class="m1-card pm2-card pm2-glossary pm2-audit">
+            <summary class="m1-card-title"><?php echo s(get_string('pm2_audit_title', 'local_chatbot')); ?></summary>
+            <p class="m1-card-help"><?php echo s(get_string('pm2_audit_help', 'local_chatbot')); ?></p>
+            <dl class="pm2-gl">
+                <?php foreach ($auditoria as $sector => $textos): ?>
+                    <div><dt><?php echo s(get_string('pm2_sector_' . $sector, 'local_chatbot')); ?></dt>
+                        <dd><?php echo s(implode(' · ', array_map(static function($t, $n) {
+                            return $t . ' (' . $n . ')';
+                        }, array_keys($textos), $textos))); ?></dd></div>
+                <?php endforeach; ?>
+            </dl>
+        </details>
+    <?php endif; ?>
 
     <details class="m1-card pm2-card pm2-glossary">
         <summary class="m1-card-title"><?php echo s(get_string('pm2_glossary', 'local_chatbot')); ?></summary>
