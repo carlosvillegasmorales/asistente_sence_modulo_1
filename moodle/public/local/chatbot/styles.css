@@ -4255,3 +4255,329 @@ body.m2d-capture .m1-dash-filter select {
         font-weight: 600;
     }
 }
+/* =========================================================
+   PERFILES EN EL MÓDULO 2 (v1.21.11)
+   Botón flotante encima del de indicadores, y la página:
+   conclusiones, cifras y mapa de calor perfil × comportamiento.
+   ========================================================= */
+/* Encima del botón de indicadores cuando ese está; si no, en su lugar. */
+.chatbot-reports-fab + .chatbot-reports-fab--profiles {
+    bottom: calc(26px + 52px + 14px);
+}
+.chatbot-reports-fab--profiles {
+    background: #0e7c66;
+    box-shadow: 0 8px 20px -4px rgba(14, 124, 102, 0.45), 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+.chatbot-reports-fab--profiles:hover,
+.chatbot-reports-fab--profiles:focus-visible {
+    background: #0a5f4e;
+}
+.chatbot-reports-fab--profiles:focus-visible {
+    outline-color: #0e7c66;
+}
+
+.pm2 .pm2-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: flex-end;
+}
+.pm2 .pm2-control {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    min-width: 0;
+}
+.pm2 .pm2-control span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--m1-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.pm2 .pm2-control select {
+    max-width: 320px;
+    padding: 6px 10px;
+    border: 1px solid var(--m1-border);
+    border-radius: 8px;
+    background: #fff;
+}
+.pm2-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 18px;
+}
+.pm2-demo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    align-items: center;
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border: 2px dashed #b45309;
+    border-radius: 12px;
+    background: #fff8eb;
+    color: #7c2d12;
+    font-size: 14px;
+}
+.pm2-demo strong {
+    letter-spacing: 0.06em;
+}
+.pm2-demo a {
+    color: #7c2d12;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.pm2 .pm2-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.pm2-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 16px 18px;
+    background: var(--m1-surface);
+    border: 1px solid var(--m1-border);
+    border-radius: var(--m1-radius);
+    box-shadow: var(--m1-shadow);
+    min-width: 0;
+}
+.pm2-kpi-value {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--m1-ink);
+    font-variant-numeric: tabular-nums;
+}
+.pm2-kpi-label {
+    font-size: 13px;
+    color: var(--m1-ink-2);
+}
+.pm2-kpi-pct {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--m1-accent);
+}
+
+/* Conclusiones: pregunta, comportamiento y los dos grupos que más se separan. */
+.pm2-hl-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.pm2-hl {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    border: 1px solid var(--m1-hairline);
+    border-radius: 12px;
+    background: #f8fafc;
+    min-width: 0;
+}
+.pm2-hl-q {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--m1-accent) !important;
+}
+.pm2-hl-metric {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--m1-ink);
+}
+.pm2-hl-pair {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+}
+.pm2-hl-side {
+    flex: 1 1 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    min-width: 0;
+}
+.pm2-hl-side.is-good {
+    background: #e3f5eb;
+    border-left: 4px solid #1c8a5a;
+}
+.pm2-hl-side.is-bad {
+    background: #fdeee3;
+    border-left: 4px solid #c2410c;
+}
+.pm2-hl-side strong {
+    font-size: 20px;
+    font-variant-numeric: tabular-nums;
+}
+.pm2-hl-who {
+    font-size: 13px;
+    color: var(--m1-ink-2);
+    overflow-wrap: anywhere;
+}
+.pm2-hl-n {
+    font-size: 12px;
+    color: var(--m1-muted);
+}
+.pm2-hl-vs {
+    align-self: center;
+    font-size: 12px;
+    color: var(--m1-muted);
+}
+
+.pm2-card {
+    margin-bottom: 18px;
+}
+.pm2-dims {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0 10px;
+}
+.pm2-dim {
+    padding: 6px 12px;
+    border: 1px solid var(--m1-border);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--m1-ink-2) !important;
+    text-decoration: none !important;
+    background: #fff;
+}
+.pm2-dim:hover {
+    border-color: var(--m1-accent);
+}
+.pm2-dim.is-active {
+    background: var(--m1-accent);
+    border-color: var(--m1-accent);
+    color: #fff !important;
+}
+
+/* Mapa de calor: se desplaza dentro de su caja, nunca la página. */
+.pm2-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+    border: 1px solid var(--m1-hairline);
+    border-radius: 12px;
+}
+.pm2-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    min-width: 980px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+}
+.pm2-table th,
+.pm2-table td {
+    padding: 7px 5px;
+    border-bottom: 1px solid var(--m1-hairline);
+    text-align: center;
+    vertical-align: middle;
+}
+.pm2-table thead th {
+    background: #f1f5f9;
+    color: var(--m1-ink-2);
+    font-weight: 600;
+    font-size: 11.5px;
+    line-height: 1.2;
+    hyphens: auto;
+}
+.pm2-table .pm2-group {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 11px;
+    border-left: 2px solid #fff;
+}
+.pm2-group-inicio { background: #e0ecf9 !important; }
+.pm2-group-etapa0 { background: #ede7f9 !important; }
+.pm2-group-diseno { background: #e2f3ef !important; }
+.pm2-group-resultado { background: #fbefdc !important; }
+.pm2-dir {
+    display: block;
+    color: var(--m1-muted);
+    font-size: 11px;
+}
+.pm2-table .pm2-answer-col,
+.pm2-table .pm2-answer {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    text-align: left;
+    padding-left: 12px !important;
+    min-width: 150px;
+    max-width: 190px;
+    background: #fff;
+    box-shadow: 1px 0 0 var(--m1-hairline);
+}
+.pm2-table thead .pm2-answer-col {
+    background: #f1f5f9;
+    z-index: 2;
+}
+.pm2-table .pm2-answer {
+    font-weight: 600;
+    color: var(--m1-ink);
+}
+.pm2-n {
+    color: var(--m1-muted);
+    font-weight: 600;
+}
+.pm2-cell {
+    white-space: nowrap;
+    color: var(--m1-ink);
+    font-weight: 600;
+}
+.pm2-cell.is-hidden {
+    color: #cbd5e1;
+    font-weight: 400;
+}
+.pm2-table tr.is-aside .pm2-answer,
+.pm2-table tr.is-aside td {
+    font-style: italic;
+    color: var(--m1-muted);
+}
+
+.pm2-gl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 24px;
+    margin: 0 0 12px;
+}
+.pm2-gl dt {
+    font-size: 14px;
+    font-weight: 600;
+}
+.pm2-gl dd {
+    margin: 0;
+    font-size: 13px;
+    color: var(--m1-ink-2);
+}
+
+@media (max-width: 767.98px) {
+    .pm2 .pm2-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .pm2-hl-list,
+    .pm2-gl {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .pm2 .pm2-control,
+    .pm2 .pm2-control select {
+        width: 100%;
+        max-width: 100%;
+    }
+    .pm2-table .pm2-answer-col,
+    .pm2-table .pm2-answer {
+        min-width: 140px;
+    }
+}

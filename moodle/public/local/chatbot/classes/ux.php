@@ -75,6 +75,7 @@ class ux {
         // Pedido del cliente del 03-11-2026: por ahora solo la Bienvenida y Perfilamiento; el resto desde enero.
         'aperturaruta' => 0,    // Modulo 1: hasta la fecha «aperturafecha» se cierran las demas etapas, sus pestanas y el asistente (v1.21.9). Apagado por defecto: se enciende en cada servidor.
         'perfilm2' => 0,        // Mientras la ruta esta cerrada, al terminar el perfil: matricula en el Modulo 2 («aperturam2») y boton a su portada (v1.21.10). Apagado por defecto.
+        'perfilesm2' => 1,      // Informe «Perfiles en el Modulo 2»: perfil del Modulo 1 x comportamiento en el Modulo 2, con su boton flotante (v1.21.11).
     ];
 
     /**

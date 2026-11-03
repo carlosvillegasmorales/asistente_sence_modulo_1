@@ -1,5 +1,30 @@
 # Changelog
 
+## M1-v1.21.11 (2026-11-03)
+
+Pedido del cliente del 03-11: saber **cómo se comportan los perfiles del Módulo 1 en el uso del Módulo 2**. Sin cambios en
+la base.
+
+- **Informe «Perfiles en el Módulo 2»** (`perfiles_m2.php`, cálculo puro en `classes/perfiles_m2.php`). Cruza las 7
+  preguntas cerradas del perfilamiento (experiencia, familiaridad, rol, programa, modalidad, tiempo y aspecto a
+  fortalecer) con 15 comportamientos en el Módulo 2, calculados con los mismos hechos del tablero
+  (`tablero_m2::facts()`):
+  - **Inicio:** entregó, días hasta entregar, vio la guía antes.
+  - **Ficha y Etapa 0:** completa al primer envío, aprobada al primer ciclo, ciclos, CRÍTICO observado, días para corregir.
+  - **Diseño:** llegó al diseño, rondas de ajuste, detenido.
+  - **Resultado:** terminó, días del proceso, puntaje de la Etapa 8, percepción.
+- **Qué muestra la página:** cifras de cabecera, «Lo que más diferencia a los perfiles» (las diferencias más grandes en
+  todas las preguntas, con reglas fijas y umbrales; una por comportamiento) y un mapa de calor pregunta × comportamiento
+  (verde el mejor de la columna, ámbar el peor).
+- **Privacidad:** solo coordinación (`viewanalytics`) y solo agregados. Un grupo con menos de 3 personas con el dato no se
+  muestra. El perfil cuenta solo con el consentimiento vigente.
+- **Herramientas:** exportación CSV (Excel), PDF con el mismo generador del tablero y filtro por período.
+- **Modo demostración** (`demo=1`): cohorte ficticia de 60 personas, determinista y rotulada, para mostrar el informe
+  antes de tener datos.
+- **Botón flotante** verde, encima del de indicadores (abajo a la izquierda). Interruptor `perfilesm2`, encendido por
+  defecto.
+- Verificador nuevo: `cli/verificar_perfiles_m2.php`.
+
 ## M1-v1.21.10 (2026-11-03)
 
 Pedido del cliente del 03-11: mientras el Módulo 1 espera su fecha de apertura, quien termina el perfilamiento pasa al

@@ -15,7 +15,8 @@ class output_hook {
     public static function after_main_region(\core\hook\output\after_standard_main_region_html_generation $hook): void {
         global $CFG;
         require_once($CFG->dirroot . '/local/chatbot/lib.php');
-        $html = local_chatbot_get_widget_html() . local_chatbot_get_analytics_button_html() . self::pdf_viewer_fix();
+        $html = local_chatbot_get_widget_html() . local_chatbot_get_analytics_button_html()
+            . local_chatbot_get_profiles_button_html() . self::pdf_viewer_fix();
         if (!empty($html)) {
             $hook->add_html($html);
         }

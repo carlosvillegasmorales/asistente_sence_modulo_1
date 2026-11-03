@@ -101,7 +101,8 @@ function local_chatbot_extend_navigation(global_navigation $navigation): void {
  * @return string HTML del widget y scripts asociados.
  */
 function local_chatbot_standard_after_main_region_html(): string {
-    return local_chatbot_get_widget_html() . local_chatbot_get_analytics_button_html();
+    return local_chatbot_get_widget_html() . local_chatbot_get_analytics_button_html()
+        . local_chatbot_get_profiles_button_html();
 }
 
 /**
@@ -112,7 +113,7 @@ function local_chatbot_standard_after_main_region_html(): string {
 function local_chatbot_before_footer(): void {
     // El boton «?» de ayuda del pie de pagina se oculta (pedido del cliente del 02-11-2026, interruptor «sinayuda»).
     echo local_chatbot_get_widget_html() . local_chatbot_get_analytics_button_html()
-        . \local_chatbot\ux::footer_help_css(\local_chatbot\ux::on('sinayuda'));
+        . local_chatbot_get_profiles_button_html() . \local_chatbot\ux::footer_help_css(\local_chatbot\ux::on('sinayuda'));
 }
 
 /**
@@ -177,6 +178,45 @@ function local_chatbot_get_analytics_button_html(): string {
     $url = (new moodle_url('/local/chatbot/indicadores.php'))->out();
     $label = s(get_string('analytics_heading', 'local_chatbot'));
     return local_chatbot_analytics_fab($url, $label);
+}
+
+/**
+ * Boton flotante «Perfiles en el Modulo 2» (pedido del cliente del 03-11-2026), encima del de indicadores: mismo permiso
+ * (local/chatbot:viewanalytics) y mismos lugares, con su interruptor «perfilesm2».
+ *
+ * @return string
+ */
+function local_chatbot_get_profiles_button_html(): string {
+    global $PAGE;
+
+    static $rendered = false;
+    if ($rendered) {
+        return '';
+    }
+    $rendered = true;
+
+    if (!isloggedin() || isguestuser() || !\local_chatbot\ux::on('perfilesm2')
+            || !has_capability('local/chatbot:viewanalytics', context_system::instance())) {
+        return '';
+    }
+    $coursepage = isset($PAGE->course->id) ? (int) $PAGE->course->id : 0;
+    $pageurl = $PAGE->has_set_url() ? $PAGE->url->get_path() : '';
+    if (strpos($pageurl, '/local/chatbot/perfiles_m2.php') !== false) {
+        return '';
+    }
+    // Un curso con el asistente oculto que tampoco es del Modulo 2 no lleva botones de informes.
+    if ($coursepage > (int) SITEID && \local_chatbot\ux::hidden_in_course($coursepage)
+            && !isset(\local_chatbot\perfiles_m2::m2_courses()[$coursepage])) {
+        return '';
+    }
+    $url = (new moodle_url('/local/chatbot/perfiles_m2.php'))->out();
+    $label = s(get_string('pm2_fab', 'local_chatbot'));
+    return <<<HTML
+    <a href="{$url}" class="chatbot-reports-fab chatbot-reports-fab--profiles" aria-label="{$label}">
+        <svg class="chatbot-reports-fab-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="7" r="3"></circle><path d="M3 20v-1a6 6 0 0 1 12 0v1"></path><path d="M16 3.5a3 3 0 0 1 0 6"></path><path d="M21 20v-1a5 5 0 0 0-3-4.6"></path></svg>
+        <span class="chatbot-reports-fab-label">{$label}</span>
+    </a>
+HTML;
 }
 
 /**
