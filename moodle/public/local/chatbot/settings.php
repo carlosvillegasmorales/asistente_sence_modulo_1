@@ -47,6 +47,22 @@ if ($hassiteconfig) {
             $default
         ));
     }
+    // Plazos «X» de los avisos del tablero del Modulo 2: los define el cliente antes de la puesta en produccion.
+    $settings->add(new admin_setting_configtext(
+        'local_chatbot/m2plazocorreccion',
+        get_string('m2plazocorreccion', 'local_chatbot'),
+        get_string('m2plazocorreccion_desc', 'local_chatbot'),
+        \local_chatbot\tablero_m2::PLAZO_CORRECCION,
+        PARAM_INT
+    ));
+    $settings->add(new admin_setting_configtext(
+        'local_chatbot/m2plazodetenido',
+        get_string('m2plazodetenido', 'local_chatbot'),
+        get_string('m2plazodetenido_desc', 'local_chatbot'),
+        \local_chatbot\tablero_m2::PLAZO_DETENIDO,
+        PARAM_INT
+    ));
+
     // Cursos que se abren al cerrar el Modulo 1 (Modulos 2 y 3), por id, separados por coma.
     $settings->add(new admin_setting_configtext(
         'local_chatbot/nextmodules',

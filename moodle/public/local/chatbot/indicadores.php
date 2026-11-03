@@ -1157,6 +1157,19 @@ echo $OUTPUT->header();
             <section class="m1-card m1-span-12" data-m1-tab="modulo2">
                 <h2 class="m1-card-title"><?php echo s(get_string('m2_title', 'local_chatbot', format_string($curso['nombre']))); ?></h2>
                 <p class="m1-card-help"><?php echo s(get_string('m2_help', 'local_chatbot')); ?></p>
+                <?php if (\local_chatbot\ux::on('tablerom2')): ?>
+                    <?php // El tablero del Modulo 2 (propuesta de Interfases v3) tiene el detalle por grupo de indicadores. ?>
+                    <p class="m2d-actions">
+                        <a class="btn btn-sm btn-primary" href="<?php echo (new moodle_url('/local/chatbot/tablero_m2.php',
+                            ['courseid' => $curso['courseid'], 'vista' => 'programa']))->out(); ?>"><?php
+                            echo s(get_string('m2dash_link_program', 'local_chatbot')); ?></a>
+                        <?php if (has_capability('local/chatbot:managekb', $context)): ?>
+                            <a class="btn btn-sm btn-secondary" href="<?php echo (new moodle_url('/local/chatbot/tablero_m2.php',
+                                ['courseid' => $curso['courseid'], 'vista' => 'agente']))->out(); ?>"><?php
+                                echo s(get_string('m2dash_link_agent', 'local_chatbot')); ?></a>
+                        <?php endif; ?>
+                    </p>
+                <?php endif; ?>
                 <div class="m1-m2-kpis">
                     <div><span class="m1-m2-num"><?php echo (int) $curso['fichas']; ?></span>
                         <?php echo s(get_string('m2_fichas', 'local_chatbot')); ?></div>

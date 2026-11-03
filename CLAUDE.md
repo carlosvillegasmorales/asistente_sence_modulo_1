@@ -72,17 +72,38 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   `{nivel: 1..5}` de los títulos y coloca la librería al inicio del pedido (`exante::request_parts()`, interruptor
   `libreriaruta`; la etapa 7 no usa librería).
   `cli/configurar_modulo2.php --curso=ID` deja la pestaña Fase 1 del curso como la pidió el cliente (enlaces a
-  los materiales y al checklist, recursos ocultos, condición centrada, botón a la ficha) y pone el botón de la
-  Fase 2 al final de esa pestaña; idempotente. **Correrlo de nuevo después de restaurar el curso** (una
+  los materiales y al checklist, recursos ocultos, condición centrada, botón a la ficha), pone el botón de la
+  Fase 2 al final de esa pestaña y, debajo del botón de la Fase 3, la explicación del tablero con su botón; idempotente. **Correrlo de nuevo después de restaurar el curso** (una
   restauración del 21-10 borró los ajustes).
 - `classes/diseno.php` + `diseno.php?courseid=ID&etapa=N` — **Módulo 2, Fase 2**: las 6 etapas del Prompt
   Maestro como hojas de trabajo (propuesta de la IA, edición, ajustes, aceptación, Word). Requiere la ficha
   validada y vigente (`exante::fase1_ok()`); no se salta una etapa sin aceptar la anterior. Interruptor `disenofase2`.
   **Fase 3** en la misma página (`diseno_fase3.php`): etapa 7 consolida las 6 etapas sin editar (se ajusta en la
   Fase 2) y etapa 8 evalúa con la rúbrica del cliente (`diseno::rubrica()`, textual, versión del 30-10 con sus pautas de aplicación; también en la librería como `08_rubrica_validacion_diseno.md`); total y banda los calcula el
-  código, aprobado desde 25/36; con aprobación se descarga el documento final. Cambiar una etapa invalida 7 y 8.
+  código, aprobado desde 25/36; con aprobación se descarga el documento final. Cambiar una etapa invalida 7 y 8. Toda etapa cierra con «Registro de vacíos…», «Verificación de calidad de la etapa» y «Referencias consultadas» (prompt v11); `diseno::missing_items()` revisa que el producto traiga todo lo que pide su etapa (interruptor `revisioncontenido`) y `complete_consolidation()` repone en la consolidación del asistente los vacíos y la verificación que omitió, copiándolos de cada etapa.
   En la etapa 8, los criterios vinculados a secciones del checklist con ⚠/❌ en la validación vigente tienen tope 3:
   el vínculo sección → criterio es `diseno::rubric_links()` y el tope lo aplica el código (`rubric_limits()`), no el modelo.
+- `classes/diagrama.php` — diagramas de cajas y flechas de los productos de las etapas: el modelo entrega un bloque
+  «diagrama» (una línea por caja, `modo: ciclo` opcional) y se convierte en tabla con colores (editable y válida en Word);
+  los dibujos de caracteres (│ ─ ▼) se vuelven lista. Se aplica en `diseno::product_html()` y en `html_to_docx()`.
+  Para el documento final, `art_table_html()` rehace como tabla una tabla dibujada con cajas y `tree_items()` lee un árbol
+  (├── └──) con sus niveles.
+- `classes/documento_final.php` — **documento final de la Fase 3** con el diseño del ejemplo del cliente («Diseño Final
+  Validado - Ejemplo - Interfases»): portada con logo (`pix/logo_interfases.png`, distinto del ícono
+  `interfases_logo.png`) y datos de `diseno::final_cover()`, índice con PAGEREF, encabezado y pie, una etapa por página,
+  tablas anchas en secciones horizontales. Arma el OOXML a mano desde el HTML de la etapa 7 + el anexo de la etapa 8; lo
+  llama la acción `final` de `diseno.php` (interruptor `docfinal`; apagado, `diseno::html_to_docx()`). El Word de cada etapa usa el mismo generador sin portada ni índice (`portada => false`, acción `word`, interruptor `docetapa`), y todo producto pasa antes por `diseno::normalize_product()` (fórmulas LaTeX a texto, bloques preformateados a HTML, tablas ASCII guardadas como viñetas reparadas). Adapta la
+  estructura real del consolidado («PARTE N» → «ETAPA N», títulos en mayúsculas, «1.» → «N.1») y los bloques
+  preformateados (tablas y árboles dibujados, encabezados de instrumentos como ficha). Revisarlo **abriendo el Word**
+  (exportar a PDF con Word por COM y mirar las páginas): así se encontraron filas altas que dejaban media página en
+  blanco y títulos solos al pie de página, que el XML no muestra.
+- `classes/tablero_m2.php` + `tablero_m2.php?courseid=ID` — **tablero del Módulo 2** (propuesta de Interfases v3): vistas
+  «Mi avance» (la persona, solo sus fichas, con los 6 avisos y la encuesta de cierre), «Programa» (`viewanalytics`,
+  agregados A–F y H, sin nombres) y «Calidad del agente» (`managekb`, revisión experta de una muestra, indicador G). El
+  cálculo es puro (`facts()` por ficha → `program()`, `agent()`, `notices()`); los avisos salen por la tarea
+  `send_m2_notices` (proveedor `avisom2`). Datos propios: envíos al control de entrada (`m2_envio`, se registran en
+  `ficha_exante.php`), revisión experta, encuesta y `diseno.rondas`. Interruptores `tablerom2` y `avisosm2`; plazos «X»
+  en los ajustes `m2plazocorreccion` y `m2plazodetenido`.
 - `cli/preparar_curso.php` — crea las actividades del puente en un curso.
   El campo correcto para el código de actividad en `create_module()` es
   **`cmidnumber`**, no `idnumber` (ese se ignora en silencio).
@@ -91,8 +112,9 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ```bash
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
-  Deben pasar sin fallos. Al 30-10-2026 (M1-v1.20.16): **44 celdas de la matriz de acceso y 1248 claves de idioma**;
-  `verificar_exante.php` 191 casos, `verificar_diseno.php` 161 y `verificar_libreria_ruta.php` 84, entre otros, en 20 scripts.
+  Deben pasar sin fallos. Al 02-11-2026 (M1-v1.21.5): **44 celdas de la matriz de acceso y 1487 claves de idioma**;
+  `verificar_exante.php` 191 casos, `verificar_diseno.php` 227, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99
+  y `verificar_documento_final.php` 94, entre otros, en 22 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:
   solo corren en el servidor. `verificar_idiomas.php` compara `lang/en` con `lang/es`:
   toda cadena nueva va en **los dos**, porque Moodle arma las claves desde el

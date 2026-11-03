@@ -138,11 +138,29 @@ function local_chatbot_get_analytics_button_html(): string {
     if (!isloggedin() || isguestuser()) {
         return '';
     }
+    $coursepage = isset($PAGE->course->id) ? (int) $PAGE->course->id : 0;
+    $pageurl = $PAGE->has_set_url() ? $PAGE->url->get_path() : '';
+    // En un curso del Modulo 2 el boton lleva a su tablero (programa o «Mi avance»), aunque el asistente este oculto ahi.
+    if ($coursepage > (int) SITEID && \local_chatbot\ux::on('fabm2') && \local_chatbot\ux::on('tablerom2')) {
+        global $DB, $USER;
+        $cursom2 = $DB->record_exists('local_chatbot_exante', ['courseid' => $coursepage]);
+        $vista = \local_chatbot\tablero_m2::fab_view($cursom2,
+            has_capability('local/chatbot:viewanalytics', context_system::instance()),
+            $cursom2 && has_capability('local/chatbot:use', context_course::instance($coursepage))
+                && $DB->record_exists('local_chatbot_exante', ['courseid' => $coursepage, 'userid' => $USER->id]));
+        if ($cursom2) {
+            if ($vista === null || strpos($pageurl, '/local/chatbot/tablero_m2.php') !== false) {
+                return '';
+            }
+            $url = (new moodle_url('/local/chatbot/tablero_m2.php', ['courseid' => $coursepage, 'vista' => $vista]))->out();
+            $label = s(get_string('m2dash_fab', 'local_chatbot'));
+            return local_chatbot_analytics_fab($url, $label);
+        }
+    }
     if (!has_capability('local/chatbot:viewanalytics', context_system::instance())) {
         return '';
     }
     // Cursos sin asistente: tampoco el acceso flotante a los indicadores.
-    $coursepage = isset($PAGE->course->id) ? (int) $PAGE->course->id : 0;
     if (\local_chatbot\ux::hidden_in_course($coursepage)) {
         return '';
     }
@@ -150,14 +168,23 @@ function local_chatbot_get_analytics_button_html(): string {
     // En la propia pagina de indicadores el boton apuntaria a donde ya se esta.
     // has_set_url() y no isset(): url es una propiedad magica de moodle_page,
     // que define __get pero no __isset, asi que isset() siempre da false.
-    $pageurl = $PAGE->has_set_url() ? $PAGE->url->get_path() : '';
     if (strpos($pageurl, '/local/chatbot/indicadores.php') !== false) {
         return '';
     }
 
     $url = (new moodle_url('/local/chatbot/indicadores.php'))->out();
     $label = s(get_string('analytics_heading', 'local_chatbot'));
+    return local_chatbot_analytics_fab($url, $label);
+}
 
+/**
+ * HTML del boton flotante de indicadores (anclado a la izquierda).
+ *
+ * @param string $url
+ * @param string $label Ya escapado.
+ * @return string
+ */
+function local_chatbot_analytics_fab(string $url, string $label): string {
     return <<<HTML
     <a href="{$url}" class="chatbot-reports-fab" aria-label="{$label}">
         <svg class="chatbot-reports-fab-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>

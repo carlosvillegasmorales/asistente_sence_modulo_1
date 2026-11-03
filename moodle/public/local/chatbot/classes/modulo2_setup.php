@@ -39,6 +39,19 @@ class modulo2_setup {
     /** @var string Texto del boton a las etapas 7 y 8 del asistente. */
     const BOTON_VALIDACION = 'Ir a la consolidación y evaluación del diseño · Fase 3';
 
+    /** @var string Boton al tablero del Modulo 2, debajo del de la Fase 3. */
+    const BOTON_TABLERO = 'Ver mi tablero del Módulo 2';
+
+    /** @var string Titulo de la explicacion del tablero. */
+    const TABLERO_TITULO = 'Tu tablero del Módulo 2';
+
+    /** @var string Explicacion del tablero, para quien cursa. */
+    const TABLERO_TEXTO = 'En el tablero ves tu avance y tus resultados en un solo lugar: la decisión de cada ciclo de '
+        . 'la validación de tu ficha (Etapa 0), los ítems que debes corregir y los criterios de la rúbrica que quedarían '
+        . 'limitados a 3 si no los corriges, el estado y las rondas de ajuste de cada etapa del diseño, el puntaje de tu '
+        . 'diseño por criterio (Etapa 8) y los avisos automáticos. Revísalo cuando quieras: te muestra qué corregir y '
+        . 'cómo tu diagnóstico afecta el puntaje de tu diseño. Al final encontrarás una breve encuesta de cierre.';
+
     /**
      * Recursos de la Fase 1 por su nombre en el curso.
      *
@@ -438,6 +451,39 @@ class modulo2_setup {
             $html = self::add_button($html, $rubrica, self::BOTON_RUBRICA, 'RUBRICA', false);
         }
         return self::add_button($html, $url, self::BOTON_VALIDACION, 'ASISTENTE FASE 3');
+    }
+
+    /**
+     * Debajo del boton de la Fase 3: la explicacion del tablero del Modulo 2 y el boton para abrirlo (pedido del
+     * 01-11-2026). Si ya estaba, se reemplaza (asi un texto nuevo o la URL de otro servidor quedan al dia).
+     *
+     * @param string $html Resumen de la ultima seccion de la pestana «Fase 3».
+     * @param string $url URL del tablero (tablero_m2.php?courseid=...).
+     * @return string
+     */
+    public static function add_dashboard_block(string $html, string $url): string {
+        $html = self::remove_dashboard_block($html);
+        $bloque = '<!-- TABLERO M2 -->' . "\n"
+            . '<div style="margin: 26px 0 6px 0; padding: 22px 26px; border-radius: 12px; background: #eef5fb; '
+            . 'border: 1px solid #b9d3ea;">'
+            . '<h4 style="margin: 0 0 10px 0; color: #173f5f;">' . self::TABLERO_TITULO . '</h4>'
+            . '<p style="margin: 0 0 10px 0; line-height: 1.7; text-align: justify;">' . self::TABLERO_TEXTO . '</p>'
+            . '<div style="text-align: center; margin-top: 16px;"><a href="' . htmlspecialchars($url, ENT_QUOTES)
+            . '" style="display: inline-block; background: #20639b; color: #ffffff; text-decoration: none; '
+            . 'font-weight: bold; font-size: 16px; padding: 12px 24px; border-radius: 10px; border: 2px solid #20639b;">'
+            . self::BOTON_TABLERO . ' &rarr;</a></div></div>' . "\n" . '<!-- /TABLERO M2 -->' . "\n";
+        $pos = strrpos($html, '</div>');
+        return $pos === false ? $html . $bloque : substr($html, 0, $pos) . $bloque . substr($html, $pos);
+    }
+
+    /**
+     * Quita la explicacion y el boton del tablero (con el interruptor «tablerom2» apagado).
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function remove_dashboard_block(string $html): string {
+        return preg_replace('/<!-- TABLERO M2 -->.*?<!-- \/TABLERO M2 -->\s*/su', '', $html);
     }
 
     /**

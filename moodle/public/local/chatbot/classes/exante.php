@@ -1644,6 +1644,10 @@ class exante {
         $tx = $DB->start_delegated_transaction();
         $DB->delete_records('local_chatbot_diseno', ['fichaid' => $fichaid]);
         $DB->delete_records('local_chatbot_exante_val', ['fichaid' => $fichaid]);
+        // Registros del tablero del Modulo 2 (envios, encuesta y revision experta de ese diseno).
+        foreach (['local_chatbot_m2_envio', 'local_chatbot_m2_encuesta', 'local_chatbot_m2_revision'] as $tabla) {
+            $DB->delete_records($tabla, ['fichaid' => $fichaid]);
+        }
         $DB->delete_records('local_chatbot_exante', ['id' => $fichaid]);
         $tx->allow_commit();
 

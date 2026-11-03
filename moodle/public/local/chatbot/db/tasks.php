@@ -29,4 +29,15 @@ $tasks = [
         'dayofweek' => '*',
         'month' => '*',
     ],
+    [
+        // Avisos del tablero del Modulo 2: cada hora, para que un item CRITICO o un techo bajo se avisen el mismo dia;
+        // cada aviso se envia una vez (los de plazo se repiten cada tantos dias como su plazo).
+        'classname' => 'local_chatbot\task\send_m2_notices',
+        'blocking' => 0,
+        'minute' => '20',
+        'hour' => '*',
+        'day' => '*',
+        'dayofweek' => '*',
+        'month' => '*',
+    ],
 ];

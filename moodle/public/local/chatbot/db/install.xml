@@ -542,6 +542,7 @@
         <FIELD NAME="informe" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Etapa 8: evaluacion con la rubrica, en JSON"/>
         <FIELD NAME="huella" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Etapas 7 y 8: huella de las etapas consolidadas"/>
         <FIELD NAME="timeaccepted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="rondas" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Rondas de ajuste pedidas en la etapa (indicador de iteraciones del tablero)"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
@@ -551,6 +552,66 @@
       <INDEXES>
         <INDEX NAME="fichaid_etapa" UNIQUE="true" FIELDS="fichaid, etapa"/>
         <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_m2_envio" COMMENT="Modulo 2: cada envio de la ficha al control de entrada (pase o no), para los indicadores del grupo B del tablero">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="fichaid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="completo" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 si paso el control de entrada"/>
+        <FIELD NAME="faltantes" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Campos que faltaron, en JSON"/>
+        <FIELD NAME="plan" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 si venia el Plan Formativo"/>
+        <FIELD NAME="perfil" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 si venia el Perfil Ocupacional"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="fichaid" UNIQUE="false" FIELDS="fichaid"/>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_m2_revision" COMMENT="Modulo 2: revision experta de una muestra de validaciones (Etapa 0) y evaluaciones (Etapa 8), para la calidad del agente. Supervisa al asistente, no a las personas">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="tipo" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="etapa0 o etapa8"/>
+        <FIELD NAME="refid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Validacion (etapa0) o fila de la etapa 8 revisada"/>
+        <FIELD NAME="fichaid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="revisorid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="agente" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Resultado del agente al revisar, en JSON (decision o puntajes)"/>
+        <FIELD NAME="experto" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Resultado de la revision experta, en JSON (decision o puntajes)"/>
+        <FIELD NAME="incidencias" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Tipos de incidencia, en JSON"/>
+        <FIELD NAME="comentario" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="tipo_refid" UNIQUE="true" FIELDS="tipo, refid"/>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_m2_encuesta" COMMENT="Modulo 2: encuesta de cierre (utilidad y claridad percibidas, escala 1 a 5), una por ficha evaluada">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="fichaid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="respuestas" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Pregunta => 1..5, en JSON"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="fichaid" UNIQUE="true" FIELDS="fichaid"/>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
       </INDEXES>
     </TABLE>
   </TABLES>

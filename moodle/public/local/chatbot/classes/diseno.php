@@ -17,7 +17,25 @@ defined('MOODLE_INTERNAL') || die();
 class diseno {
 
     /** @var string Version del prompt de diseno: se guarda con cada producto (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F2-etapas-v8';
+    const PROMPT_VERSION = 'M2-F2-etapas-v11';
+
+    /** @var int Desde esta version del prompt cada etapa cierra con vacios, verificacion y referencias (revision del 02-11). */
+    const PROMPT_CIERRE = 11;
+
+    /** @var string Secciones con que cierra toda etapa, como en el ejemplo del cliente («Diseño Final Validado»). */
+    const SECCION_VACIOS = 'Registro de vacíos de información y propuestas de solución';
+    const SECCION_VERIFICACION = 'Verificación de calidad de la etapa';
+    const SECCION_REFERENCIAS = 'Referencias consultadas';
+
+    /** @var string Regla de los prompts: formulas en texto, no en LaTeX (Moodle no lo dibuja; pedido del cliente del 02-11). */
+    const REGLA_FORMULAS = '- Fórmulas: escríbelas en texto corriente, con los signos × ÷ = y %, por ejemplo «Porcentaje final de '
+        . 'logro = (% Instrumento 1 × 0,20) + (% Instrumento 3 × 0,60) + (% Instrumento 5 × 0,20)». Nunca uses LaTeX ni '
+        . 'signos $ o $$, \\text, \\times o \\frac: la plataforma no los dibuja.'
+        . "\n" . '- Instrumentos y formularios (listas de cotejo, escalas, pautas, hojas de registro, encabezados con nombre, '
+        . 'RUT y fecha): escríbelos con tablas Markdown (una fila por ítem y una columna por opción, con ☐ en cada casilla) '
+        . 'y texto normal. Nunca en bloques de código, con líneas de puntos (.....), separadores (-----, =====) ni '
+        . 'columnas alineadas con espacios: en la página y en el Word se desarman. No uses emojis ni íconos (la plataforma no '
+        . 'los guarda y aparecen como «?»): para marcar, usa ☐.';
 
     /** Estado del producto. */
     const BORRADOR = 'borrador';
@@ -50,11 +68,16 @@ class diseno {
                     . 'estar alineado con el aprendizaje esperado y ser utilizable como título formal del diseño.'],
             3 => ['titulo' => 'Secuencia instruccional', 'archivo' => 'Etapa_3_Secuencia_instruccional',
                 'incluye' => ['Inicio / Desarrollo / Cierre',
-                    'Alcance de cada fase (descripción de lo que se espera lograr en la fase, sin formularlo como objetivo '
-                        . 'específico)',
+                    'Alcance de cada fase',
                     'Actividades (persona facilitadora / participantes)', 'Recursos',
                     'Tiempo estimado en minutos por actividad y por fase; la suma total no debe superar el tiempo asignado '
                         . 'a la experiencia de aprendizaje (ficha, subsección 2.3)',
+                    'Evidencias parciales'],
+                // Indicaciones del Prompt Maestro que van solo al pedido a la IA, no a la lista que ve la persona.
+                'indicaciones' => ['Alcance de cada fase: descripción de lo que se espera lograr en la fase, sin '
+                    . 'formularlo como objetivo específico.'],
+                // Lo que la revision automatica busca en el producto (titulos, columnas de tabla o rotulos en negrita).
+                'comprobar' => ['Inicio', 'Desarrollo', 'Cierre', 'Alcance', 'Actividades', 'Recursos', 'Minutos',
                     'Evidencias parciales'],
                 'nota' => ''],
             4 => ['titulo' => 'Materiales instruccionales de apoyo al aprendizaje',
@@ -65,10 +88,14 @@ class diseno {
             5 => ['titulo' => 'Plan de evaluación', 'archivo' => 'Etapa_5_Plan_de_evaluacion',
                 'incluye' => ['Tabla con: aprendizaje esperado, criterio de evaluación, evidencia, instrumento, '
                     . 'indicador de logro, momento de evaluación y responsable'],
+                'comprobar' => ['Aprendizaje esperado', 'Criterio de evaluación', 'Evidencia', 'Instrumento',
+                    'Indicador de logro', 'Momento de evaluación', 'Responsable'],
                 'nota' => 'Una fila por criterio de evaluación.'],
             6 => ['titulo' => 'Instrumentos evaluativos', 'archivo' => 'Etapa_6_Instrumentos_evaluativos',
                 'incluye' => ['Rúbricas', 'Listas de cotejo', 'Escalas de apreciación', 'Pautas de observación',
                     'Pruebas aplicadas'],
+                // Los tipos de instrumento dependen del plan de evaluacion: no se exige cada uno.
+                'comprobar' => [],
                 'nota' => 'Desarrolla solo los instrumentos que el plan de evaluación (etapa 5) definió. Todos los '
                     . 'instrumentos deben estar redactados y listos para implementación.'],
         ];
@@ -466,7 +493,7 @@ class diseno {
             if ($p < 1 || $p > 4 || (float) $c['puntaje'] !== (float) $p) {
                 return null;
             }
-            $justificacion = \core_text::substr(trim((string) ($c['justificacion'] ?? '')), 0, 800);
+            $justificacion = \core_text::substr(self::strip_citations(trim((string) ($c['justificacion'] ?? ''))), 0, 800);
             $p = $exigeevidencia ? self::supported_score($p, $justificacion) : $p;
             if (in_array($id, $limitados, true)) {
                 $p = min($p, 3);
@@ -477,7 +504,7 @@ class diseno {
         $lista = static function($v) {
             $salida = [];
             foreach ((array) $v as $t) {
-                $t = is_scalar($t) ? \core_text::substr(trim((string) $t), 0, 600) : '';
+                $t = is_scalar($t) ? \core_text::substr(self::strip_citations(trim((string) $t)), 0, 600) : '';
                 if ($t !== '') {
                     $salida[] = $t;
                 }
@@ -565,9 +592,21 @@ class diseno {
             . 'esperado, criterios de evaluación, contexto, modalidad, tiempos, participantes) van una sola vez, en una '
             . 'sección inicial de datos generales; en las partes siguientes no los vuelvas a transcribir.';
         $l[] = '- No agregues contenido nuevo ni cambies decisiones de diseño: solo reorganizas lo que la persona aceptó.';
+        $l[] = '- Cada parte conserva todas las secciones de su etapa, con sus nombres, incluidas «' . self::SECCION_VACIOS
+            . '» y «' . self::SECCION_VERIFICACION . '» de esa etapa, al final de la parte. Solo los datos generales '
+            . 'comunes van una vez al comienzo.';
+        $l[] = '- No uses citas numéricas ni marcas entre corchetes dentro del texto (como [1] o [2]). Reúne las '
+            . 'referencias de las etapas (incluidas las fuentes web) en una sola sección «Referencias consultadas» al '
+            . 'final del documento, sin repetirlas.';
+        $l[] = '- Diagramas: las tablas de cajas con flechas (→ ← ↓ ↑) de las etapas consérvalas como bloques de código '
+            . 'con la etiqueta «diagrama» (una línea por caja, «Título / detalle»; «modo: ciclo» si se repiten en '
+            . 'círculo; «titulo: ...» opcional), sin dibujarlas nunca con caracteres.';
+        $l[] = self::REGLA_FORMULAS . ' Si una etapa trae una fórmula en LaTeX, pásala a texto.';
         $l[] = '- Transcribe el aprendizaje esperado y los criterios de evaluación tal como están.';
         $l[] = exante::NO_PEDAGOGIA;
         $l[] = '- Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género.';
+        $l[] = '- Escribe todo el producto en español de Chile, también las tablas, los vacíos y la verificación: nunca en '
+            . 'inglés ni en otro idioma.';
         $l[] = '';
         $l[] = guardrails::injection_clause();
         $l[] = '';
@@ -762,6 +801,9 @@ class diseno {
         foreach ($e['incluye'] as $item) {
             $l[] = '- ' . $item;
         }
+        foreach ($e['indicaciones'] ?? [] as $indicacion) {
+            $l[] = $indicacion;
+        }
         if ($e['nota'] !== '') {
             $l[] = $e['nota'];
         }
@@ -775,6 +817,8 @@ class diseno {
         $l[] = exante::NO_PEDAGOGIA;
         $l[] = '- Mantén la alineación constructiva con las etapas ya aceptadas y con los criterios de evaluación.';
         $l[] = '- Usa terminología de formación por competencias y lenguaje inclusivo con perspectiva de género.';
+        $l[] = '- Escribe todo el producto en español de Chile, también las tablas, los vacíos y la verificación: nunca en '
+            . 'inglés ni en otro idioma.';
         $l[] = '- Detecta vacíos de información y repórtalos. Propón soluciones viables sin alterar el plan formativo.';
         $l[] = '';
         foreach (exante::knowledge_rules($conlibreria, $conbusqueda) as $regla) {
@@ -782,6 +826,26 @@ class diseno {
         }
         $l[] = '- Considera el resultado de la validación de la ficha (Etapa 0) y su registro de observaciones no '
             . 'resueltas: incorpóralas como restricciones o prioridades de diseño.';
+        $l[] = '- No uses citas numéricas ni marcas entre corchetes dentro del texto (como [1] o [2]). Al final del '
+            . 'producto, después de la «Verificación de calidad de la etapa», agrega la sección «### Referencias '
+            . 'consultadas» con una lista de viñetas de los documentos que usaste (de la librería de conocimientos, el '
+            . 'Plan Formativo o el Perfil Ocupacional), por su nombre. Si no usaste ninguno aparte de la ficha, escribe '
+            . '«Sin referencias adicionales a la ficha». Las fuentes web las agrega la plataforma.';
+        $l[] = '- Diagramas: nunca dibujes cajas, líneas o flechas con caracteres (│ ─ ┌ ▼ →) ni texto alineado con '
+            . 'espacios, porque se desarman al descargar el Word. Si un diagrama ayuda (secuencia de pasos, estaciones, '
+            . 'rotación de subgrupos), entrégalo en un bloque de código con la etiqueta «diagrama»: una línea por caja, '
+            . 'con «Título / detalle» (el detalle es opcional); puedes agregar una línea «titulo: ...» y la línea '
+            . '«modo: ciclo» si los pasos se repiten en círculo (por ejemplo, la rotación de subgrupos); sin ella es una '
+            . 'secuencia. Entre 2 y 12 cajas. La plataforma lo dibuja como cajas con flechas. Ejemplo:';
+        $l[] = '```diagrama';
+        $l[] = 'modo: ciclo';
+        $l[] = 'titulo: Rotación de subgrupos por estaciones';
+        $l[] = 'Estación A / Aseo personal (criterios 1.5 y 1.6)';
+        $l[] = 'Estación B / Vestimenta y calzado (criterio 1.7)';
+        $l[] = 'Estación C / Acondicionamiento de la cama (criterio 1.8)';
+        $l[] = 'Estación D / Registro simplificado (criterio 1.9)';
+        $l[] = '```';
+        $l[] = self::REGLA_FORMULAS;
         $l[] = '';
         $l[] = 'CONTROL DE CALIDAD: antes de cerrar la etapa verifica la coherencia con la ficha, la alineación con el '
             . 'aprendizaje esperado y los criterios de evaluación, la aplicabilidad real y la consistencia con el tiempo '
@@ -793,6 +857,12 @@ class diseno {
             . 'un documento Word: títulos con ## y ###, listas y tablas Markdown cuando ayuden. Empieza directamente '
             . 'con el título «## Etapa ' . $etapa . ': ' . $e['titulo'] . '». No agregues saludos, preguntas al final '
             . 'ni comentarios fuera del producto: la plataforma ya le pregunta a la persona si quiere ajustes.';
+        $l[] = 'ESTRUCTURA OBLIGATORIA (la plataforma revisa que esté todo): cada elemento de la lista «Debe incluir '
+            . 'obligatoriamente» aparece con su nombre, como sección «### N. Nombre» cuando es un apartado del producto, '
+            . 'o como columna de tabla o rótulo en negrita («**Alcance:** ...») cuando es un dato de cada fase, actividad, '
+            . 'material o instrumento. No omitas ninguno. El producto termina siempre con estas tres secciones, en este '
+            . 'orden: «### ' . self::SECCION_VACIOS . '» (si no hay vacíos, dilo en una línea), «### '
+            . self::SECCION_VERIFICACION . '» y «### ' . self::SECCION_REFERENCIAS . '».';
         $l[] = '';
         $l[] = guardrails::injection_clause();
         $l[] = '';
@@ -844,7 +914,428 @@ class diseno {
         if (preg_match('/^```[a-zA-Z]*\s*\n(.*)\n```$/s', $texto, $m)) {
             $texto = trim($m[1]);
         }
+        return self::plain_math(self::strip_citations($texto));
+    }
+
+    /**
+     * Pasa a texto legible las formulas que el modelo escribe en LaTeX ($$\text{Porcentaje} = (\% \text{Inst. 1} \times
+     * 0.20)$$ → «Porcentaje = (% Inst. 1 × 0.20)»): Moodle no las dibuja y quedaban los comandos a la vista. Solo toca
+     * lo que va entre $$...$$, \[...\], \(...\) o $...$ con un comando dentro (un precio «$ 5.000» no cambia), y los
+     * comandos sueltos conocidos. Funcion pura; sirve para Markdown y para HTML ya guardado.
+     *
+     * @param string $texto
+     * @return string
+     */
+    public static function plain_math(string $texto): string {
+        if (strpos($texto, '\\') === false) {
+            return $texto;
+        }
+        $convertir = static function(string $f): string {
+            $f = preg_replace('/\\\\(?:text|mathrm|textbf|mathbf|textit|mathit|operatorname|mbox)\s*\{([^{}]*)\}/u', '$1', $f);
+            // \frac{a}{b} → (a ÷ b), de adentro hacia afuera.
+            for ($i = 0; $i < 5 && strpos($f, 'frac') !== false; $i++) {
+                $f = preg_replace('/\\\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/u', '($1 ÷ $2)', $f);
+            }
+            $f = strtr($f, ['\\times' => '×', '\\cdot' => '·', '\\div' => '÷', '\\leq' => '≤', '\\le' => '≤', '\\geq' => '≥',
+                '\\ge' => '≥', '\\neq' => '≠', '\\approx' => '≈', '\\pm' => '±', '\\sum' => 'Σ', '\\to' => '→',
+                '\\rightarrow' => '→', '\\%' => '%', '\\left' => '', '\\right' => '', '\\,' => ' ', '\\;' => ' ', '\\:' => ' ',
+                '\\!' => '', '\\quad' => ' ', '\\qquad' => ' ', '\\ ' => ' ', '\\{' => '{', '\\}' => '}', '\\_' => '_']);
+            $f = preg_replace('/\\\\[a-zA-Z]+/', '', $f);
+            $f = str_replace(['{', '}'], '', $f);
+            return trim(preg_replace('/[ \t]{2,}/', ' ', $f));
+        };
+        $texto = preg_replace_callback('/\$\$(.+?)\$\$|\\\\\[(.+?)\\\\\]|\\\\\((.+?)\\\\\)/su', static function(array $m) use ($convertir): string {
+            return $convertir($m[1] !== '' ? $m[1] : ($m[2] ?? '') . ($m[3] ?? ''));
+        }, $texto);
+        $texto = preg_replace_callback('/\$([^$\n]*\\\\[a-zA-Z%][^$\n]*)\$/u', static function(array $m) use ($convertir): string {
+            return $convertir($m[1]);
+        }, $texto);
+        // Comandos sueltos fuera de delimitadores.
+        if (preg_match('/\\\\(?:times|frac|text|div|cdot|leq|geq)\b/', $texto)) {
+            $texto = preg_replace_callback('/[^\n<>]*\\\\(?:times|frac|text|div|cdot|leq|geq)\b[^\n<>]*/u', static function(array $m) use ($convertir): string {
+                return $convertir($m[0]);
+            }, $texto);
+        }
         return $texto;
+    }
+
+    /**
+     * Datos de la portada del documento final (documento_final::build()): titulo, ficha y resultado de la evaluacion.
+     * Funcion pura.
+     *
+     * @param array $ficha Respuestas de la ficha (plan, modulo, aprendizaje, tiempo_experiencia).
+     * @param string $titulo Nombre de la experiencia.
+     * @param array $evaluacion Evaluacion vigente (total, banda).
+     * @param string $fecha Fecha de la evaluacion, ya con formato.
+     * @return array
+     */
+    public static function final_cover(array $ficha, string $titulo, array $evaluacion, string $fecha): array {
+        $limpio = static function($v): string {
+            return trim(rtrim(trim((string) $v), '.'));
+        };
+        $lineas = [];
+        foreach ([['Plan formativo', $limpio($ficha['plan'] ?? '')], ['Módulo', $limpio($ficha['modulo'] ?? '')],
+                ['Aprendizaje esperado', \core_text::substr($limpio($ficha['aprendizaje'] ?? ''), 0, 300)]] as $l) {
+            if ($l[1] !== '') {
+                $lineas[] = $l;
+            }
+        }
+        $minutos = (int) preg_replace('/\D+/', '', (string) ($ficha['tiempo_experiencia'] ?? ''));
+        if ($minutos > 0) {
+            $lineas[] = ['Duración de la experiencia', $minutos . ' minutos'];
+        }
+        if (isset($evaluacion['total'])) {
+            $lineas[] = ['Validación técnica', (int) $evaluacion['total'] . ' / 36 · ' . (string) ($evaluacion['banda']['texto'] ?? '')
+                . ($fecha !== '' ? ' · ' . $fecha : '')];
+        }
+        return ['etiqueta' => 'Diseño final validado', 'titulo' => $titulo,
+            'subtitulo' => 'Diseño de experiencia de aprendizaje por competencias', 'lineas' => $lineas,
+            'encabezado' => 'Diseño de experiencia de aprendizaje · Diseño final validado'];
+    }
+
+    /**
+     * HTML del producto a partir del Markdown del modelo: los diagramas («diagrama») quedan como tablas de cajas con
+     * flechas y los dibujos de caracteres, como listas (no se desarman al descargar el Word).
+     *
+     * @param string $markdown
+     * @return string
+     */
+    public static function product_html(string $markdown): string {
+        [$sin, $tablas] = diagrama::extract($markdown);
+        return clean_text(self::structure_pre(diagrama::insert(markdown_to_html($sin), $tablas)), FORMAT_HTML);
+    }
+
+    /**
+     * Numero de una version del prompt («M2-F2-etapas-v11» → 11; vacia o desconocida → 0). Funcion pura.
+     *
+     * @param string|null $version
+     * @return int
+     */
+    public static function prompt_number(?string $version): int {
+        return preg_match('/-v(\d+)$/', (string) $version, $m) ? (int) $m[1] : 0;
+    }
+
+    /**
+     * Raices de las palabras significativas de un elemento («Resultado de la validación (Etapa 0) y observaciones…» →
+     * result, valida, observ, resuel): lo anterior a una coma, punto y coma o dos puntos, sin lo que va entre parentesis ni
+     * tildes, palabras de cuatro letras o mas, seis primeras letras. Funcion pura.
+     *
+     * @param string $item
+     * @return string[]
+     */
+    public static function item_stems(string $item): array {
+        $nucleo = preg_replace('/\([^)]*\)/u', ' ', preg_split('/[,;:]/u', $item)[0]);
+        $vacias = ['para', 'como', 'cada', 'sobre', 'entre', 'segun', 'desde', 'hasta', 'esta', 'este', 'tabla'];
+        $raices = [];
+        foreach (preg_split('/[^a-z0-9]+/', self::plain_lower($nucleo)) as $w) {
+            if (strlen($w) >= 4 && !in_array($w, $vacias, true)) {
+                $raices[] = substr($w, 0, 6);
+            }
+        }
+        return array_values(array_unique($raices));
+    }
+
+    /**
+     * Texto en minusculas y sin tildes, para comparar. Funcion pura.
+     *
+     * @param string $t
+     * @return string
+     */
+    public static function plain_lower(string $t): string {
+        return strtr(\core_text::strtolower($t), ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u',
+            'ñ' => 'n']);
+    }
+
+    /**
+     * Texto que da la estructura de un producto: titulos, encabezados de tabla y rotulos en negrita. Ahi se buscan los
+     * elementos de la etapa (una palabra suelta en un parrafo no cuenta como sección). Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function structure_text(string $html): string {
+        preg_match_all('#<(h[1-6]|th|strong|b)\b[^>]*>(.*?)</\1>#isu', $html, $m);
+        $partes = array_map(static function(string $t): string {
+            return html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }, $m[2]);
+        return ' ' . self::plain_lower(implode(' | ', $partes)) . ' ';
+    }
+
+    /**
+     * Si un elemento esta en el texto de estructura: sus raices (todas si son una o dos; si son mas, al menos el 60 %).
+     * Funcion pura.
+     *
+     * @param string $item
+     * @param string $estructura De structure_text().
+     * @return bool
+     */
+    public static function has_item(string $item, string $estructura): bool {
+        $raices = self::item_stems($item);
+        if (!$raices) {
+            return true;
+        }
+        $hay = 0;
+        foreach ($raices as $r) {
+            $hay += preg_match('/(?<![a-z0-9])' . preg_quote($r, '/') . '/', $estructura) ? 1 : 0;
+        }
+        return $hay >= max(1, (int) ceil(count($raices) * 0.6));
+    }
+
+    /**
+     * Revision automatica de una etapa: lo que pide la etapa y no aparece en el producto (como titulo, columna de tabla o
+     * rotulo en negrita), mas el cierre comun (vacios, verificacion y referencias, en los productos hechos con el prompt
+     * que ya lo pide; la verificacion siempre). Para la consolidacion (etapa 7): las seis etapas y la verificacion de cada
+     * una. Funcion pura.
+     *
+     * @param int $etapa 1 a 7.
+     * @param string $html Producto (ya normalizado).
+     * @param bool $cierre El producto se pidio con el cierre comun (prompt_number() >= PROMPT_CIERRE).
+     * @return string[] Nombres de lo que falta, para mostrarlos y pedirlos.
+     */
+    public static function missing_items(int $etapa, string $html, bool $cierre = true): array {
+        if (trim(strip_tags($html)) === '') {
+            return [];
+        }
+        if ($etapa === self::CONSOLIDACION) {
+            return array_merge(self::missing_parts($html, $cierre), array_map(static function(string $frase): string {
+                return 'Texto en español (hay un párrafo en inglés: «' . $frase . '…»)';
+            }, self::english_paragraphs($html)));
+        }
+        $e = self::etapas()[$etapa] ?? null;
+        if ($e === null) {
+            return [];
+        }
+        $estructura = self::structure_text($html);
+        $faltan = [];
+        foreach ($e['comprobar'] ?? $e['incluye'] as $item) {
+            if (!self::has_item($item, $estructura)) {
+                $faltan[] = trim(preg_split('/[,;]/u', $item)[0]);
+            }
+        }
+        foreach (self::english_paragraphs($html) as $frase) {
+            $faltan[] = 'Texto en español (hay un párrafo en inglés: «' . $frase . '…»)';
+        }
+        // Las secciones de cierre se reconocen por su palabra clave, aunque el titulo no sea textual.
+        $verif = '/verificacion de (?:la )?calidad/';
+        $finales = $cierre ? [self::SECCION_VACIOS => '/vacios? (?:de informacion|y soluciones)|registro de vacios/', self::SECCION_VERIFICACION => $verif,
+            self::SECCION_REFERENCIAS => '/referencias/'] : [self::SECCION_VERIFICACION => $verif];
+        foreach ($finales as $s => $clave) {
+            // La Etapa 4 ya pide «Vacíos y soluciones» en su lista: no se pide dos veces.
+            if (!preg_match($clave, $estructura) && !($s === self::SECCION_VACIOS && in_array('Vacíos y soluciones', $faltan, true))) {
+                $faltan[] = $s;
+            }
+        }
+        return $faltan;
+    }
+
+    /**
+     * Comienzo de los parrafos e items escritos en ingles (el modelo a veces redacta una seccion en ingles), hasta tres:
+     * los que tienen muchas palabras funcionales del ingles y pocas del español. Funcion pura.
+     *
+     * @param string $html
+     * @return string[]
+     */
+    public static function english_paragraphs(string $html): array {
+        $en = array_flip(['the', 'and', 'of', 'to', 'in', 'for', 'with', 'were', 'was', 'is', 'are', 'this', 'that',
+            'which', 'following', 'be', 'by', 'on', 'as', 'from', 'it', 'have', 'has', 'an', 'while']);
+        $es = array_flip(['de', 'la', 'el', 'y', 'en', 'que', 'los', 'las', 'para', 'con', 'por', 'del', 'se', 'un',
+            'una', 'al', 'su', 'es']);
+        $salida = [];
+        preg_match_all('#<(p|li|td)\b[^>]*>(.*?)</\1>#isu', $html, $m);
+        foreach ($m[2] as $trozo) {
+            $texto = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($trozo), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            $palabras = preg_split('/[^\p{L}]+/u', \core_text::strtolower($texto), -1, PREG_SPLIT_NO_EMPTY);
+            if (count($palabras) < 8) {
+                continue;
+            }
+            $ningles = count(array_filter($palabras, static function(string $w) use ($en): bool {
+                return isset($en[$w]);
+            }));
+            $nespanol = count(array_filter($palabras, static function(string $w) use ($es): bool {
+                return isset($es[$w]);
+            }));
+            if ($ningles >= 0.2 * count($palabras) && $ningles > 2 * $nespanol) {
+                $salida[] = \core_text::substr($texto, 0, 60);
+                if (count($salida) === 3) {
+                    break;
+                }
+            }
+        }
+        return $salida;
+    }
+
+    /**
+     * Partes que faltan en la consolidacion: cada etapa 1 a 6 (titulo «Parte N» o «Etapa N») y, si se pide el cierre,
+     * la verificacion de calidad dentro de cada una. Funcion pura.
+     *
+     * @param string $html
+     * @param bool $cierre
+     * @return string[]
+     */
+    private static function missing_parts(string $html, bool $cierre): array {
+        preg_match_all('#<h[1-3]\b[^>]*>\s*(?:<[^>]+>\s*)*(?:parte|etapa)\s+(\d+)\b#iu', $html, $m, PREG_OFFSET_CAPTURE);
+        $inicio = [];
+        foreach ($m[1] as [$num, $pos]) {
+            $n = (int) $num;
+            if ($n >= 1 && $n <= 6 && !isset($inicio[$n])) {
+                $inicio[$n] = $pos;
+            }
+        }
+        $faltan = [];
+        foreach (self::etapas() as $n => $e) {
+            if (!isset($inicio[$n])) {
+                $faltan[] = 'Etapa ' . $n . ': ' . $e['titulo'];
+                continue;
+            }
+            if ($cierre) {
+                $fin = strlen($html);
+                foreach ($inicio as $otra => $pos) {
+                    if ($pos > $inicio[$n] && $pos < $fin) {
+                        $fin = $pos;
+                    }
+                }
+                if (!preg_match('/verificacion de (?:la )?calidad/', self::structure_text(substr($html, $inicio[$n], $fin - $inicio[$n])))) {
+                    $faltan[] = self::SECCION_VERIFICACION . ' (Etapa ' . $n . ')';
+                }
+            }
+        }
+        return $faltan;
+    }
+
+    /**
+     * HTML del Word de una etapa con el diseño del documento final: el producto con su titulo de etapa al comienzo.
+     * Funcion pura.
+     *
+     * @param string $titulo «Etapa 2: Diseño de la experiencia».
+     * @param string $html Producto ya normalizado.
+     * @return string
+     */
+    public static function stage_document_html(string $titulo, string $html): string {
+        // El producto ya trae su titulo de etapa («Etapa 2: Diseño de la experiencia») casi siempre; si no, se agrega.
+        if (preg_match('#<h[1-3][^>]*>\s*(?:<[^>]+>\s*)*(?:etapa|parte)\s+\d#iu', $html)) {
+            return $html;
+        }
+        return '<h1>' . htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8') . '</h1>' . $html;
+    }
+
+    /**
+     * Producto tal como se muestra, se edita y se descarga: formulas en texto (plain_math()), bloques preformateados
+     * como HTML comun (structure_pre()) y tablas ASCII guardadas como viñetas reparadas (repair_art_lists()). Se aplica
+     * tambien a lo ya guardado, asi la pagina y los Word coinciden. Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function normalize_product(string $html): string {
+        $html = self::repair_art_lists(self::structure_pre(self::plain_math($html)));
+        // Lo guardado antes de las reglas de hoy: sin marcas de cita «[1]» y con las casillas «[ ]» como ☐ (no en un enlace).
+        return preg_replace('/\[\s{0,2}\](?!\()/u', '☐', self::strip_citations($html));
+    }
+
+    /**
+     * Repara las tablas dibujadas en ASCII («| Plan Formativo / Código | Servicios ... |») que hasta la v1.21.4 se
+     * guardaron como lista de pedazos («• | Plan Formativo / Código», «• | Servicios ... |»; revision del cliente del
+     * 02-11): una lista con la mitad o mas de sus items empezados en «|» vuelve a ser una tabla de rotulo y valor. Un item
+     * en mayusculas sin «|» es el titulo; uno que empieza en minuscula continua el valor anterior. Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function repair_art_lists(string $html): string {
+        if (strpos($html, '<li>|') === false && strpos($html, '<li>&#124;') === false) {
+            return $html;
+        }
+        return preg_replace_callback('#<ul>((?:(?!</?ul>).)*)</ul>#is', static function(array $m): string {
+            preg_match_all('#<li>(.*?)</li>#is', $m[1], $li);
+            $items = array_map(static function(string $t): string {
+                return trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            }, $li[1]);
+            $conbarra = count(array_filter($items, static function(string $t): bool {
+                return $t !== '' && $t[0] === '|';
+            }));
+            if (count($items) < 4 || $conbarra * 2 < count($items)) {
+                return $m[0];
+            }
+            $e = static function(string $t): string {
+                return htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+            };
+            $titulo = '';
+            $filas = [];
+            $pendiente = null;
+            foreach ($items as $t) {
+                $c = trim($t, " |\t");
+                if ($c === '') {
+                    continue;
+                }
+                if ($t[0] !== '|' && diagrama::is_upper($c) && !$filas && $pendiente === null) {
+                    $titulo = $c;
+                    continue;
+                }
+                if (strpos($c, '|') !== false) {
+                    [$a, $b] = array_map('trim', explode('|', $c, 2));
+                    if ($pendiente !== null) {
+                        $filas[] = [$pendiente, ''];
+                        $pendiente = null;
+                    }
+                    $filas[] = [$a, trim($b, ' |')];
+                } else if ($filas && $pendiente === null && (preg_match('/^\p{Ll}/u', $c)
+                        || ($c[0] === '(' && !preg_match('/[.;:!?]$/u', $filas[count($filas) - 1][1])))) {
+                    // Continuacion del valor anterior: empieza en minuscula, o con un parentesis cuando el valor no termino.
+                    $filas[count($filas) - 1][1] = trim($filas[count($filas) - 1][1] . ' ' . $c);
+                } else if ($pendiente === null) {
+                    $pendiente = $c;
+                } else {
+                    $filas[] = [$pendiente, $c];
+                    $pendiente = null;
+                }
+            }
+            if ($pendiente !== null) {
+                $filas[] = [$pendiente, ''];
+            }
+            // La primera fila es el encabezado de las columnas si son dos rotulos cortos sin cifras («Criterio | Estado»).
+            $cabecera = count($filas) >= 3 && \core_text::strlen($filas[0][0]) <= 40 && \core_text::strlen($filas[0][1]) <= 40
+                && $filas[0][1] !== '' && !preg_match('/[\d:]/', $filas[0][0] . $filas[0][1]) ? array_shift($filas) : null;
+            $x = '<table>' . ($titulo !== '' || $cabecera ? '<thead>' : '')
+                . ($titulo !== '' ? '<tr><th colspan="2">' . $e($titulo) . '</th></tr>' : '')
+                . ($cabecera ? '<tr><th>' . $e($cabecera[0]) . '</th><th>' . $e($cabecera[1]) . '</th></tr>' : '')
+                . ($titulo !== '' || $cabecera ? '</thead>' : '') . '<tbody>';
+            foreach ($filas as [$a, $b]) {
+                $x .= '<tr><td><strong>' . $e($a) . '</strong></td><td>' . $e($b) . '</td></tr>';
+            }
+            return $x . '</tbody></table>';
+        }, $html);
+    }
+
+    /**
+     * Cambia cada bloque preformateado (<pre>) del HTML por su version en HTML comun (documento_final::pre_html()):
+     * formularios con lineas de puntos y casillas, tablas y arboles dibujados con caracteres. En la pagina se veian en
+     * letra de maquina y en el Word salian con otro formato (revision del cliente del 02-11). Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function structure_pre(string $html): string {
+        if (stripos($html, '<pre') === false) {
+            return $html;
+        }
+        return preg_replace_callback('#<pre\b[^>]*>(.*?)</pre>#is', static function(array $m): string {
+            $texto = html_entity_decode(strip_tags(preg_replace('#<br\s*/?>#i', "\n", $m[1])), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $nuevo = documento_final::pre_html($texto);
+            return $nuevo !== '' ? $nuevo : $m[0];
+        }, $html);
+    }
+
+    /**
+     * Quita las marcas numericas de cita entre corchetes que el modelo deja dentro del texto ([1], [2, 3], [1][2],
+     * [4-6]): distraen, y las referencias van como lista al final del producto (pedido del cliente del 02-11-2026).
+     * No toca los enlaces Markdown ([texto](url)) ni los corchetes con letras ([CRÍTICO]). Funcion pura.
+     *
+     * @param string $texto
+     * @return string
+     */
+    public static function strip_citations(string $texto): string {
+        // La marca se lleva el espacio que la precede: «texto [1].» queda «texto.».
+        return preg_replace('/[ \t]*\[\s*\d+(?:\s*[,;\x{2013}\x{2014}-]\s*\d+)*\s*\](?!\()/u', '', $texto);
     }
 
     // ------------------------------------------------------------------------------------------
@@ -933,7 +1424,9 @@ class diseno {
      * @return string
      */
     private static function w_run(string $texto, array $fmt = []): string {
-        $rpr = (!empty($fmt['b']) ? '<w:b/>' : '') . (!empty($fmt['i']) ? '<w:i/>' : '') . (!empty($fmt['u']) ? '<w:u w:val="single"/>' : '');
+        $rpr = (!empty($fmt['b']) ? '<w:b/>' : '') . (!empty($fmt['i']) ? '<w:i/>' : '') . (!empty($fmt['u']) ? '<w:u w:val="single"/>' : '')
+            . (!empty($fmt['color']) ? '<w:color w:val="' . $fmt['color'] . '"/>' : '')
+            . (!empty($fmt['sz']) ? '<w:sz w:val="' . (int) $fmt['sz'] . '"/>' : '');
         return '<w:r>' . ($rpr ? '<w:rPr>' . $rpr . '</w:rPr>' : '') . '<w:t xml:space="preserve">'
             . htmlspecialchars($texto, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</w:t></w:r>';
     }
@@ -944,9 +1437,9 @@ class diseno {
      * @param int $sangria Twips.
      * @return string
      */
-    private static function w_parrafo(array $runs, string $estilo = '', int $sangria = 0): string {
+    private static function w_parrafo(array $runs, string $estilo = '', int $sangria = 0, string $jc = ''): string {
         $ppr = ($estilo ? '<w:pStyle w:val="' . $estilo . '"/>' : '') . ($sangria ? '<w:ind w:left="' . $sangria
-            . '" w:hanging="283"/>' : '');
+            . '" w:hanging="283"/>' : '') . ($jc !== '' ? '<w:jc w:val="' . $jc . '"/>' : '');
         return '<w:p>' . ($ppr ? '<w:pPr>' . $ppr . '</w:pPr>' : '') . implode('', $runs) . '</w:p>';
     }
 
@@ -1002,12 +1495,12 @@ class diseno {
     private static function w_bloques(\DOMNode $padre, int $nivel, array $fmt = []): string {
         $xml = '';
         $suelto = [];
-        $vaciar = static function() use (&$suelto, &$xml) {
+        $vaciar = static function() use (&$suelto, &$xml, $fmt) {
             $runs = array_filter($suelto, static function($r) {
                 return trim(strip_tags($r)) !== '' || strpos($r, '<w:br/>') !== false;
             });
             if ($runs) {
-                $xml .= self::w_parrafo($suelto);
+                $xml .= self::w_parrafo($suelto, '', 0, (string) ($fmt['jc'] ?? ''));
             }
             $suelto = [];
         };
@@ -1020,10 +1513,20 @@ class diseno {
             $vaciar();
             if (preg_match('/^h([1-6])$/', $tag, $m)) {
                 $xml .= self::w_parrafo(self::w_runs($hijo, $fmt), 'Heading' . min(3, (int) $m[1]));
-            } else if (in_array($tag, ['p', 'blockquote', 'pre'], true)) {
+            } else if ($tag === 'pre') {
+                // Un dibujo de caracteres no sobrevive en Word (la letra no es de ancho fijo): se entrega lo que decia
+                // cada caja como lista. Un texto preformateado normal conserva sus lineas.
+                $texto = (string) $hijo->textContent;
+                $lineas = diagrama::has_art($texto) ? array_map(static function($l) {
+                    return '• ' . $l;
+                }, diagrama::art_lines($texto)) : array_filter(array_map('trim', preg_split('/\R/u', $texto)), 'strlen');
+                foreach ($lineas as $linea) {
+                    $xml .= self::w_parrafo([self::w_run($linea, $fmt)], '', 0, (string) ($fmt['jc'] ?? ''));
+                }
+            } else if (in_array($tag, ['p', 'blockquote'], true)) {
                 $runs = self::w_runs($hijo, $fmt);
                 if ($runs) {
-                    $xml .= self::w_parrafo($runs);
+                    $xml .= self::w_parrafo($runs, '', 0, (string) ($fmt['jc'] ?? ''));
                 }
             } else if ($tag === 'ul' || $tag === 'ol') {
                 $i = 0;
@@ -1086,26 +1589,78 @@ class diseno {
         if (!$filas || !$cols) {
             return '';
         }
+        // Diagrama de cajas y flechas (diagrama::render_html): columnas de flecha angostas y bordes solo en las cajas.
+        $diagrama = strpos(' ' . $tabla->getAttribute('class') . ' ', ' m2-diagrama ') !== false;
         $ancho = (int) floor(9360 / $cols);
+        $anchos = array_fill(0, $cols, $ancho);
+        if ($diagrama) {
+            $flechas = intdiv($cols, 2);
+            $cajas = $cols - $flechas;
+            for ($c = 0; $c < $cols; $c++) {
+                $anchos[$c] = $c % 2 === 1 ? 640 : (int) floor((9360 - 640 * $flechas) / max(1, $cajas));
+            }
+        }
         $xml = '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>';
         foreach (['top', 'left', 'bottom', 'right', 'insideH', 'insideV'] as $b) {
-            $xml .= '<w:' . $b . ' w:val="single" w:sz="4" w:space="0" w:color="A6B4C0"/>';
+            $xml .= '<w:' . $b . ' w:val="' . ($diagrama ? 'nil' : 'single') . '" w:sz="4" w:space="0" w:color="A6B4C0"/>';
         }
         $xml .= '</w:tblBorders><w:tblCellMar><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/>'
-            . '</w:tblCellMar></w:tblPr><w:tblGrid>' . str_repeat('<w:gridCol w:w="' . $ancho . '"/>', $cols) . '</w:tblGrid>';
+            . '</w:tblCellMar></w:tblPr><w:tblGrid>';
+        foreach ($anchos as $a) {
+            $xml .= '<w:gridCol w:w="' . $a . '"/>';
+        }
+        $xml .= '</w:tblGrid>';
         foreach ($filas as $celdas) {
             $xml .= '<w:tr>';
             for ($c = 0; $c < $cols; $c++) {
                 $td = $celdas[$c] ?? null;
                 $th = $td && strtolower($td->nodeName) === 'th';
-                $contenido = $td ? self::w_bloques($td, 0, $th ? ['b' => true] : []) : '';
-                $xml .= '<w:tc><w:tcPr><w:tcW w:w="' . $ancho . '" w:type="dxa"/>'
-                    . ($th ? '<w:shd w:val="clear" w:color="auto" w:fill="E8F0F7"/>' : '') . '</w:tcPr>'
+                $estilo = $td ? self::w_celda($td) : ['fondo' => '', 'borde' => '', 'jc' => '', 'color' => ''];
+                $flecha = $td && preg_match('/^\s*[→←↑↓]\s*$/u', $td->textContent);
+                $fmt = ($th ? ['b' => true] : []) + ($estilo['jc'] !== '' ? ['jc' => $estilo['jc']] : [])
+                    + ($flecha ? ['sz' => 36, 'b' => true, 'color' => $estilo['color'] ?: '20639B'] : []);
+                $contenido = $td ? self::w_bloques($td, 0, $fmt) : '';
+                $fondo = $estilo['fondo'] !== '' ? $estilo['fondo'] : ($th ? 'E8F0F7' : '');
+                $bordes = '';
+                if ($estilo['borde'] !== '') {
+                    $bordes = '<w:tcBorders>';
+                    foreach (['top', 'left', 'bottom', 'right'] as $b) {
+                        $bordes .= '<w:' . $b . ' w:val="single" w:sz="8" w:space="0" w:color="' . $estilo['borde'] . '"/>';
+                    }
+                    $bordes .= '</w:tcBorders>';
+                }
+                $xml .= '<w:tc><w:tcPr><w:tcW w:w="' . $anchos[$c] . '" w:type="dxa"/>' . $bordes
+                    . ($fondo !== '' ? '<w:shd w:val="clear" w:color="auto" w:fill="' . $fondo . '"/>' : '')
+                    . ($diagrama ? '<w:vAlign w:val="center"/>' : '') . '</w:tcPr>'
                     . ($contenido !== '' ? $contenido : '<w:p/>') . '</w:tc>';
             }
             $xml .= '</w:tr>';
         }
         return $xml . '</w:tbl><w:p/>';
+    }
+
+    /**
+     * Estilo de una celda de tabla, de su atributo style y bgcolor: color de fondo, borde, alineacion y color del texto.
+     * Funcion pura.
+     *
+     * @param \DOMElement $td
+     * @return array fondo, borde, color (hex de seis cifras sin «#», o ''), jc (center|right|'').
+     */
+    public static function w_celda(\DOMElement $td): array {
+        $style = strtolower($td->getAttribute('style'));
+        $hex = static function(string $c): string {
+            $c = ltrim(trim($c), '#');
+            if (strlen($c) === 3) {
+                $c = $c[0] . $c[0] . $c[1] . $c[1] . $c[2] . $c[2];
+            }
+            return preg_match('/^[0-9a-f]{6}$/', $c) ? strtoupper($c) : '';
+        };
+        $fondo = preg_match('/background(?:-color)?\s*:\s*(#[0-9a-f]{3,6})\b/', $style, $m) ? $hex($m[1]) : '';
+        $fondo = $fondo !== '' ? $fondo : $hex($td->getAttribute('bgcolor'));
+        $borde = preg_match('/(?<![a-z-])border\s*:[^;]*?(#[0-9a-f]{3,6})\b/', $style, $m) ? $hex($m[1]) : '';
+        $color = preg_match('/(?<![a-z-])color\s*:\s*(#[0-9a-f]{3,6})\b/', $style, $m) ? $hex($m[1]) : '';
+        $jc = preg_match('/text-align\s*:\s*(center|right)/', $style, $m) ? $m[1] : '';
+        return ['fondo' => $fondo, 'borde' => $borde, 'color' => $color, 'jc' => $jc];
     }
 
     // ------------------------------------------------------------------------------------------
@@ -1209,9 +1764,11 @@ class diseno {
         if (in_array($fila->generacion, [exante::PENDIENTE, exante::PROCESANDO], true)) {
             return (int) $fila->id;
         }
+        // Cada pedido con ajustes es una ronda de ajuste de la etapa (indicador «Iteraciones por etapa» del tablero).
+        $rondas = (int) ($fila->rondas ?? 0) + (trim($ajustes) !== '' ? 1 : 0);
         $DB->update_record('local_chatbot_diseno', (object) ['id' => $fila->id, 'generacion' => exante::PENDIENTE,
             'ajustes' => \core_text::substr(trim($ajustes), 0, 4000), 'validacionid' => $validacionid, 'error' => null,
-            'timemodified' => time()]);
+            'rondas' => $rondas, 'timemodified' => time()]);
         return (int) $fila->id;
     }
 
@@ -1273,9 +1830,119 @@ class diseno {
      */
     public static function consolidation_shown(?\stdClass $fila, array $contenidos, string $huella): array {
         if ($fila && trim((string) $fila->contenido) !== '' && (string) $fila->huella === $huella) {
-            return [(string) $fila->contenido, !empty($fila->promptversion)];
+            // La del asistente se completa con las secciones de cierre que haya omitido (ver complete_consolidation()).
+            return [self::complete_consolidation((string) $fila->contenido, $contenidos), !empty($fila->promptversion)];
         }
         return [self::consolidate($contenidos), false];
+    }
+
+    /**
+     * Completa la consolidacion del asistente con lo que omitio de cada etapa: si una parte no trae el «Registro de vacíos
+     * de información» o la «Verificación de calidad de la etapa» que si tiene el producto aceptado de esa etapa, se
+     * copian textuales al final de la parte, con el nivel de titulo de sus secciones (revision del cliente del 02-11: el
+     * documento final perdia la verificacion de las seis etapas, que el ejemplo del cliente trae). Funcion pura.
+     *
+     * @param string $html Consolidacion (HTML).
+     * @param string[] $etapas Productos aceptados de las etapas 1 a 6 (HTML), por numero.
+     * @return string
+     */
+    public static function complete_consolidation(string $html, array $etapas): string {
+        preg_match_all('#<h([1-6])\b[^>]*>(.*?)</h\1>#isu', $html, $t, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
+        $partes = [];
+        foreach ($t as $i => $x) {
+            $texto = trim(html_entity_decode(strip_tags($x[2][0]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            if ((int) $x[1][0] <= 3 && preg_match('/^(?:parte|etapa)\s+(\d+)\b/iu', $texto, $m) && (int) $m[1] >= 1
+                    && (int) $m[1] <= 6 && !isset($partes[(int) $m[1]])) {
+                $partes[(int) $m[1]] = ['i' => $i, 'nivel' => (int) $x[1][0]];
+            }
+        }
+        $cambios = [];
+        foreach ($partes as $n => $p) {
+            // La parte llega hasta la parte siguiente (o el final): una etapa puede traer su verificacion y sus referencias al
+            // mismo nivel que su titulo. Lo que falte va antes de sus «Referencias consultadas» (las de la etapa o las
+            // generales del final), o al final de la parte; con el nivel de titulo de sus secciones.
+            $fin = strlen($html);
+            foreach ($partes as $otra) {
+                if ($otra['i'] > $p['i'] && $t[$otra['i']][0][1] < $fin) {
+                    $fin = $t[$otra['i']][0][1];
+                }
+            }
+            $sub = 0;
+            $antes = $fin;
+            for ($j = $p['i'] + 1; $j < count($t) && $t[$j][0][1] < $fin; $j++) {
+                $nivel = (int) $t[$j][1][0];
+                if ($nivel > $p['nivel']) {
+                    $sub = $sub ? min($sub, $nivel) : $nivel;
+                }
+                if ($antes === $fin && preg_match('/referencias/', self::plain_lower(strip_tags($t[$j][2][0])))) {
+                    $antes = $t[$j][0][1];
+                }
+            }
+            $sub = $sub ?: $p['nivel'] + 1;
+            $inicio = $t[$p['i']][0][1];
+            $estructura = self::structure_text(substr($html, $inicio, $fin - $inicio));
+            $agregar = '';
+            foreach (['/vacios? (?:de informacion|y soluciones)|registro de vacios/', '/verificacion de (?:la )?calidad/'] as $clave) {
+                if (preg_match($clave, $estructura)) {
+                    continue;
+                }
+                $seccion = self::stage_section((string) ($etapas[$n] ?? ''), $clave);
+                if ($seccion !== null) {
+                    $agregar .= self::shift_headings($seccion[0], $sub - $seccion[1]);
+                }
+            }
+            if ($agregar !== '') {
+                $cambios[$antes] = ($cambios[$antes] ?? '') . $agregar;
+            }
+        }
+        krsort($cambios);
+        foreach ($cambios as $pos => $x) {
+            $html = substr($html, 0, $pos) . $x . substr($html, $pos);
+        }
+        return $html;
+    }
+
+    /**
+     * Seccion de un producto cuyo titulo coincide con el patron (en minusculas y sin tildes): el titulo y su contenido
+     * hasta el siguiente titulo de su nivel o mayor. Funcion pura.
+     *
+     * @param string $html
+     * @param string $patron
+     * @return array|null [html, nivel del titulo]
+     */
+    private static function stage_section(string $html, string $patron): ?array {
+        preg_match_all('#<h([1-6])\b[^>]*>(.*?)</h\1>#isu', $html, $t, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
+        foreach ($t as $i => $x) {
+            if (!preg_match($patron, self::plain_lower(html_entity_decode(strip_tags($x[2][0]), ENT_QUOTES | ENT_HTML5, 'UTF-8')))) {
+                continue;
+            }
+            $nivel = (int) $x[1][0];
+            $fin = strlen($html);
+            for ($j = $i + 1; $j < count($t); $j++) {
+                if ((int) $t[$j][1][0] <= $nivel) {
+                    $fin = $t[$j][0][1];
+                    break;
+                }
+            }
+            return [substr($html, $x[0][1], $fin - $x[0][1]), $nivel];
+        }
+        return null;
+    }
+
+    /**
+     * Sube o baja los niveles de titulo de un trozo de HTML (entre h1 y h6). Funcion pura.
+     *
+     * @param string $html
+     * @param int $delta
+     * @return string
+     */
+    private static function shift_headings(string $html, int $delta): string {
+        if ($delta === 0) {
+            return $html;
+        }
+        return preg_replace_callback('#<(/?)h([1-6])\b#i', static function(array $m) use ($delta): string {
+            return '<' . $m[1] . 'h' . max(1, min(6, (int) $m[2] + $delta));
+        }, $html);
     }
 
     /**
@@ -1356,7 +2023,7 @@ class diseno {
         }
         $markdown .= self::sources_markdown(gemini_client::extract_sources($resultado));
         // Una propuesta nueva o ajustada vuelve a borrador: la persona la revisa y la acepta de nuevo.
-        return [exante::LISTO, ['contenido' => clean_text(markdown_to_html($markdown), FORMAT_HTML),
+        return [exante::LISTO, ['contenido' => self::product_html($markdown),
             'estado' => self::BORRADOR, 'modelo' => (string) $modelo, 'promptversion' => self::PROMPT_VERSION,
             'error' => null]];
     }
@@ -1390,7 +2057,7 @@ class diseno {
             return [exante::ERROR, ['error' => 'incompleta']];
         }
         // Queda como borrador: la persona la revisa y la confirma (o confirma la consolidacion completa por codigo).
-        return [exante::LISTO, ['contenido' => clean_text(markdown_to_html($markdown), FORMAT_HTML),
+        return [exante::LISTO, ['contenido' => self::product_html($markdown),
             'estado' => self::BORRADOR, 'huella' => $huella, 'modelo' => (string) $modelo,
             'promptversion' => self::PROMPT_VERSION, 'error' => null]];
     }

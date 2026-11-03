@@ -13,10 +13,14 @@ require_once(__DIR__ . '/_puro.php');
 require_once(__DIR__ . '/../classes/guardrails.php');
 require_once(__DIR__ . '/../classes/exante.php');
 require_once(__DIR__ . '/../classes/diseno.php');
+require_once(__DIR__ . '/../classes/diagrama.php');
+require_once(__DIR__ . '/../classes/documento_final.php');
 require_once(__DIR__ . '/../classes/modulo2_setup.php');
 require_once(__DIR__ . '/../classes/ruta_m2.php');
 
+use local_chatbot\diagrama;
 use local_chatbot\diseno;
+use local_chatbot\documento_final;
 use local_chatbot\exante;
 use local_chatbot\guardrails;
 use local_chatbot\modulo2_setup;
@@ -158,8 +162,9 @@ local_chatbot_verificar(in_array('Nota de uso de documentos complementarios (pla
         . 'prioridades de diseño', $et[1]['incluye'], true)
     && in_array('Síntesis de la observación obligatoria 2.4 (pertinencia y factibilidad de los criterios) y de las '
         . 'observaciones finales de la ficha', $et[1]['incluye'], true)
-    && in_array('Alcance de cada fase (descripción de lo que se espera lograr en la fase, sin formularlo como objetivo '
-        . 'específico)', $et[3]['incluye'], true) && !in_array('Objetivos específicos', $et[3]['incluye'], true)
+    && in_array('Alcance de cada fase', $et[3]['incluye'], true) && !in_array('Objetivos específicos', $et[3]['incluye'], true)
+    && strpos(implode(' ', $et[3]['incluye']), 'sin formularlo') === false
+    && strpos(diseno::build_prompt(3, 'F', [], [], []), 'sin formularlo como objetivo específico') !== false
     && in_array('Actividades (persona facilitadora / participantes)', $et[3]['incluye'], true)
     && in_array('Uso didáctico', $et[4]['incluye'], true) && strpos(implode(' ', $et[4]['incluye']), 'pedagóg') === false
     && in_array('Alcance', $et[4]['incluye'], true)
@@ -460,6 +465,271 @@ local_chatbot_verificar(strpos($f3b, 'href="ur"> Revisar y descargar la rúbrica
     && strpos($f3b, modulo2_setup::BOTON_RUBRICA) === false && strpos($f3b, 'href="u7"') > strpos($f3b, 'Cierre')
     && strpos($f3b, 'REEMPLAZA') === false, 'Fase 3: se enlaza la rúbrica del cliente y el botón al asistente va al final');
 local_chatbot_verificar(modulo2_setup::add_validation_buttons($f3b, 'ur', 'u7') === $f3b, 'los ajustes de la Fase 3 del cliente son idempotentes');
+
+// --- Diagramas de cajas y flechas (pedido del 02-11-2026): tabla editable, no dibujo de caracteres ---
+$d4 = diagrama::parse("modo: ciclo\ntitulo: Rotación por estaciones\nEstación A / Aseo (1.5, 1.6)\n- Estación B / Vestimenta\n"
+    . "Estación C / Cama | Estación D / Registro");
+local_chatbot_verificar($d4 !== null && $d4['modo'] === 'ciclo' && $d4['titulo'] === 'Rotación por estaciones'
+    && count($d4['cajas']) === 4 && $d4['cajas'][0] === ['titulo' => 'Estación A', 'detalle' => 'Aseo (1.5, 1.6)']
+    && $d4['cajas'][1]['titulo'] === 'Estación B' && $d4['cajas'][3]['titulo'] === 'Estación D',
+    'el bloque «diagrama» se lee: modo, título, «Título / detalle», marcas de lista y varias cajas con «|»');
+local_chatbot_verificar(diagrama::parse("solo una") === null && diagrama::parse(implode("\n", range(1, 13))) === null,
+    'menos de 2 o más de 12 cajas no es un diagrama');
+$texto = static function(array $g): string {
+    return implode('|', array_map(static function($fila) {
+        return implode('', array_map(static function($c) {
+            return $c['t'] === 'caja' ? 'C' : ($c['t'] === 'flecha' ? $c['c'] : '.');
+        }, $fila));
+    }, $g));
+};
+local_chatbot_verificar($texto(diagrama::grid($d4)) === 'C→C|↑.↓|C←C',
+    'ciclo de 4: dos filas en zigzag, flecha que baja a la derecha y flecha que vuelve a la primera caja');
+$flujo = diagrama::parse("A\nB\nC");
+local_chatbot_verificar($texto(diagrama::grid($flujo)) === 'C→C→C', 'flujo de 3: una fila con flechas entre cajas');
+$flujo6 = diagrama::parse("A\nB\nC\nD\nE\nF");
+local_chatbot_verificar($texto(diagrama::grid($flujo6)) === 'C→C→C|....↓|C←C←C',
+    'flujo de 6: tres por fila, baja al final de la fila y la siguiente va de derecha a izquierda');
+local_chatbot_verificar($texto(diagrama::grid(diagrama::parse("A\nB\nC\nD\nE"))) === 'C→C→C|....↓|..C←C',
+    'flujo de 5: la última fila incompleta queda pegada al lado por donde entra el flujo');
+local_chatbot_verificar($texto(diagrama::grid(diagrama::parse("modo: ciclo\nA\nB\nC"))) === 'C→C|..↓|..C',
+    'ciclo de 3: sin flecha de cierre cuando la última fila queda incompleta');
+$html = diagrama::render_html($d4);
+local_chatbot_verificar(strpos($html, 'class="m2-diagrama"') !== false && substr_count($html, 'background-color: #E8F0F7') === 4
+    && strpos($html, '<strong>Estación A</strong><br>Aseo (1.5, 1.6)') !== false && strpos($html, '<p><strong>Rotación por estaciones</strong></p>') === 0,
+    'la tabla lleva su título, cuatro cajas con color de fondo y el detalle bajo el título');
+local_chatbot_verificar(strpos(diagrama::render_html(diagrama::parse("A <b>x</b> / d\nB")), '<b>') === false,
+    'el texto de las cajas se escapa');
+
+[$md, $tablas] = diagrama::extract("Antes\n\n```diagrama\nA\nB\n```\n\nDespués");
+local_chatbot_verificar(count($tablas) === 1 && strpos($md, '@@DIAGRAMA_0@@') !== false && strpos($md, '```') === false,
+    'un bloque «diagrama» queda como marcador mientras se pasa el Markdown a HTML');
+local_chatbot_verificar(diagrama::insert("<p>Antes</p>\n<p>@@DIAGRAMA_0@@</p>\n<p>Después</p>", $tablas)
+    === "<p>Antes</p>\n" . $tablas[0] . "\n<p>Después</p>", 'la tabla reemplaza al marcador sin dejar un párrafo vacío');
+$arte = "```\n  [ESTACIÓN A]      [ESTACIÓN B]\n       │                 │\n       ▼                 ▼\n"
+    . "┌───────────┐    ┌───────────┐\n│Subgrupo 1 │ ──►│Subgrupo 2 │\n└───────────┘    └───────────┘\n```";
+[$md2, $t2] = diagrama::extract("Texto\n\n" . $arte . "\n\nFin");
+local_chatbot_verificar(count($t2) === 1 && strpos($md2, '│') === false && strpos($md2, '@@DIAGRAMA_0@@') !== false
+    && strpos($t2[0], '<li>[ESTACIÓN A]</li><li>[ESTACIÓN B]</li>') !== false && strpos($t2[0], '<li>Subgrupo 1</li><li>Subgrupo 2</li>') !== false,
+    'un dibujo de caracteres se vuelve lista con lo que decía cada caja');
+// Tabla dibujada en ASCII (revision del cliente del 02-11: la Etapa 1 la mostraba como viñetas «| Plan Formativo...»).
+$ascii = "+------------------------------------------+\n|       SÍNTESIS DIAGNÓSTICA GENERAL       |\n"
+    . "+--------------------------+---------------+\n| Plan Formativo / Código  | PF0960        |\n"
+    . "| Grupo Participante       | 20 personas   |\n| Aprendizaje Esperado (AE)| 1. Asistir a  |\n"
+    . "|                          | las personas  |\n+--------------------------+---------------+";
+[$md4, $t4] = diagrama::extract("```\n" . $ascii . "\n```");
+local_chatbot_verificar(count($t4) === 1 && strpos($t4[0], '<th colspan="2"><p><strong>SÍNTESIS DIAGNÓSTICA GENERAL</strong></p></th>') !== false
+    && strpos($t4[0], '<td><p>Plan Formativo / Código</p></td><td><p>PF0960</p></td>') !== false
+    && strpos($t4[0], '<p>1. Asistir a las personas</p>') !== false && strpos($t4[0], '|') === false,
+    'una tabla dibujada en ASCII (+---+, |) se vuelve tabla, con las celdas de varias lineas unidas');
+[$md5] = diagrama::extract("```\n| A | B |\n|---|---|\n| 1 | 2 |\n```");
+local_chatbot_verificar(strpos($md5, '```') === false && strpos($md5, "| A | B |\n|---|---|\n| 1 | 2 |") !== false,
+    'una tabla Markdown dentro de un bloque de código queda como tabla');
+$mal = '<p>x</p><ul><li>|</li><li>SÍNTESIS DIAGNÓSTICA GENERAL</li><li>| Plan Formativo / Código</li>'
+    . '<li>| Servicios de cuidados básicos / PF0960 |</li><li>| Nivel de Cualificación</li><li>| Nivel 2 MCTP</li>'
+    . '<li>| Aprendizaje Esperado (AE)| 1. Asistir a las personas mayores en la mantención de las condiciones</li>'
+    . '<li>| de higiene personal y confort, de acuerdo con plan de acción, normas</li><li>| de higiene y seguridad vigentes.</li></ul>'
+    . '<ul><li>Viñeta normal</li><li>Otra</li></ul>';
+$rep = diseno::repair_art_lists($mal);
+local_chatbot_verificar(strpos($rep, '<th colspan="2">SÍNTESIS DIAGNÓSTICA GENERAL</th>') !== false
+    && strpos($rep, '<tr><td><strong>Plan Formativo / Código</strong></td><td>Servicios de cuidados básicos / PF0960</td></tr>') !== false
+    && strpos($rep, '<tr><td><strong>Nivel de Cualificación</strong></td><td>Nivel 2 MCTP</td></tr>') !== false
+    && strpos($rep, '<td><strong>Aprendizaje Esperado (AE)</strong></td><td>1. Asistir a las personas mayores en la mantención de las '
+        . 'condiciones de higiene personal y confort, de acuerdo con plan de acción, normas de higiene y seguridad vigentes.</td>') !== false
+    && strpos($rep, '<ul><li>Viñeta normal</li><li>Otra</li></ul>') !== false && strpos($rep, '<li>|') === false,
+    'la tabla ASCII que quedó guardada como viñetas «| ...» vuelve a ser tabla; las demás listas no cambian');
+// Caso real de la Etapa 1 de Roberto (02-11): encabezado de columnas y continuaciones que empiezan con «(».
+$verif = '<ul><li>|</li><li>VERIFICACIÓN DE CALIDAD DE LA ETAPA 1</li><li>| Criterio de Verificación</li><li>| Estado / Resultado</li>'
+    . '<li>| Inclusión de criterios de evaluación de la ficha</li><li>| Verificado: Se incluyen los 9 criterios</li>'
+    . '<li>| (1.1 al 1.9) sin invención de enunciados.</li><li>| Viabilidad del tiempo asignado (Subsección 2.3)</li>'
+    . '<li>| Verificado: Experiencia diseñada para 540</li><li>| min (reserva 300 min para nivelación).</li></ul>';
+$rv = diseno::repair_art_lists($verif);
+local_chatbot_verificar(strpos($rv, '<tr><th>Criterio de Verificación</th><th>Estado / Resultado</th></tr></thead>') !== false
+    && strpos($rv, '<td>Verificado: Se incluyen los 9 criterios (1.1 al 1.9) sin invención de enunciados.</td>') !== false
+    && strpos($rv, '<td><strong>Viabilidad del tiempo asignado (Subsección 2.3)</strong></td><td>Verificado: Experiencia diseñada para 540 '
+        . 'min (reserva 300 min para nivelación).</td>') !== false,
+    'tabla ASCII guardada como viñetas: encabezado de columnas y continuaciones con «(» o minúscula en su fila');
+$perdidos = documento_final::pre_html("[SECCIÓN 1: RUTINAS] (Marque con ✔)\n  [?] Aseo Corporal Total ........ [ ] Realizado  [ ] No requerido\n"
+    . "  [?] Aseo Bucal y Dental .......... [ ] Realizado  [ ] No requerido\nEstado Anímico:  [?] Tranquilo/a   [?] Serio/a");
+local_chatbot_verificar(strpos($perdidos, '<td>Aseo Corporal Total</td><td>☐</td><td>☐</td>') !== false
+    && strpos($perdidos, '<strong>Estado Anímico:</strong> ☐ Tranquilo/a') !== false && strpos($perdidos, '?') === false,
+    'iconos perdidos al guardar («[?]»): en un item de cotejo se quitan y como opcion pasan a casilla ☐ (caso real de Roberto)');
+// Parrafo en ingles en la Etapa 5 de Roberto (02-11).
+$ingles = '<h3>5. Vacíos de información</h3><p>During the formulation of the Assessment Plan, the following technical gaps and '
+    . 'operational constraints were identified, and viable solutions were defined while strictly adhering to the Plan Formativo.</p>'
+    . '<p>El plan de evaluación se elaboró con la ficha y el plan formativo, según las orientaciones del manual.</p>';
+local_chatbot_verificar(diseno::english_paragraphs($ingles) === ['During the formulation of the Assessment Plan, the following']
+    && in_array('Texto en español (hay un párrafo en inglés: «During the formulation of the Assessment Plan, the following…»)',
+        diseno::missing_items(5, $ingles, false), true)
+    && diseno::english_paragraphs('<p>Se aplica el check-list de la Unidad de Competencia Laboral con feedback inmediato del grupo.</p>') === [],
+    'revision: avisa un parrafo en ingles, no un parrafo en español con alguna palabra en ingles');
+local_chatbot_verificar(strpos(diseno::build_prompt(5, 'F', [], [], []), 'Escribe todo el producto en español de Chile') !== false
+    && strpos(diseno::build_consolidation_prompt([1 => '<p>x</p>']), 'Escribe todo el producto en español de Chile') !== false,
+    'los prompts piden todo el producto en español');
+local_chatbot_verificar(strpos(documento_final::pre_html("Ítem A ........ [ ] Sí  [ ] No\n[??] Arreglo de cama ........ [ ] Sí  [ ] No"), '?') === false,
+    'un icono perdido con varios signos «[??]» tampoco queda a la vista');
+local_chatbot_verificar(strpos(diseno::build_prompt(6, 'F', [], [], []), 'No uses emojis ni íconos') !== false,
+    'el prompt pide no usar emojis, que la plataforma no guarda');
+local_chatbot_verificar(diseno::normalize_product('<p>Según el manual [1], [2, 3] y la guía [4-6].</p><ul><li>[ ] A) Sí</li></ul>')
+    === '<p>Según el manual, y la guía.</p><ul><li>☐ A) Sí</li></ul>',
+    'en lo guardado se quitan las marcas de cita y las casillas «[ ]» se muestran ☐');
+[$md3, $t3] = diagrama::extract("```diagrama\nsolo una caja\n```");
+local_chatbot_verificar($t3 === [] && trim($md3) === '- solo una caja', 'un bloque «diagrama» ilegible se entrega como lista');
+$codigo = "```php\n\$a = 1;\n```";
+local_chatbot_verificar(diagrama::extract($codigo) === [$codigo, []], 'un bloque de código normal no se toca');
+local_chatbot_verificar(diagrama::has_art("│ │ │") && !diagrama::has_art('Solo texto con - guiones y → una flecha'),
+    'se reconoce un dibujo de caracteres y no un texto con una flecha');
+
+// El Word: cajas con fondo, borde y texto centrado; flechas grandes; sin bordes de tabla; dibujos de caracteres como lista.
+$rutad = sys_get_temp_dir() . '/m2_diagrama_' . getmypid() . '.docx';
+local_chatbot_verificar(diseno::html_to_docx($rutad, 'Etapa 3', '', '<p>Antes</p>' . $html
+    . '<pre>' . htmlspecialchars("┌──────┐\n│ Caja │\n└──────┘\n ▼\n┌──────┐\n│ Otra │\n└──────┘") . '</pre>'), 'el Word con diagrama se genera');
+$zipd = new ZipArchive();
+$zipd->open($rutad);
+$docd = (string) $zipd->getFromName('word/document.xml');
+$zipd->close();
+@unlink($rutad);
+local_chatbot_verificar(simplexml_load_string($docd) !== false, 'el Word con diagrama es XML válido');
+local_chatbot_verificar(substr_count($docd, 'w:fill="E8F0F7"') === 4 && substr_count($docd, '<w:tcBorders>') === 4
+    && substr_count($docd, 'w:color="20639B"') >= 4 && strpos($docd, '<w:jc w:val="center"/>') !== false,
+    'en el Word las cajas llevan fondo, borde y centrado, y las flechas el azul institucional');
+local_chatbot_verificar(strpos($docd, '<w:sz w:val="36"/>') !== false && strpos($docd, '<w:tblBorders><w:top w:val="nil"') !== false,
+    'las flechas van grandes y la tabla del diagrama no dibuja bordes propios');
+local_chatbot_verificar(preg_match('/[│─┌┐└┘▼]/u', $docd) === 0 && strpos($docd, '• Caja') !== false && strpos($docd, '• Otra') !== false,
+    'un <pre> con dibujo de caracteres sale en el Word como lista, sin trazos');
+
+// --- Citas numericas: no van dentro del texto, las referencias van al final (pedido del 02-11-2026) ---
+local_chatbot_verificar(diseno::strip_citations('Usa pictogramas [1]. Organiza estaciones [1, 2], y tutoría [3][4] entre pares [5-7].')
+    === 'Usa pictogramas. Organiza estaciones, y tutoría entre pares.', 'se quitan las marcas [n], [n, m], [n][m] y [n-m] con su espacio');
+local_chatbot_verificar(diseno::strip_citations('Ver [Manual EDECOMP](http://x.cl) y [1](http://y.cl); ítem [CRÍTICO] y matriz [A1]')
+    === 'Ver [Manual EDECOMP](http://x.cl) y [1](http://y.cl); ítem [CRÍTICO] y matriz [A1]',
+    'no se tocan los enlaces Markdown ni los corchetes con letras');
+local_chatbot_verificar(diseno::clean_markdown("```markdown\n## Etapa 4\nTexto [1].\n```") === "## Etapa 4\nTexto.",
+    'clean_markdown (etapas 1 a 7) también quita las marcas');
+// Formulas en LaTeX (pedido del cliente del 02-11: la Etapa 6 mostraba $$\text{...} \times 0.20$$ sin dibujar).
+$latex = '$$\text{Porcentaje Final de Logro} = (\% \text{Inst. 1} \times 0.20) + (\% \text{Inst. 3} \times 0.60) + (\% \text{Inst. 5} \times 0.20)$$';
+local_chatbot_verificar(diseno::plain_math($latex)
+    === 'Porcentaje Final de Logro = (% Inst. 1 × 0.20) + (% Inst. 3 × 0.60) + (% Inst. 5 × 0.20)',
+    'una formula en LaTeX pasa a texto legible con × y %');
+local_chatbot_verificar(diseno::plain_math('<p>Logro: \( \frac{\text{Obtenido}}{\text{Ideal}} \times 100 \)</p>')
+    === '<p>Logro: (Obtenido ÷ Ideal) × 100</p>', 'fraccion y delimitadores \( \) dentro de HTML guardado');
+local_chatbot_verificar(diseno::plain_math('Valor $ 5.000 y $ 3.000 por persona') === 'Valor $ 5.000 y $ 3.000 por persona'
+    && diseno::plain_math('Sin fórmulas') === 'Sin fórmulas', 'los precios con $ y el texto sin comandos no cambian');
+local_chatbot_verificar(diseno::plain_math('$x \leq 60\%$ y \text{Total} = A \times B') === 'x ≤ 60% y Total = A × B',
+    'una formula entre $...$ y los comandos sueltos tambien se convierten');
+local_chatbot_verificar(diseno::clean_markdown("## Etapa 6\n" . $latex) === "## Etapa 6\nPorcentaje Final de Logro = (% Inst. 1 × 0.20) + (% Inst. 3 × 0.60) + (% Inst. 5 × 0.20)",
+    'clean_markdown convierte las formulas de los productos nuevos');
+local_chatbot_verificar(strpos(diseno::build_prompt(6, 'F', [], [], []), 'Nunca uses LaTeX') !== false
+    && strpos(diseno::build_consolidation_prompt(['F'], array_fill(1, 6, 'x')), 'Nunca uses LaTeX') !== false,
+    'los prompts de las etapas y de la consolidacion piden formulas en texto, sin LaTeX');
+// Formularios en bloque preformateado (revision del cliente del 02-11: la Etapa 6 entregaba la hoja de registro con
+// lineas de puntos y casillas alineadas, y el Word la mostraba con otro formato).
+$hoja = "------------------------------------------------\n"
+    . "[SECCIÓN 1: RUTINAS DE HIGIENE PERSONAL EJECUTADAS] (Marque con ✓ el ícono realizado)\n"
+    . "  [🚿] Aseo Corporal Total / Baño en Cama ........... [ ] Realizado  [ ] No requerido\n"
+    . "  [🪥] Aseo Bucal y Dental ............................ [ ] Realizado  [ ] No requerido\n"
+    . "------------------------------------------------\n"
+    . "Estado Anímico:  [😊] Tranquilo/a   [😐] Serio/a\n"
+    . "Novedades / Observaciones clave (redacción breve o símbolo):\n" . str_repeat('_', 60);
+$ph = documento_final::pre_html($hoja);
+local_chatbot_verificar(strpos($ph, '<p><strong>SECCIÓN 1: RUTINAS DE HIGIENE PERSONAL EJECUTADAS (Marque con ✓ el ícono realizado)</strong></p>') !== false
+    && strpos($ph, '<table><thead><tr><th>Ítem</th><th>Realizado</th><th>No requerido</th></tr></thead>') !== false
+    && strpos($ph, '<tr><td>🚿 Aseo Corporal Total / Baño en Cama</td><td>☐</td><td>☐</td></tr>') !== false
+    && strpos($ph, '<td>🪥 Aseo Bucal y Dental</td>') !== false,
+    'formulario preformateado: el titulo entre corchetes en negrita y los items de cotejo en una tabla con una columna por opcion');
+local_chatbot_verificar(strpos($ph, '<strong>Estado Anímico:</strong> 😊 Tranquilo/a') !== false && strpos($ph, '-----') === false
+    && strpos($ph, '.....') === false && strpos($ph, '<strong>Novedades / Observaciones clave (redacción breve o símbolo):</strong>') !== false,
+    'formulario preformateado: campos con el rotulo en negrita, sin separadores ni lineas de puntos');
+$conpre = '<h2>Instrumento 3</h2><pre><code>' . htmlspecialchars($hoja) . '</code></pre><p>Fin</p>';
+$normal = diseno::normalize_product($conpre);
+local_chatbot_verificar(stripos($normal, '<pre') === false && strpos($normal, '<h2>Instrumento 3</h2>') === 0 && substr($normal, -10) === '<p>Fin</p>'
+    && strpos($normal, '<th>Realizado</th>') !== false, 'un producto ya guardado con el bloque se muestra y se descarga como HTML comun');
+local_chatbot_verificar(diseno::normalize_product('<p>Sin bloques</p>') === '<p>Sin bloques</p>', 'un producto sin bloques no cambia');
+local_chatbot_verificar(strpos(documento_final::pre_html("Rol: [ ] COEVALUACIÓN ENTRE PARES     [ ] HETEROEVALUACIÓN\n"
+    . "- Estado de Aprobación (Mínimo 60%): [  ] APROBADO   [  ] EN PROCESO"), '<table') === false,
+    'un campo o una viñeta con casillas, sin linea de puntos, no se vuelve tabla de cotejo');
+local_chatbot_verificar(strpos(diseno::build_prompt(6, 'F', [], [], []), 'Nunca en bloques de código, con líneas de puntos') !== false,
+    'el prompt pide los instrumentos en tablas Markdown, sin bloques de codigo ni lineas de puntos');
+$pe = diseno::build_prompt(4, 'F', [], [], []);
+local_chatbot_verificar(strpos($pe, '«### Referencias consultadas»') !== false && strpos($pe, 'No uses citas numéricas') !== false,
+    'el prompt de cada etapa pide la lista «Referencias consultadas» al final y no las marcas en el texto');
+
+// --- Que la etapa entregue todo lo que corresponde (revision del cliente del 02-11) ---
+local_chatbot_verificar(strpos($pe, 'ESTRUCTURA OBLIGATORIA') !== false
+    && strpos($pe, '«### Registro de vacíos de información y propuestas de solución» (si no hay vacíos, dilo en una línea), '
+        . '«### Verificación de calidad de la etapa» y «### Referencias consultadas»') !== false,
+    'el prompt exige cada elemento de la etapa con su nombre y el cierre comun: vacios, verificacion y referencias');
+local_chatbot_verificar(strpos(diseno::build_consolidation_prompt([1 => '<p>x</p>']), 'Cada parte conserva todas las secciones de su etapa') !== false,
+    'la consolidacion conserva las secciones de cada etapa, con sus vacios y su verificacion');
+local_chatbot_verificar(diseno::prompt_number('M2-F2-etapas-v11') === 11 && diseno::prompt_number('M2-F2-etapas-v9') === 9
+    && diseno::prompt_number(null) === 0 && diseno::prompt_number('') === 0, 'numero de la version del prompt');
+local_chatbot_verificar(diseno::item_stems('Resultado de la validación (Etapa 0) y observaciones no resueltas, incorporadas como restricciones')
+    === ['result', 'valida', 'observ', 'resuel'] && diseno::item_stems('Tabla de síntesis') === ['sintes'],
+    'raices de un elemento: lo anterior al parentesis o la coma, sin tildes ni palabras cortas');
+$e1 = '<h2>Etapa 1: Análisis diagnóstico</h2><h3>1. Síntesis diagnóstica</h3><p>x</p><h3>2. Resultado de la validación y observaciones '
+    . 'no resueltas</h3><h3>3. Síntesis de las observaciones obligatorias de la ficha</h3><h3>4. Prioridades de diseño</h3>'
+    . '<h3>5. Restricciones</h3><h3>7. Recomendación didáctica</h3><h3>8. Nota de uso de documentos complementarios</h3>'
+    . '<p>Las oportunidades se verán después.</p><h3>Verificación de calidad de la etapa</h3><p>ok</p>';
+local_chatbot_verificar(diseno::missing_items(1, $e1, false) === ['Oportunidades'],
+    'revision: falta «Oportunidades» (mencionarla en un parrafo no cuenta como seccion)');
+local_chatbot_verificar(diseno::missing_items(1, $e1, true) === ['Oportunidades', 'Registro de vacíos de información y propuestas de solución',
+    'Referencias consultadas'], 'revision con el cierre nuevo: tambien el registro de vacios y las referencias');
+$e5 = '<h2>Etapa 5: Plan de evaluación</h2><table><thead><tr><th>Aprendizaje esperado</th><th>Criterio de evaluación</th>'
+    . '<th>Evidencia</th><th>Instrumento</th><th>Indicador de logro</th><th>Momento de evaluación</th></tr></thead></table>'
+    . '<h3>Verificación de calidad de la etapa</h3>';
+local_chatbot_verificar(diseno::missing_items(5, $e5, false) === ['Responsable'], 'revision de la Etapa 5: falta la columna «Responsable»');
+local_chatbot_verificar(diseno::missing_items(6, '<h2>Etapa 6</h2><h3>Instrumento 1: Lista de cotejo</h3>', false)
+    === ['Verificación de calidad de la etapa'] && diseno::missing_items(2, '', true) === [],
+    'revision de la Etapa 6: los tipos de instrumento no se exigen; sin producto, nada que revisar');
+$cons = '<h1>DATOS GENERALES</h1><p>d</p><h1>PARTE 1: ANÁLISIS</h1><h2>1. Síntesis</h2><p>a</p>'
+    . '<h1>PARTE 2: DISEÑO</h1><h2>1. Propósito</h2><h2>Verificación de calidad de la etapa</h2><p>v2</p>'
+    . '<h1>PARTE 3: SECUENCIA</h1><p>c</p><h1>PARTE 4: MATERIALES</h1><p>m</p><h1>PARTE 5: EVALUACIÓN</h1><p>e</p>'
+    . '<h1>Referencias consultadas</h1><ul><li>Plan Formativo</li></ul>';
+local_chatbot_verificar(diseno::missing_items(7, $cons, false) === ['Etapa 6: Instrumentos evaluativos']
+    && in_array('Verificación de calidad de la etapa (Etapa 1)', diseno::missing_items(7, $cons, true), true)
+    && !in_array('Verificación de calidad de la etapa (Etapa 2)', diseno::missing_items(7, $cons, true), true),
+    'revision de la consolidacion: la etapa que falta y la verificacion de cada parte');
+$prod1 = '<h2>Etapa 1: Análisis diagnóstico</h2><h3>1. Síntesis</h3><p>s</p><h3>Registro de vacíos de información y propuestas de '
+    . 'solución</h3><p>VACIOS UNO</p><h3>Verificación de calidad de la etapa</h3><ul><li>VERIF UNO</li></ul><h3>Referencias consultadas</h3><p>REF</p>';
+$prod3 = '<h2>Etapa 3</h2><h3>Verificación de calidad de la etapa</h3><p>VERIF TRES</p>';
+$completa = diseno::complete_consolidation($cons, [1 => $prod1, 3 => $prod3]);
+$p1 = strpos($completa, 'PARTE 1');
+$p2 = strpos($completa, 'PARTE 2');
+local_chatbot_verificar(strpos($completa, '<h2>Registro de vacíos de información y propuestas de solución</h2><p>VACIOS UNO</p>') > $p1
+    && strpos($completa, '<h2>Verificación de calidad de la etapa</h2><ul><li>VERIF UNO</li></ul>') < $p2
+    && strpos($completa, 'REF</p>') === false && substr_count($completa, 'v2</p>') === 1
+    && strpos($completa, 'VERIF TRES') > strpos($completa, 'PARTE 3') && strpos($completa, 'VERIF TRES') < strpos($completa, 'PARTE 4'),
+    'la consolidacion se completa con los vacios y la verificacion de cada etapa, al final de su parte y con el nivel de sus secciones');
+local_chatbot_verificar(diseno::complete_consolidation('<p>sin partes</p>', [1 => $prod1]) === '<p>sin partes</p>'
+    && diseno::complete_consolidation($completa, [1 => $prod1, 3 => $prod3]) === $completa,
+    'completar es idempotente y no toca un documento sin partes');
+// Consolidacion por codigo de Roberto (02-11): la Etapa 3 trae su verificacion al mismo nivel que su titulo; no se duplica.
+$porcodigo = '<h2>Etapa 3: Secuencia</h2><h3>1. Fases</h3><p>f</p><h2>Verificación de calidad de la etapa</h2><p>VERIF TRES</p>'
+    . '<h2>Referencias consultadas</h2><p>R3</p><h2>Etapa 4: Materiales</h2><h3>1. Materiales</h3><p>m</p>'
+    . '<h3>Referencias consultadas</h3><p>R4</p>';
+$prod4 = '<h2>Etapa 4</h2><h3>Verificación de calidad de la etapa</h3><p>VERIF CUATRO</p>';
+$pc = diseno::complete_consolidation($porcodigo, [3 => $prod3, 4 => $prod4]);
+local_chatbot_verificar(substr_count($pc, 'VERIF TRES') === 1 && strpos($pc, '<h3>Verificación de calidad de la etapa</h3><p>VERIF CUATRO</p><h3>Referencias consultadas</h3>') !== false,
+    'completar: una verificacion al nivel del titulo de la etapa no se duplica, y la que falta va antes de las referencias de la etapa');
+[$mostrada] = diseno::consolidation_shown((object) ['contenido' => $cons, 'huella' => 'h', 'promptversion' => 'v'], [1 => $prod1], 'h');
+local_chatbot_verificar(strpos($mostrada, 'VERIF UNO') !== false, 'la consolidacion del asistente se muestra ya completada');
+local_chatbot_verificar(strpos($pe, '```diagrama') !== false && strpos($pe, 'nunca dibujes cajas') !== false
+    && strpos(diseno::build_consolidation_prompt([1 => '<p>x</p>']), 'etiqueta «diagrama»') !== false,
+    'los prompts de las etapas y de la consolidación piden los diagramas como bloque «diagrama»');
+local_chatbot_verificar(strpos(diseno::build_consolidation_prompt([1 => '<p>x</p>']), 'sola sección «Referencias consultadas»') !== false,
+    'la consolidación reúne las referencias en una sola sección');
+
+// --- Tablero del Modulo 2 debajo del boton de la Fase 3 (pedido del 01-11-2026) ---
+$tb = modulo2_setup::add_dashboard_block($f3b, 'ut');
+local_chatbot_verificar(strpos($tb, 'href="ut"') > strpos($tb, 'href="u7"') && strpos($tb, modulo2_setup::BOTON_TABLERO) !== false
+    && strpos($tb, modulo2_setup::TABLERO_TITULO) !== false && substr($tb, -6) === '</div>',
+    'el tablero va con su explicación debajo del botón de la Fase 3, dentro del recuadro de la pestaña');
+local_chatbot_verificar(modulo2_setup::add_dashboard_block($tb, 'ut') === $tb, 'agregar el tablero es idempotente');
+$tb2 = modulo2_setup::add_dashboard_block($tb, 'otra');
+local_chatbot_verificar(substr_count($tb2, '<!-- TABLERO M2 -->') === 1 && strpos($tb2, 'href="otra"') !== false
+    && strpos($tb2, 'href="ut"') === false, 'con otra URL el bloque se reemplaza, no se duplica');
+local_chatbot_verificar(modulo2_setup::remove_dashboard_block($tb) === $f3b, 'con el interruptor apagado se quita sin dejar rastro');
+local_chatbot_verificar(strpos(modulo2_setup::add_validation_buttons($tb, 'ur', 'u7'), 'href="u7"') === strpos($tb, 'href="u7"'),
+    'volver a pasar los botones de la Fase 3 no los mueve debajo del tablero');
 $chk = modulo2_setup::link_checklist('<!-- IMPORTANTE: REEMPLAZA # POR LA URL REAL DEL ARCHIVO EN MOODLE -->'
     . '<a href="#"> Consultar y descargar el checklist </a>', 'uc');
 local_chatbot_verificar(strpos($chk, 'REEMPLAZA') === false && strpos($chk, 'href="uc"') !== false,

@@ -19,4 +19,11 @@ $messageproviders = [
             'email' => MESSAGE_PERMITTED,
         ],
     ],
+    // Avisos automaticos del tablero del Modulo 2 (reemplazan el acompanamiento humano).
+    'avisom2' => [
+        'defaults' => [
+            'popup' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+            'email' => MESSAGE_PERMITTED,
+        ],
+    ],
 ];

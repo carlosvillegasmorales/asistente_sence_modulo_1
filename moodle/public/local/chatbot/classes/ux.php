@@ -63,6 +63,13 @@ class ux {
         'consolidacionia' => 1, // Modulo 2, etapa 7: consolidacion con el asistente, en extenso y sin repetir campos comunes (v1.20.12).
         'reglacriticos' => 1,   // Modulo 2: regla de decision del checklist del cliente del 30-10 (items CRÍTICO; v1.20.13).
         'libreriaruta' => 1,    // Modulo 2: cada pedido a la IA lleva solo las secciones de la libreria que su tarea necesita, y la libreria va primero (v1.20.15).
+        // Propuesta de dashboard de Interfases (v3, 30-10-2026).
+        'tablerom2' => 1,       // Modulo 2: tablero individual, agregado y de calidad del agente, con encuesta de cierre (v1.21.0).
+        'avisosm2' => 1,        // Modulo 2: avisos automaticos del tablero por las notificaciones de Moodle (v1.21.0).
+        'docfinal' => 1,        // Modulo 2, Fase 3: documento final en Word con el diseño del ejemplo del cliente (v1.21.4).
+        'revisioncontenido' => 1, // Modulo 2: revision automatica de lo que pide cada etapa (v1.21.5).
+        'fabm2' => 1,           // Modulo 2: el boton flotante de indicadores lleva al tablero del curso (v1.21.5).
+        'docetapa' => 1,        // Modulo 2: el Word de cada etapa con el mismo diseño del documento final (v1.21.5).
     ];
 
     /**

@@ -178,7 +178,12 @@ class ruta_m2 {
         $siguiente = '<div class="chatbot-nextaction"><span class="chatbot-nextaction-label">👉 '
             . get_string('na_label', 'local_chatbot') . ':</span> <strong>' . s(get_string($sclave, 'local_chatbot', $sa))
             . '</strong> <a class="btn btn-sm btn-primary ms-1 chatbot-nextaction-go" href="' . $url($sfase, $setapa)->out()
-            . '">' . get_string('na_go', 'local_chatbot') . '</a></div>';
+            . '">' . get_string('na_go', 'local_chatbot') . '</a>'
+            // Tablero del Modulo 2: su avance, sus resultados y los avisos, a un clic desde cada pantalla.
+            . (ux::on('tablerom2') ? ' <a class="btn btn-sm btn-outline-secondary ms-1 chatbot-m2dash-link" href="'
+                . (new \moodle_url('/local/chatbot/tablero_m2.php', ['courseid' => $courseid]))->out() . '">'
+                . get_string('m2dash_link', 'local_chatbot') . '</a>' : '')
+            . '</div>';
         return '<nav class="chatbot-routebar chatbot-routebar-m2" aria-label="' . s(get_string('r2_title', 'local_chatbot')) . '">'
             . '<div class="chatbot-routebar-title">' . get_string('r2_title', 'local_chatbot') . '</div>'
             . '<ol class="chatbot-routebar-steps">' . $items . '</ol>'

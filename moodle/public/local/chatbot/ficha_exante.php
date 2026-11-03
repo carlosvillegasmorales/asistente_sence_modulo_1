@@ -122,7 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
     $mensaje = get_string('exante_saved', 'local_chatbot');
     $destino = $pageurl;
     if ($action === 'validar') {
-        $falta = exante::missing_inputs($data, array_keys(exante::attachments($fichaid)));
+        $adjuntosficha = array_keys(exante::attachments($fichaid));
+        $falta = exante::missing_inputs($data, $adjuntosficha);
+        // Cada envio al control de entrada queda registrado, pase o no (grupo B del tablero del Modulo 2).
+        \local_chatbot\tablero_m2::log_submission((object) ['id' => $fichaid, 'userid' => $USER->id,
+            'courseid' => $courseid], $falta, $adjuntosficha);
         if ($falta) {
             // Control de entrada del Prompt Maestro: no se avanza y se pide lo que falta, en concreto.
             $tipo = \core\output\notification::NOTIFY_WARNING;

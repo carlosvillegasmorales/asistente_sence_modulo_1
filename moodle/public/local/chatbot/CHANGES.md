@@ -1,5 +1,151 @@
 # Changelog
 
+## M1-v1.21.5 (2026-11-02)
+
+**Fórmulas en texto, no en LaTeX** (revisión del cliente del 02-11: la Etapa 6 mostraba
+`$$\text{Porcentaje Final de Logro} = (\% \text{Inst. 1} \times 0.20) + …$$` sin dibujar). `diseno::plain_math()` pasa a
+texto legible lo que va entre `$$…$$`, `\[…\]`, `\(…\)` o `$…$` con comandos (`\text`, `\times` → ×, `\div` → ÷,
+`\frac{a}{b}` → (a ÷ b), `\%` → %, `\leq` → ≤…) y los comandos sueltos; los precios con `$` no cambian. Se aplica a los
+productos nuevos (`clean_markdown()`) y a los ya guardados al mostrarlos en el editor, en la consolidación, en el Word de
+cada etapa y en el documento final. Los prompts de las etapas y de la consolidación piden las fórmulas en texto con × ÷ =
+y % (`diseno::REGLA_FORMULAS`). Prompt `M2-F2-etapas-v10`. Sin cambios en la base.
+
+**Formularios sin bloque preformateado; la página y el Word iguales** (misma revisión: la hoja de registro de la Etapa 6
+llegaba como bloque de código con líneas de puntos y casillas alineadas, y el Word la mostraba con otro formato).
+`diseno::structure_pre()` cambia cada `<pre>` por HTML común con `documento_final::pre_html()`: título entre corchetes en
+negrita, ítems de cotejo («Aseo bucal ...... [ ] Realizado [ ] No requerido») en una tabla con una columna por opción y ☐,
+campos con el rótulo en negrita, casillas ☐, líneas para escribir, tablas y árboles dibujados. Se aplica a los productos
+nuevos (`product_html()`) y a los guardados al mostrarlos, editarlos y descargarlos (`diseno::normalize_product()`), así el
+editor, el Word de cada etapa y el documento final muestran lo mismo. El prompt pide instrumentos y formularios como tablas
+Markdown, sin bloques de código, líneas de puntos ni separadores.
+
+**Tablas dibujadas en ASCII** (misma revisión: la síntesis diagnóstica de la Etapa 1 se veía como viñetas «| Plan
+Formativo / Código», «| Servicios … |»). Un bloque de código con una tabla dibujada (con cajas ┌─┬─┐ o con `+---+` y `|`)
+se convierte en tabla al generar el producto, con una fila por rótulo y las líneas de continuación unidas; un árbol, en
+lista con niveles; una tabla Markdown dentro de un bloque de código queda como tabla. Lo que ya quedó guardado como
+viñetas «| …» vuelve a ser tabla de rótulo y valor al mostrarlo y descargarlo (`diseno::repair_art_lists()`).
+
+**El Word de cada etapa con el diseño del documento final** (pedido del cliente del 02-11: «que todo lo que entrega el
+asistente se descargue en Word legible y ordenado»). Interruptor nuevo `docetapa` (encendido; apagado, el Word sencillo
+de antes). La descarga de las etapas 1 a 6 usa `documento_final::build()` sin portada ni índice (`portada => false`):
+encabezado con el logo y la etapa, pie «Página X de Y», títulos numerados («2.1», «2.7.1»; el título de la etapa viene
+como h2 y los niveles se corren), tablas con encabezado azul que no dejan páginas a medias, listas de cotejo con casillas,
+fichas de instrumentos y tablas anchas en páginas horizontales. Probado abriendo en Word las seis etapas del diseño real
+del usuario de prueba y los casos de las capturas del cliente.
+
+**Filtro por período en la vista «Programa» del tablero del Módulo 2** (pedido del cliente del 02-11): Todo, Última
+semana, Último mes, Último semestre y Último año. Quedan las fichas con actividad en el período (envío al control de
+entrada, validación o trabajo en una etapa); los inscritos se cuentan igual, y una nota dice cuántas fichas entraron.
+Se combina con el filtro de cohorte (`tablero_m2::period_start()`, `in_period()`).
+
+**Botón flotante de indicadores en el curso del Módulo 2**, como en el Módulo 1 (pedido del cliente del 02-11). En un curso
+con fichas del Módulo 2 el botón lleva al tablero de ese curso: la coordinación (`viewanalytics`) a «Programa» y quien
+tiene una ficha a «Mi avance» (`tablero_m2::fab_view()`); se muestra aunque el asistente esté oculto en ese curso. Fuera
+del Módulo 2 sigue llevando a los indicadores. Interruptor `fabm2`.
+
+**Que cada etapa entregue todo lo que corresponde** (pedido del cliente del 02-11). Prompt `M2-F2-etapas-v11`.
+- **Estructura obligatoria en el prompt:** cada elemento de «Esta etapa incluye» aparece con su nombre (sección, columna de
+  tabla o rótulo en negrita) y toda etapa termina, como en el ejemplo del cliente, con «Registro de vacíos de información y
+  propuestas de solución», «Verificación de calidad de la etapa» y «Referencias consultadas». La consolidación conserva
+  esas secciones en cada parte.
+- **Revisión automática** (interruptor `revisioncontenido`): bajo el producto de cada etapa se lista lo que la etapa pide y
+  no aparece (`diseno::missing_items()`: busca en títulos, encabezados de tabla y rótulos en negrita; en las etapas 3 y 5
+  revisa columnas y datos por fase), con el botón «Pedir lo que falta al asistente», que pide un ajuste con esa lista. Las
+  secciones de cierre nuevas solo se exigen a los productos hechos con este prompt; la verificación, siempre. En la Fase 3
+  se avisa si a la consolidación le falta una etapa o una verificación, y se puede volver a consolidar.
+- **La consolidación del asistente se completa por código** (`diseno::complete_consolidation()`): el diseño real del
+  usuario de prueba había perdido la «Verificación de calidad» de las seis etapas. Si una parte no trae el registro de
+  vacíos o la verificación que sí tiene el producto aceptado de su etapa, se copian textuales al final de la parte (al
+  mostrarla, confirmarla y en el documento final).
+- **Word:** las secciones sin número dentro de una etapa siguen la numeración («2.10 Verificación de calidad de la
+  etapa», como en el ejemplo) y «Referencias consultadas» queda dentro de la etapa en su Word, sin página nueva.
+
+**Revisado con el diseño real de Roberto** (sus dos diseños del curso 4, leídos del servidor con su autorización; 14
+etapas). Ninguna etapa omitía secciones. Ajustes que salieron de esa revisión:
+- Tablas ASCII guardadas como viñetas: la primera fila de rótulos cortos pasa a encabezado («Criterio | Estado») y una línea
+  que empieza con «(» continúa el valor anterior si este no terminó en punto.
+- Íconos perdidos al guardar: la base no guarda emojis y quedaban «[?]» o «[??]». En un ítem de cotejo se quitan; como
+  opción («Estado anímico: [?] Tranquilo/a») pasan a ☐. El prompt pide no usar emojis.
+- En lo ya guardado se quitan las marcas de cita «[1]» (cientos en el diseño anterior) y las casillas «[ ]» se ven ☐
+  también en la página.
+- Un párrafo de la Etapa 5 estaba en inglés: los prompts piden todo en español y la revisión automática avisa los párrafos
+  en inglés (`diseno::english_paragraphs()`), para pedir la corrección con el botón.
+- Word: un texto corto entre dos tablas anchas (el título de la fase siguiente, su alcance, un subtotal) se queda en la
+  página horizontal, en vez de dejar una página vertical casi vacía por fase.
+- La consolidación por código trae la verificación de una etapa al mismo nivel que su título: completarla ya no la
+  duplica (la parte llega hasta la parte siguiente y lo que falte va antes de sus referencias).
+
+## M1-v1.21.4 (2026-11-02)
+
+**Documento final validado con el diseño del ejemplo del cliente** («Diseño Final Validado - Ejemplo - Interfases», pedido
+del 02-11). Interruptor `docfinal` (encendido; apagado, sale el Word sencillo de antes). Sin cambios en la base.
+
+- **`classes/documento_final.php`** arma el Word de la Fase 3: portada con el logo de Interfases (`pix/logo_interfases.png`),
+  la experiencia, plan formativo, módulo, aprendizaje esperado, duración y resultado de la validación técnica
+  (`diseno::final_cover()`); tabla de contenidos con enlaces y números de página (Word los calcula al abrir); encabezado
+  con el logo y pie «Página X de Y»; cada etapa en página nueva con su rótulo («ETAPA 1  Análisis diagnóstico»); títulos
+  numerados en azul («1.1», «2.3.1»); viñetas azules; bandas «SESIÓN N»; fórmulas en recuadro; tablas con encabezado azul
+  oscuro repetido en cada página, primera columna sombreada y filas alternadas; la tabla «Vacío / Solución» con su flecha;
+  y en páginas horizontales las tablas de siete columnas o más, o de seis con mucho texto.
+- **La estructura real del consolidado:** el título general («DOCUMENTO CONSOLIDADO…») no se repite; «PARTE N» sale como
+  «ETAPA N»; los títulos escritos en mayúsculas pasan a minúscula normal (respetando siglas y números romanos) y pierden
+  los dos puntos finales; las secciones «1.» de cada parte se numeran «N.1» como en el ejemplo.
+- **Lo que el Word no armaba bien:** una tabla dibujada con caracteres (┌─┬─┐) vuelve a ser tabla; un árbol (├── └──), lista
+  con sus niveles; el encabezado de un instrumento o una pauta en texto preformateado (===== , «Rótulo: ____», «[  ]»)
+  sale como ficha con rótulos en negrita, casillas ☐ y líneas para escribir; una lista escrita dentro de un párrafo («1. …»,
+  «* …» pegados) se arma como lista; una fila «DIMENSIÓN 1: …» con el resto vacío va como banda a todo el ancho.
+- **Paginación:** una tabla baja no se parte; en una tabla de filas altas las filas sí pueden partirse (antes saltaban
+  enteras y dejaban media página en blanco); el título de una tabla o de un diagrama no queda solo al pie de la página;
+  dos tablas anchas seguidas comparten las páginas horizontales.
+- Probado con el diseño real del usuario de prueba: 50 páginas, abre en Word, índice con los números correctos.
+  Verificador nuevo `cli/verificar_documento_final.php` (90 casos).
+
+## M1-v1.21.3 (2026-11-02)
+
+**Referencias al final del producto, sin números entre corchetes en el texto** (pedido del cliente del 02-11): el prompt de las etapas 1 a 6 pide una sección «Referencias consultadas» con los documentos usados (librería, Plan Formativo, Perfil Ocupacional) al final, después de la verificación de calidad; la Etapa 7 reúne las referencias en una sola; y `diseno::strip_citations()` quita por código las marcas [1], [2, 3], [1][2] y [4-6] que el modelo deje dentro del texto (etapas 1 a 7 y justificaciones de la Etapa 8), sin tocar enlaces ni corchetes con letras. Las fuentes web siguen agregándose al final. Los productos ya generados no se modifican.
+
+**Diagramas de cajas y flechas editables** (pedido del cliente del 02-11): el modelo dibujaba diagramas con caracteres (│ ─ ┌ ▼) que se desarmaban en el Word. Ahora los entrega en un bloque «diagrama» (una línea por caja, «Título / detalle», `modo: ciclo` opcional) y `classes/diagrama.php` lo convierte en una tabla de cajas con color y flechas entre celdas: se edita en el editor y sale como tabla en el Word (fondo, borde y texto centrado por celda en `diseno::w_celda()`, flechas grandes, sin bordes de tabla). Un dibujo de caracteres que se cuele se vuelve lista, tanto al generar como al descargar el Word de un producto ya guardado. Los prompts de las etapas 1 a 6 y de la Etapa 7 piden este formato.
+
+Etapa 3: la lista «Esta etapa incluye» muestra «Alcance de cada fase» sin el paréntesis. La indicación del Prompt Maestro («descripción de lo que se espera lograr en la fase, sin formularlo como objetivo específico») sigue yendo a la IA, en una línea aparte (`indicaciones` en `diseno::etapas()`). Prompt `M2-F2-etapas-v9`. Sin cambios en la base.
+
+## M1-v1.21.2 (2026-11-02)
+
+Título «Documentos complementarios» de la ficha sin «(opcionales)»: el Plan Formativo es obligatorio y solo el Perfil Ocupacional es opcional (ya lo dicen los rótulos de cada archivo). Sin cambios en la base.
+
+## M1-v1.21.1 (2026-11-01)
+
+**Botón al tablero del Módulo 2 en la pestaña Fase 3 del curso.** Sin cambios en la base.
+
+- `cli/configurar_modulo2.php` agrega, debajo de «Ir a la consolidación y evaluación del diseño · Fase 3», un recuadro con
+  la explicación del tablero y el botón «Ver mi tablero del Módulo 2» (`modulo2_setup::add_dashboard_block()`,
+  idempotente: si ya está, se reemplaza). Con el interruptor `tablerom2` apagado, el guion lo quita.
+## M1-v1.21.0 (2026-10-30)
+
+**Tablero del Módulo 2 según la «Propuesta de dashboard - Indicadores, vistas y uso» de Interfases (v3).** Versión
+`2026103009`: tres tablas nuevas y un campo. Interruptores `tablerom2` y `avisosm2`.
+
+- **Página `tablero_m2.php?courseid=ID`** con tres vistas: **Mi avance** (cada persona facilitadora, solo sus fichas:
+  avisos, decisión de cada ciclo de la Etapa 0, ítems por mejorar, criterios que quedarán limitados a 3, adjuntos, guía y
+  ejemplo consultados, campos que faltaron, etapas con rondas de ajuste y días, puntaje total, techo, brecha y puntaje
+  por criterio, encuesta de cierre); **Programa** (`local/chatbot:viewanalytics`, indicadores A a F y H agregados, sin
+  nombres, con filtro por grupo como cohorte y decisión final por OTEC); **Calidad del agente**
+  (`local/chatbot:managekb`, indicador G: concordancia con la revisión experta en la Etapa 0 y en la Etapa 8,
+  incidencias por tipo, y la muestra para revisar con el formulario de revisión, sin datos personales).
+- **Cálculo puro** en `classes/tablero_m2.php` (`facts()`, `program()`, `agent()`, `notices()`, `due()`); verificador
+  nuevo `cli/verificar_tablero.php` (96 casos).
+- **Seis avisos automáticos** con el texto de la propuesta (corrección pendiente, ítem CRÍTICO observado, observaciones
+  no resueltas, techo bajo, criterio 2 en nivel 1, proceso detenido): se ven en «Mi avance» y se envían por las
+  notificaciones de Moodle (proveedor `avisom2`, tarea `send_m2_notices` cada hora), una vez cada uno; los de plazo se
+  repiten cada plazo. Los plazos «X» son ajustes (`m2plazocorreccion`, `m2plazodetenido`, 7 días por defecto) hasta que
+  el cliente los defina.
+- **Datos nuevos:** `local_chatbot_m2_envio` (cada envío al control de entrada, pase o no: campos que faltaron y
+  adjuntos), `local_chatbot_m2_revision` (revisión experta), `local_chatbot_m2_encuesta` (encuesta de cierre, 4 preguntas
+  de 1 a 5) y `local_chatbot_diseno.rondas` (rondas de ajuste por etapa). Lo anterior a esta versión no tiene envíos ni
+  rondas registrados.
+- **Enlaces:** «Mi tablero» en la barra de fases del Módulo 2; «Tablero del programa» y «Calidad del agente» en la
+  pestaña Módulo 2 de los indicadores.
+- **A confirmar con el cliente:** plazos «X», preguntas de la encuesta de cierre y tipos de incidencia de la revisión
+  experta (la propuesta no los fija).
 ## M1-v1.20.16 (2026-10-30)
 
 **Rúbrica de validación técnica del diseño actualizada por el cliente (Fase 3, Etapa 8).** Prompt `M2-F2-etapas-v8`. Sin

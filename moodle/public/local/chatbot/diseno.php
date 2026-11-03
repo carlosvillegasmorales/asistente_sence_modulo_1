@@ -85,7 +85,12 @@ if ($action === 'word' && $abierta && !$fase3 && $fila && $fila->contenido) {
     $ruta = make_request_directory() . '/producto.docx';
     $titulo = 'Etapa ' . $etapa . ': ' . $etapas[$etapa]['titulo'];
     $subtitulo = format_string($course->fullname) . ' · ' . userdate(time(), get_string('strftimedate', 'langconfig'));
-    if (diseno::html_to_docx($ruta, $titulo, $subtitulo, (string) $fila->contenido)) {
+    $producto = diseno::normalize_product((string) $fila->contenido);
+    // Con «docetapa», el Word de la etapa sale con el mismo diseño del documento final (sin portada ni indice).
+    $conformato = \local_chatbot\ux::on('docetapa') && \local_chatbot\documento_final::build($ruta,
+        ['portada' => false, 'encabezado' => $titulo . ' · ' . $subtitulo], diseno::stage_document_html($titulo, $producto),
+        $CFG->dirroot . '/local/chatbot/pix/logo_interfases.png');
+    if ($conformato || diseno::html_to_docx($ruta, $titulo, $subtitulo, $producto)) {
         send_file($ruta, $etapas[$etapa]['archivo'] . '.docx', 0, 0, false, true,
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     }
@@ -100,9 +105,20 @@ if ($action === 'final' && $fase1 && $descargable) {
     $subtitulo = get_string('diseno_final_subtitle', 'local_chatbot', (object) ['curso' => format_string($course->fullname),
         'total' => $evaluacion['total'], 'banda' => $evaluacion['banda']['texto'],
         'fecha' => userdate($evaluacion['fecha'], get_string('strftimedate', 'langconfig'))]);
-    $html = (string) $filas[diseno::CONSOLIDACION]->contenido . '<h1>' . s(get_string('diseno_final_annex', 'local_chatbot'))
-        . '</h1>' . diseno::evaluation_html($evaluacion);
-    if (diseno::html_to_docx($ruta, $titulo, $subtitulo, $html)) {
+    // La consolidacion lleva de cada etapa lo que el asistente haya omitido (vacios y verificacion de calidad).
+    $productos = [];
+    foreach (array_keys(diseno::etapas()) as $n) {
+        $productos[$n] = (string) ($filas[$n]->contenido ?? '');
+    }
+    $html = diseno::normalize_product(diseno::complete_consolidation((string) $filas[diseno::CONSOLIDACION]->contenido, $productos))
+        . '<h1>' . s(get_string('diseno_final_annex', 'local_chatbot')) . '</h1>' . diseno::evaluation_html($evaluacion);
+    // Con «docfinal», el documento sale con el diseño del ejemplo del cliente (portada, indice, encabezado con logo...).
+    $fichafinal = exante::get_ficha($USER->id, $courseid);
+    $conformato = \local_chatbot\ux::on('docfinal') && \local_chatbot\documento_final::build($ruta,
+        diseno::final_cover($fichafinal ? (array) $fichafinal->data : [], $titulo, $evaluacion,
+            userdate($evaluacion['fecha'], get_string('strftimedate', 'langconfig'))),
+        $html, $CFG->dirroot . '/local/chatbot/pix/logo_interfases.png');
+    if ($conformato || diseno::html_to_docx($ruta, $titulo, $subtitulo, $html)) {
         send_file($ruta, diseno::etapas_fase3()[diseno::EVALUACION]['archivo'] . '.docx', 0, 0, false, true,
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     }
@@ -146,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $fase3 && in_array($act
 
 // --- Acciones del formulario ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && !$fase3
-        && in_array($action, ['generar', 'ajustar', 'guardar', 'aceptar'], true)) {
+        && in_array($action, ['generar', 'ajustar', 'completar', 'guardar', 'aceptar'], true)) {
     require_sesskey();
     $destino = new moodle_url($pageurl, [], 'producto');
     if ($action === 'guardar' || $action === 'aceptar') {
@@ -159,7 +175,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && !$fase3
             \core\output\notification::NOTIFY_ERROR);
     }
     $ajustes = $action === 'ajustar' ? trim(optional_param('ajustes', '', PARAM_TEXT)) : '';
-    if ($action === 'ajustar') {
+    // «Pedir lo que falta»: el ajuste lo arma la revision automatica con lo que no encontro en el producto.
+    if ($action === 'completar' && $fila) {
+        $faltan = diseno::missing_items($etapa, diseno::normalize_product((string) optional_param('contenido', $fila->contenido, PARAM_RAW)),
+            diseno::prompt_number($fila->promptversion) >= diseno::PROMPT_CIERRE);
+        $ajustes = $faltan ? get_string('diseno_check_prompt', 'local_chatbot', implode('; ', $faltan)) : '';
+    }
+    if ($action === 'ajustar' || $action === 'completar') {
         if ($ajustes === '') {
             redirect($destino, get_string('diseno_adjust_empty', 'local_chatbot'), null,
                 \core\output\notification::NOTIFY_WARNING);
@@ -296,8 +318,26 @@ echo $OUTPUT->header();
                         <?php endif; ?>
                     </div>
                     <p class="small text-muted"><?php echo get_string('diseno_edit_help', 'local_chatbot'); ?></p>
+                    <?php // Revision automatica: lo que pide la etapa y no aparece en el producto. ?>
+                    <?php if (\local_chatbot\ux::on('revisioncontenido')):
+                        $faltan = diseno::missing_items($etapa, diseno::normalize_product((string) $fila->contenido),
+                            diseno::prompt_number($fila->promptversion) >= diseno::PROMPT_CIERRE); ?>
+                        <?php if ($faltan): ?>
+                            <div class="alert alert-warning small">
+                                <?php echo get_string('diseno_check_missing', 'local_chatbot'); ?>
+                                <ul class="mb-2 mt-1"><?php foreach ($faltan as $falta): ?><li><?php echo s($falta); ?></li><?php endforeach; ?></ul>
+                                <button type="submit" name="action" value="completar" class="btn btn-sm chatbot-gatebtn"
+                                        data-espera="<?php echo s(get_string('diseno_generating', 'local_chatbot')); ?>">
+                                    <i class="fa fa-plus-circle me-1"></i> <?php echo get_string('diseno_check_request', 'local_chatbot'); ?>
+                                </button>
+                            </div>
+                        <?php else: ?>
+                            <p class="small text-success mb-2"><i class="fa fa-check-circle me-1"></i><?php
+                                echo get_string('diseno_check_ok', 'local_chatbot'); ?></p>
+                        <?php endif; ?>
+                    <?php endif; ?>
                     <textarea id="diseno-contenido" name="contenido" rows="24" class="form-control mb-3"><?php
-                        echo s((string) $fila->contenido); ?></textarea>
+                        echo s(diseno::normalize_product((string) $fila->contenido)); ?></textarea>
                     <div class="d-flex flex-wrap gap-2 mb-4">
                         <?php if (!$aceptada): ?>
                             <button type="submit" name="action" value="aceptar" class="btn btn-success px-4"

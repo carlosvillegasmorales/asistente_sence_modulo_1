@@ -69,13 +69,22 @@ foreach (diseno::etapas() as $n => $e) {
     </div>
     <div class="card border mb-3">
         <div class="card-body chatbot-diseno-doc" style="max-height: 640px; overflow-y: auto;">
-            <?php echo format_text($documento, FORMAT_HTML, ['context' => $context]); ?>
+            <?php echo format_text(diseno::normalize_product($documento), FORMAT_HTML, ['context' => $context]); ?>
         </div>
     </div>
+    <?php // Revision automatica: las seis etapas y la verificacion de calidad de cada una.
+    $faltan7 = \local_chatbot\ux::on('revisioncontenido')
+        ? diseno::missing_items(diseno::CONSOLIDACION, diseno::normalize_product($documento), true) : [];
+    if ($faltan7): ?>
+        <div class="alert alert-warning small">
+            <?php echo get_string('diseno_check_missing_consolidation', 'local_chatbot'); ?>
+            <ul class="mb-0 mt-1"><?php foreach ($faltan7 as $falta): ?><li><?php echo s($falta); ?></li><?php endforeach; ?></ul>
+        </div>
+    <?php endif; ?>
     <?php if (!$vigente && !$generando): ?>
         <form method="post" action="<?php echo $pageurl->out(false); ?>" class="mb-4 d-flex flex-wrap gap-2">
             <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
-            <?php if ($consolidaia && !$porasistente): ?>
+            <?php if ($consolidaia && (!$porasistente || $faltan7)): ?>
                 <?php // Prompt Maestro: consolidar «en extenso», sin repetir los campos comunes (lo hace el asistente). ?>
                 <button type="submit" name="action" value="consolidar" class="btn btn-primary px-4"
                         data-espera="<?php echo s(get_string('diseno_consolidating', 'local_chatbot')); ?>">
