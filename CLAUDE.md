@@ -223,6 +223,10 @@ esperada, revertir automáticamente. Nunca borrar una carpeta montada de
 Docker para revertir — reemplazar su contenido con rsync/copia; borrar el
 punto de montaje ya rompió el bind mount una vez y tumbó el sitio.
 
+**Avisos de seguridad del sistema.** CVE = número de una falla conocida; «EXPLOTADA»/KEV = ya se usa en ataques
+reales. Prioridad: explotadas, luego severidad alta, luego el resto. Se aplican con `dnf upgrade -y <paquete>` en cada
+VPS (primero `--assumeno` para ver qué toca) y se comprueba que Nginx/PHP-FPM/MariaDB o los contenedores sigan arriba.
+
 **Respaldos fuera del directorio web.** Una copia `chatbot.bak-*` dentro de
 `public/local/` queda servida por el sitio y Moodle la tiene delante al escanear
 plugins. Van en `/opt/moodle_project/respaldos_plugin/` (VPS propio) y
