@@ -1,5 +1,40 @@
 # Changelog
 
+## M1-v1.22.0 (2026-11-06)
+
+**Módulo 3: Asistente de Aseguramiento de la Calidad de los Aprendizajes** (pedido de Interfases del 06-11-2026; insumos: ficha
+de registro de la implementación, guía de llenado, ejemplo de llenado «Comunicación efectiva», checklist y Prompt Maestro).
+Mismo patrón que el Módulo 2: ficha en línea validada con el checklist, etapas como hojas de trabajo y Word consolidado. Base:
+tres tablas nuevas (`local_chatbot_impl`, `local_chatbot_impl_val`, `local_chatbot_calidad`; versión `2026110600`).
+
+- **Botones al final de las cuatro hojas del curso** (`modulo3_setup`, `cli/configurar_modulo3.php --curso=ID`), con los textos
+  del cliente: «Ir a la Fase 1: Registro y Validación» (bienvenida), «Completar y validar la ficha de implementación» (Fase 1),
+  «Acceder al asistente IA» (Fase 2) e «Ir al ajuste de la experiencia de aprendizaje - Fase 3» (Fase 3). Como el contenido
+  del curso del Módulo 3 está en etiquetas dentro de cada sección, el botón va en una etiqueta propia al final de la sección
+  (marcada con `<!-- BOTON M3 ... -->`); si el cliente ya puso su botón con ese texto (con «#»), se enlaza ese. Idempotente.
+- **Fase 1: ficha de implementación** (`ficha_implementacion.php`, `classes/implementacion.php`). La persona elige el diseño
+  que implementó entre sus diseños del Módulo 2 (con sus seis etapas aceptadas y su plan formativo; de ahí se recuperan el
+  diseño, el plan y el perfil ocupacional, sin volver a cargarlos) y completa la ficha de 6 secciones, con la tabla 4.1 (una
+  fila por criterio, con suma por nivel y logro) y la 4.2 opcional. Control de entrada del Prompt Maestro y validación con
+  el checklist de 34 ítems y 8 CRÍTICO. La condición final la fija el código con la regla del cliente; los ítems aritméticos
+  (presentes, tiempos contra el diseño, fila por criterio, suma por nivel y logro %) los decide el código y no el modelo
+  (`system_checks()`), y el informe trae el tiempo restante (total − utilizado). Varias evaluaciones por persona.
+- **Fases 2 y 3: etapas 1 a 8** (`calidad.php`, `classes/calidad.php`). Análisis de la implementación, brechas y pendientes,
+  decisión del tipo de ajuste, acciones remediales o plan de rediseño, mejora del diseño y buenas prácticas, experiencia de
+  continuidad (nivelación y profundización), síntesis y consolidación en Word. La plataforma calcula y entrega al modelo el
+  logro por criterio, el promedio, la cobertura evaluativa, la criticidad de las brechas, los participantes a nivelar y a
+  profundizar y la decisión que indican los datos medibles (`analysis()`); el ajuste del modelo no puede ser menos exigente
+  que ese mínimo (`decision_warning()`, y la persona solo puede agravarlo: `allowed_adjustments()`); la suma de los tiempos de
+  la etapa 4 se revisa contra el tiempo restante (`time_check()`).
+- **Librería del Módulo 3** (`deploy/libreria_m3/`, ámbito `m3`): checklist, ficha, guía y ejemplo de llenado del cliente y,
+  como referencia, el Marco de Cualificaciones, el Manual EDECOMP y la Guía de Planes Formativos con sus marcas de ruta
+  reasignadas a las tareas del Módulo 3 (`kb_router::TAREAS_M3`: `m3f1`, `m3e1` a `m3e7`). Se carga con
+  `cli/cargar_libreria.php --dir=... --ambito=m3`.
+- Seis interruptores nuevos (`fichaimpl`, `calidadfase2`, `libreriam3`, `bienvenidam3`, `consolidacionm3`, `avisosimpl`).
+- `diseno::complete_consolidation()` recibe la última parte a completar (6 por defecto; el Módulo 3 usa 7).
+- Verificadores: `verificar_implementacion.php` (129 casos), `verificar_calidad.php` (108), `verificar_modulo3.php` (24) y
+  `verificar_libreria_m3.php` (78, incluye la comprobación de que el checklist y la ficha de la librería coinciden con el código).
+
 ## M1-v1.21.13 (2026-11-03)
 
 «Perfiles en el Módulo 2» con sector productivo, calidad del diseño por perfil y recorrido por los módulos, para mostrar a

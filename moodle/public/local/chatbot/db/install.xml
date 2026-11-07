@@ -614,5 +614,79 @@
         <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_chatbot_impl" COMMENT="Modulo 3, Fase 1: ficha de registro de la implementacion (evaluacion durante). Cada evaluacion de la persona en el curso es una ficha; una esta en uso">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="disenoid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Diseno del Modulo 2 que se evalua (id de local_chatbot_exante); 0 si aun no se elige"/>
+        <FIELD NAME="data" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Respuestas de la ficha en JSON (claves de implementacion::field_keys)"/>
+        <FIELD NAME="activa" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 si es la evaluacion en uso de la persona en el curso"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_impl_val" COMMENT="Validacion de una ficha de implementacion con el checklist del cliente (Etapa 0). Una fila por intento; no es una calificacion">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="fichaid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="disenoid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Diseno del Modulo 2 contra el que se valido"/>
+        <FIELD NAME="estado" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="pendiente, procesando, listo o error"/>
+        <FIELD NAME="condicion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="aprobado, observaciones o no_aprobado"/>
+        <FIELD NAME="huella" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Huella de la ficha y del diseno al validar"/>
+        <FIELD NAME="snapshot" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Ficha validada, en JSON"/>
+        <FIELD NAME="informe" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Resultado por item, regla, tiempo disponible, debilidades y sugerencias, en JSON"/>
+        <FIELD NAME="modelo" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="promptversion" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="error" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Motivo cuando estado es error"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="fichaid" UNIQUE="false" FIELDS="fichaid"/>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_calidad" COMMENT="Modulo 3, Fases 2 y 3: producto de cada etapa del aseguramiento de la calidad (Prompt Maestro, etapas 1 a 8). Una fila por ficha de implementacion y etapa">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="implid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Ficha de implementacion a la que pertenece la etapa"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="etapa" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="contenido" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Producto de la etapa en HTML, editable por la persona"/>
+        <FIELD NAME="estado" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="borrador" SEQUENCE="false" COMMENT="borrador o aceptado"/>
+        <FIELD NAME="generacion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="pendiente, procesando, listo o error"/>
+        <FIELD NAME="ajustes" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Ajustes pedidos en la ultima generacion"/>
+        <FIELD NAME="validacionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Validacion de la Fase 1 en que se basa"/>
+        <FIELD NAME="modelo" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="promptversion" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="error" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="informe" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Etapa 3: tipo de ajuste decidido y minimo que indican los datos, en JSON"/>
+        <FIELD NAME="huella" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Etapa 8: huella de las etapas consolidadas"/>
+        <FIELD NAME="timeaccepted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="rondas" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Rondas de ajuste pedidas en la etapa"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="implid_etapa" UNIQUE="true" FIELDS="implid, etapa"/>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>

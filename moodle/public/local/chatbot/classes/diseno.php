@@ -1844,15 +1844,16 @@ class diseno {
      *
      * @param string $html Consolidacion (HTML).
      * @param string[] $etapas Productos aceptados de las etapas 1 a 6 (HTML), por numero.
+     * @param int $max Ultima parte que se completa (6 en el Modulo 2; el Modulo 3 usa 7).
      * @return string
      */
-    public static function complete_consolidation(string $html, array $etapas): string {
+    public static function complete_consolidation(string $html, array $etapas, int $max = 6): string {
         preg_match_all('#<h([1-6])\b[^>]*>(.*?)</h\1>#isu', $html, $t, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
         $partes = [];
         foreach ($t as $i => $x) {
             $texto = trim(html_entity_decode(strip_tags($x[2][0]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             if ((int) $x[1][0] <= 3 && preg_match('/^(?:parte|etapa)\s+(\d+)\b/iu', $texto, $m) && (int) $m[1] >= 1
-                    && (int) $m[1] <= 6 && !isset($partes[(int) $m[1]])) {
+                    && (int) $m[1] <= $max && !isset($partes[(int) $m[1]])) {
                 $partes[(int) $m[1]] = ['i' => $i, 'nivel' => (int) $x[1][0]];
             }
         }

@@ -268,7 +268,7 @@ echo $OUTPUT->header();
                                                 <strong><?php echo s($doc->filename); ?></strong>
                                             <?php endif; ?>
                                             <div class="text-muted small"><?php echo round($doc->sizebytes / 1024, 1); ?> KB
-                                                · <span class="badge text-bg-<?php echo \local_chatbot\kb_store::normalize_ambito($doc->ambito ?? null) === \local_chatbot\kb_store::AMBITO_M2 ? 'primary' : 'secondary'; ?>"><?php
+                                                · <span class="badge text-bg-<?php echo ['m2' => 'primary', 'm3' => 'success'][\local_chatbot\kb_store::normalize_ambito($doc->ambito ?? null)] ?? 'secondary'; ?>"><?php
                                                 echo get_string('managekb_scope_' . \local_chatbot\kb_store::normalize_ambito($doc->ambito ?? null), 'local_chatbot'); ?></span></div>
                                         </td>
                                         <td>

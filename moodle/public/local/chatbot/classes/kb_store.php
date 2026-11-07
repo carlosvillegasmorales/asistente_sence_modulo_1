@@ -25,13 +25,16 @@ class kb_store {
     /** @var string Ambito del Asistente de Diseño Instruccional (Modulo 2): su libreria de conocimientos. */
     const AMBITO_M2 = 'm2';
 
+    /** @var string Ambito del Asistente de Aseguramiento de la Calidad de los Aprendizajes (Modulo 3). */
+    const AMBITO_M3 = 'm3';
+
     /**
      * Ambitos validos, en el orden del panel.
      *
      * @return string[]
      */
     public static function ambitos(): array {
-        return [self::AMBITO_M1, self::AMBITO_M2];
+        return [self::AMBITO_M1, self::AMBITO_M2, self::AMBITO_M3];
     }
 
     /** @var bool|null Si la tabla ya tiene el campo «ambito» (se averigua una vez por pedido). */

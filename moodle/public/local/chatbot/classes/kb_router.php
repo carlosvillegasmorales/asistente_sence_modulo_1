@@ -19,6 +19,22 @@ class kb_router {
     const TAREAS = ['fase1', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e8'];
 
     /**
+     * @var string[] Tareas validas del Modulo 3 (ambito 'm3'): la validacion de la ficha (Etapa 0) y las etapas 1 a 7 de la
+     * calidad de los aprendizajes; la consolidacion (etapa 8) no usa libreria. Van aparte de TAREAS: las pruebas del
+     * Modulo 2 recorren esa lista contra su propia libreria.
+     */
+    const TAREAS_M3 = ['m3f1', 'm3e1', 'm3e2', 'm3e3', 'm3e4', 'm3e5', 'm3e6', 'm3e7'];
+
+    /**
+     * Todas las tareas con libreria, de los dos modulos.
+     *
+     * @return string[]
+     */
+    public static function all_tasks(): array {
+        return array_merge(self::TAREAS, self::TAREAS_M3);
+    }
+
+    /**
      * Lee el nivel de cualificacion (1 a 5) del campo «nivel» de la ficha, en cifra o palabra.
      * Si no hay uno solo claro, devuelve null.
      *
@@ -77,7 +93,7 @@ class kb_router {
      * Elige las secciones de la libreria que corresponden a una tarea y nivel, respetando el presupuesto.
      *
      * @param array $docs Lista de ['nombre' => string, 'contenido' => string, 'version' => int].
-     * @param string $tarea Tarea ('fase1', 'e1'..'e6', 'e8'); vacia o desconocida devuelve todo sin marcas.
+     * @param string $tarea Tarea del Modulo 2 ('fase1', 'e1'..'e6', 'e8') o del 3 ('m3f1', 'm3e1'..'m3e7'); vacia o desconocida devuelve todo sin marcas.
      * @param int|null $nivel Nivel de cualificacion 1..5 de la ficha, o null si no se pudo leer.
      * @param int $presupuesto Maximo de caracteres (por defecto self::PRESUPUESTO).
      * @return array ['texto' => string, 'secciones' => int, 'omitidas' => int, 'caracteres' => int].
@@ -87,7 +103,7 @@ class kb_router {
         $tarea = mb_strtolower(trim($tarea), 'UTF-8');
 
         // Tarea vacia o desconocida: devuelve la libreria completa sin marcas (comportamiento anterior).
-        if (!in_array($tarea, self::TAREAS, true)) {
+        if (!in_array($tarea, self::all_tasks(), true)) {
             $bloques = [];
             $totalSecciones = 0;
             foreach ($docs as $doc) {
@@ -298,7 +314,7 @@ class kb_router {
             $tokens = [];
             foreach ($mr[1] as $bloque) {
                 foreach (preg_split('/\s+/u', mb_strtolower(trim($bloque), 'UTF-8'), -1, PREG_SPLIT_NO_EMPTY) as $tok) {
-                    if ($tok === 'todas' || $tok === 'ninguna' || in_array($tok, self::TAREAS, true)) {
+                    if ($tok === 'todas' || $tok === 'ninguna' || in_array($tok, self::all_tasks(), true)) {
                         $tokens[] = $tok;
                     }
                 }

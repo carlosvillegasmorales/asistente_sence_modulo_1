@@ -793,5 +793,78 @@ function xmldb_local_chatbot_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026103009, 'local', 'chatbot');
     }
 
+    if ($oldversion < 2026110600) {
+
+        // Modulo 3 (Asistente de Aseguramiento de la Calidad de los Aprendizajes): la ficha de registro de la implementacion
+        // (Fase 1), sus validaciones con el checklist y el producto de cada etapa de las Fases 2 y 3. La libreria del rol se
+        // carga con ambito m3 (kb_store::AMBITO_M3): el campo «ambito» ya existe desde la version 2026103002.
+        $table = new xmldb_table('local_chatbot_impl');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('disenoid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('data', XMLDB_TYPE_TEXT);
+        $table->add_field('activa', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        $table = new xmldb_table('local_chatbot_impl_val');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('fichaid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('disenoid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('estado', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL);
+        $table->add_field('condicion', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('huella', XMLDB_TYPE_CHAR, '40');
+        $table->add_field('snapshot', XMLDB_TYPE_TEXT);
+        $table->add_field('informe', XMLDB_TYPE_TEXT);
+        $table->add_field('modelo', XMLDB_TYPE_CHAR, '100');
+        $table->add_field('promptversion', XMLDB_TYPE_CHAR, '40');
+        $table->add_field('error', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('fichaid', XMLDB_INDEX_NOTUNIQUE, ['fichaid']);
+        $table->add_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        $table = new xmldb_table('local_chatbot_calidad');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('implid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('etapa', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL);
+        $table->add_field('contenido', XMLDB_TYPE_TEXT);
+        $table->add_field('estado', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'borrador');
+        $table->add_field('generacion', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('ajustes', XMLDB_TYPE_TEXT);
+        $table->add_field('validacionid', XMLDB_TYPE_INTEGER, '10');
+        $table->add_field('modelo', XMLDB_TYPE_CHAR, '100');
+        $table->add_field('promptversion', XMLDB_TYPE_CHAR, '40');
+        $table->add_field('error', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('informe', XMLDB_TYPE_TEXT);
+        $table->add_field('huella', XMLDB_TYPE_CHAR, '40');
+        $table->add_field('timeaccepted', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('rondas', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('implid_etapa', XMLDB_INDEX_UNIQUE, ['implid', 'etapa']);
+        $table->add_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026110600, 'local', 'chatbot');
+    }
+
     return true;
 }

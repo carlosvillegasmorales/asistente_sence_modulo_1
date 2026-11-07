@@ -61,6 +61,8 @@ deploy/config.php.prod
 *.rar
 *.tgz
 *.tar
+# Copia del curso del Módulo 3 bajada del VPS (puede traer datos de personas): no se sube nunca
+modulo3_vps/
 
 # Permisos locales de Claude Code (no versionar)
 .claude/settings.local.json
