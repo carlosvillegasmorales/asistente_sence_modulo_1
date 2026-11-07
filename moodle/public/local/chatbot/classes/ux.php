@@ -76,6 +76,13 @@ class ux {
         'aperturaruta' => 0,    // Modulo 1: hasta la fecha «aperturafecha» se cierran las demas etapas, sus pestanas y el asistente (v1.21.9). Apagado por defecto: se enciende en cada servidor.
         'perfilm2' => 0,        // Mientras la ruta esta cerrada, al terminar el perfil: matricula en el Modulo 2 («aperturam2») y boton a su portada (v1.21.10). Apagado por defecto.
         'perfilesm2' => 1,      // Informe «Perfiles en el Modulo 2»: perfil del Modulo 1 x comportamiento en el Modulo 2, con su boton flotante (v1.21.11).
+        // Pedido de Interfases del 06-11-2026: Modulo 3, Asistente de Aseguramiento de la Calidad de los Aprendizajes.
+        'fichaimpl' => 1,       // Modulo 3, Fase 1: ficha de registro de la implementacion validada con el checklist (v1.22.0).
+        'calidadfase2' => 1,    // Modulo 3, Fases 2 y 3: hojas de trabajo de las etapas 1 a 8 de la calidad de los aprendizajes (v1.22.0).
+        'libreriam3' => 1,      // Modulo 3: la libreria del Asistente de Aseguramiento de la Calidad va en cada pedido a la IA (v1.22.0).
+        'bienvenidam3' => 1,    // Modulo 3: bienvenida textual del Prompt Maestro al comienzo de la ficha (v1.22.0).
+        'consolidacionm3' => 1, // Modulo 3, etapa 8: consolidacion con el asistente, en extenso y sin repetir campos comunes (v1.22.0).
+        'avisosimpl' => 1,      // Modulo 3: avisos con reglas fijas al validar la ficha (v1.22.0).
     ];
 
     /**

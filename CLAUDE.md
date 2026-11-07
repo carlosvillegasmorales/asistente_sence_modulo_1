@@ -110,6 +110,42 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   `send_m2_notices` (proveedor `avisom2`). Datos propios: envíos al control de entrada (`m2_envio`, se registran en
   `ficha_exante.php`), revisión experta, encuesta y `diseno.rondas`. Interruptores `tablerom2` y `avisosm2`; plazos «X»
   en los ajustes `m2plazocorreccion` y `m2plazodetenido`.
+- `classes/implementacion.php` + `ficha_implementacion.php?courseid=ID` — **Módulo 3, Fase 1** (v1.22.0): ficha de registro de la
+  implementación, textual de los documentos de Interfases (`Documentacion modulo 3/`), validada por la IA con el checklist de 34
+  ítems en 8 secciones (8 CRÍTICO: `implementacion::CRITICOS`). Mismo patrón que `exante`, con dos diferencias. (1) La persona **elige
+  uno de sus diseños terminados del Módulo 2** (`list_designs()` / `get_design()`: seis etapas aceptadas y plan formativo adjunto):
+  de ahí salen el diseño, el plan y el perfil, y no se cargan de nuevo. (2) Los ítems aritméticos los resuelve el código, no el
+  modelo (`POR_CALCULO`: c1_3, c1_4, c4_1, c4_3, c4_4; `system_checks()` y `apply_system_checks()`: presentes por criterio, tiempos
+  contra el diseño, suma por nivel, logro %). `decide()` aplica la regla de los CRÍTICO; tiempo restante = total − utilizado. La huella
+  de la validación incluye ficha y diseño (`fingerprint()`): cambiar cualquiera la deja «desactualizada» y cierra la Fase 2. No
+  renumerar ids de ítems (los informes guardados los usan). Interruptores `fichaimpl`, `bienvenidam3` y `avisosimpl`.
+- `classes/calidad.php` + `calidad.php?courseid=ID&etapa=N` — **Módulo 3, Fases 2 y 3**: el Prompt Maestro del Módulo 3 como hojas
+  de trabajo (propuesta de la IA, edición, ajustes, aceptación, Word): etapas 1 a 3 en la Fase 2 y 4 a 8 en la Fase 3. Requiere la
+  ficha validada y vigente (`implementacion::fase1_ok()`) y no se salta una etapa sin aceptar la anterior. Interruptor `calidadfase2`.
+  `calidad::analysis()` **calcula** lo medible y se lo entrega al modelo sin que lo recalcule: logro por criterio ((Adecuado +
+  Avanzado) / presentes), promedio, cobertura evaluativa, criticidad (<30 alta, 30–<60 media, 60–<90 baja, ≥90 sin brecha), personas
+  a nivelar y a profundizar y la **decisión mínima** (acciones remediales / rediseño parcial / rediseño total; prevalece la más
+  exigente). El modelo declara su decisión con la marca `[[AJUSTE: ...]]` y **no puede ser menos exigente** que ese mínimo
+  (`decision_warning()`, `decision_valid()`, `allowed_adjustments()`; `decided_adjustment()` da null si es menor): la etapa 3 no se
+  acepta sin un ajuste válido, que la persona puede elegir o agravar con `set_adjustment()` pero no bajar. La etapa 4 depende del
+  ajuste (`stage_def()`) y la suma de su tabla «Distribución del tiempo restante» se revisa contra el tiempo restante
+  (`time_check()`). La etapa 8 consolida la Etapa 0 y las etapas 1 a 7 en Word (`consolidate()`, `final_cover()`; interruptor
+  `consolidacionm3`; sin librería).
+- `classes/modulo3_setup.php` + `cli/configurar_modulo3.php --curso=ID [--simular]` — **botones del curso del Módulo 3** (pedido del
+  cliente del 06-11): al final de cada una de sus cuatro hojas, ubicadas por el nombre de la sección y no por id, una etiqueta con
+  el botón y el texto exacto del cliente. «Ir a la Fase 1: Registro y Validación» → pestaña Fase 1 del curso; «Completar y validar
+  la ficha de implementación» → `ficha_implementacion.php`; «Acceder al asistente IA» → `calidad.php`; «Ir al ajuste de la
+  experiencia de aprendizaje - Fase 3» → `calidad.php?etapa=4`. Idempotente: reconoce su etiqueta por el comentario
+  `<!-- BOTON M3 ... -->` y, si la hoja ya trae un botón del cliente con ese texto, enlaza ese en vez de agregar otro. El contenido de
+  las hojas es del cliente y el guion no lo toca. **Correrlo de nuevo después de restaurar el curso.** `classes/ruta_m3.php` es la
+  barra de las tres fases. La **librería del Asistente de Aseguramiento de la Calidad** (ámbito `m3` de la base de conocimiento)
+  son los siete documentos de `deploy/libreria_m3/*.md`: el checklist y la ficha salen de las clases (si se cambia el código o el
+  archivo, `verificar_libreria_m3.php` avisa del desfase), la guía y el ejemplo de llenado están transcritos de los PDF del cliente y
+  los tres de referencia son los del Módulo 2 con las marcas de ruta reasignadas. Se enruta por tarea (`kb_router::TAREAS_M3`: `m3f1`
+  y `m3e1`…`m3e7`) dentro del presupuesto de 220 mil caracteres por pedido y se carga con
+  `cli/cargar_libreria.php --dir=... --ambito=m3` (idempotente, `--simular`); interruptor `libreriam3`. Guía de instalación y de
+  prueba: `docs/GUIA_INSTALAR_MODULO3.md`. Lo que **no** hay, porque no se pidió: tablero del Módulo 3 ni autorrevisión del checklist
+  en pantalla.
 - `cli/preparar_curso.php` — crea las actividades del puente en un curso.
   El campo correcto para el código de actividad en `create_module()` es
   **`cmidnumber`**, no `idnumber` (ese se ignora en silencio).
@@ -118,9 +154,10 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ```bash
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
-  Deben pasar sin fallos. Al 03-11-2026 (M1-v1.21.8): **44 celdas de la matriz de acceso y 1494 claves de idioma**;
-  `verificar_exante.php` 191 casos, `verificar_diseno.php` 227, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99
-  y `verificar_documento_final.php` 110, entre otros, en 22 scripts.
+  Deben pasar sin fallos. Al 06-11-2026 (M1-v1.22.0): **44 celdas de la matriz de acceso y 1892 claves de idioma**;
+  `verificar_exante.php` 191 casos, `verificar_diseno.php` 227, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99,
+  `verificar_documento_final.php` 110 y, del Módulo 3, `verificar_implementacion.php` 129, `verificar_calidad.php` 108,
+  `verificar_libreria_m3.php` 78 y `verificar_modulo3.php` 24, entre otros, en 27 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:
   solo corren en el servidor. `verificar_idiomas.php` compara `lang/en` con `lang/es`:
   toda cadena nueva va en **los dos**, porque Moodle arma las claves desde el
