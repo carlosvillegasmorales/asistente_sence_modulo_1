@@ -1,10 +1,10 @@
 <?php
 /**
- * Verifica los botones de las cuatro hojas del curso del Modulo 3 (pedido de Interfases del 06-11-2026).
+ * Verifica los botones de las cinco hojas del curso del Modulo 3 (pedido de Interfases del 06-11-2026 y, para la Fase 4, del 09-11-2026).
  *
  * El cliente pidio un boton al final de cada hoja, con estos textos: «Ir a la Fase 1: Registro y Validación» (bienvenida),
  * «Completar y validar la ficha de implementación» (Fase 1), «Acceder al asistente IA» (Fase 2) e «Ir al ajuste de la
- * experiencia de aprendizaje - Fase 3» (Fase 3). Los textos de las hojas son suyos: el guion solo agrega los botones, enlaza
+ * experiencia de aprendizaje - Fase 3» (Fase 3) e «Ir a evaluación ex-post» (Fase 4). Los textos de las hojas son suyos: el guion solo agrega los botones, enlaza
  * el que el cliente ya haya puesto con ese mismo texto y no hace nada si ya estan.
  *
  * Uso:  php cli/verificar_modulo3.php
@@ -53,31 +53,33 @@ function local_chatbot_aplicar(array $items, array $acciones): array {
 
 // --- Los textos son los que pidio el cliente ---
 $botones = modulo3_setup::buttons();
-local_chatbot_verificar(array_keys($botones) === ['fase1', 'ficha', 'asistente', 'ajuste'], 'hay un boton por hoja: cuatro');
+local_chatbot_verificar(array_keys($botones) === ['fase1', 'ficha', 'asistente', 'ajuste', 'expost'], 'hay un boton por hoja: cinco');
 local_chatbot_verificar(array_column($botones, 'texto') === ['Ir a la Fase 1: Registro y Validación',
     'Completar y validar la ficha de implementación', 'Acceder al asistente IA',
-    'Ir al ajuste de la experiencia de aprendizaje - Fase 3'], 'los textos de los botones son los del cliente');
-local_chatbot_verificar(array_column($botones, 'hoja') === [0, 1, 2, 3], 'el primero va en la bienvenida y los demas en las pestañas Fase 1, 2 y 3');
-local_chatbot_verificar(count(array_unique(array_column($botones, 'marca'))) === 4, 'cada boton tiene su propia marca');
+    'Ir al ajuste de la experiencia de aprendizaje - Fase 3', 'Ir a evaluación ex-post'], 'los textos de los botones son los del cliente');
+local_chatbot_verificar(array_column($botones, 'hoja') === [0, 1, 2, 3, 4], 'el primero va en la bienvenida y los demas en las pestañas Fase 1, 2, 3 y 4');
+local_chatbot_verificar(count(array_unique(array_column($botones, 'marca'))) === 5, 'cada boton tiene su propia marca');
 
-// --- Donde va cada uno: el curso del Modulo 3 (cuatro pestañas, sin subsecciones) ---
+// --- Donde va cada uno: el curso del Modulo 3 (cinco hojas, sin subsecciones) ---
 $curso19 = [0 => ['name' => 'Bienvenida e Instrucciones Generales', 'level' => 0], 1 => ['name' => 'Fase 1: Registro y Validación', 'level' => 0],
     2 => ['name' => 'Fase 2: Evaluación de la Implementación', 'level' => 0],
-    3 => ['name' => 'Fase 3: Ajuste de la Experiencia de Aprendizaje', 'level' => 0]];
-local_chatbot_verificar(modulo3_setup::target_sections($curso19) === ['fase1' => 0, 'ficha' => 1, 'asistente' => 2, 'ajuste' => 3],
+    3 => ['name' => 'Fase 3: Ajuste de la Experiencia de Aprendizaje', 'level' => 0], 4 => ['name' => 'Fase 4: Evaluación Ex-post', 'level' => 0]];
+local_chatbot_verificar(modulo3_setup::target_sections($curso19) === ['fase1' => 0, 'ficha' => 1, 'asistente' => 2, 'ajuste' => 3, 'expost' => 4],
     'en el curso 19 cada boton va en la seccion de su pestaña');
 $conhijas = [0 => ['name' => 'Bienvenida', 'level' => 0], 1 => ['name' => 'Descripción', 'level' => 1], 2 => ['name' => 'Trabajo con el asistente', 'level' => 1],
     3 => ['name' => 'Fase 1: Registro y Validación', 'level' => 0], 4 => ['name' => 'Instrucciones', 'level' => 1],
     5 => ['name' => 'Completa y valida el formulario', 'level' => 1], 6 => ['name' => 'Fase 2: Evaluación de la Implementación', 'level' => 0],
-    7 => ['name' => 'Fase 3: Ajuste de la Experiencia de Aprendizaje', 'level' => 0], 8 => ['name' => 'Cierre', 'level' => 1]];
-local_chatbot_verificar(modulo3_setup::target_sections($conhijas) === ['fase1' => 2, 'ficha' => 5, 'asistente' => 6, 'ajuste' => 8],
+    7 => ['name' => 'Fase 3: Ajuste de la Experiencia de Aprendizaje', 'level' => 0], 8 => ['name' => 'Cierre', 'level' => 1],
+    9 => ['name' => 'Fase 4: Evaluación Ex-post', 'level' => 0], 10 => ['name' => 'Cierre del ciclo', 'level' => 1]];
+local_chatbot_verificar(modulo3_setup::target_sections($conhijas) === ['fase1' => 2, 'ficha' => 5, 'asistente' => 6, 'ajuste' => 8, 'expost' => 10],
     'con subsecciones el boton va en la ultima de cada pestaña, como en el Modulo 2');
 local_chatbot_verificar(modulo3_setup::target_sections([0 => ['name' => 'Inicio', 'level' => 0], 1 => ['name' => 'Otra', 'level' => 0]])
-    === ['fase1' => null, 'ficha' => null, 'asistente' => null, 'ajuste' => null], 'si el curso no tiene las hojas, no hay donde ponerlos');
+    === ['fase1' => null, 'ficha' => null, 'asistente' => null, 'ajuste' => null, 'expost' => null], 'si el curso no tiene las hojas, no hay donde ponerlos');
 
 // --- El boton ---
 $urls = ['fase1' => 'https://x.cl/course/view.php?id=19&section=1', 'ficha' => 'https://x.cl/local/chatbot/ficha_implementacion.php?courseid=19',
-    'asistente' => 'https://x.cl/local/chatbot/calidad.php?courseid=19', 'ajuste' => 'https://x.cl/local/chatbot/calidad.php?courseid=19&etapa=4'];
+    'asistente' => 'https://x.cl/local/chatbot/calidad.php?courseid=19', 'ajuste' => 'https://x.cl/local/chatbot/calidad.php?courseid=19&etapa=4',
+    'expost' => 'https://x.cl/local/chatbot/ficha_expost.php?courseid=19'];
 $h = modulo3_setup::button_html($urls['ficha'], $botones['ficha']['texto'], $botones['ficha']['marca']);
 local_chatbot_verificar(strpos($h, '<!-- BOTON M3 FICHA -->') === 0 && strpos($h, 'href="https://x.cl/local/chatbot/ficha_implementacion.php?courseid=19"') !== false
     && strpos($h, '>Completar y validar la ficha de implementación &rarr;</a>') !== false && strpos($h, 'text-align: center') !== false
@@ -88,11 +90,15 @@ local_chatbot_verificar(strpos(modulo3_setup::button_html($urls['fase1'], 'x', '
 // --- El plan: curso sin botones ---
 $items = [['seccion' => 0, 'tipo' => 'resumen', 'id' => 10, 'html' => ''], ['seccion' => 0, 'tipo' => 'label', 'id' => 619, 'html' => '<p>Bienvenida</p>'],
     ['seccion' => 1, 'tipo' => 'label', 'id' => 622, 'html' => '<p>Instrucciones</p><a href="URL_GUIA">Abrir guía</a>'],
-    ['seccion' => 2, 'tipo' => 'resumen', 'id' => 12, 'html' => ''], ['seccion' => 3, 'tipo' => 'resumen', 'id' => 13, 'html' => '']];
+    ['seccion' => 2, 'tipo' => 'resumen', 'id' => 12, 'html' => ''], ['seccion' => 3, 'tipo' => 'resumen', 'id' => 13, 'html' => ''],
+    ['seccion' => 4, 'tipo' => 'resumen', 'id' => 14, 'html' => '<p>Evaluación ex post</p>']];
 $plan = modulo3_setup::plan($curso19, $items, $urls);
-local_chatbot_verificar(count($plan) === 4 && array_column($plan, 'accion') === ['crear', 'crear', 'crear', 'crear']
-    && array_column($plan, 'seccion') === [0, 1, 2, 3] && array_column($plan, 'tipo') === ['label', 'label', 'label', 'label'],
-    'en un curso sin botones se agrega una etiqueta al final de cada una de las cuatro hojas');
+local_chatbot_verificar(count($plan) === 5 && array_column($plan, 'accion') === ['crear', 'crear', 'crear', 'crear', 'crear']
+    && array_column($plan, 'seccion') === [0, 1, 2, 3, 4] && array_column($plan, 'tipo') === ['label', 'label', 'label', 'label', 'label'],
+    'en un curso sin botones se agrega una etiqueta al final de cada una de las cinco hojas');
+local_chatbot_verificar(strpos($plan[4]['html'], '<!-- BOTON M3 EXPOST -->') === 0 && strpos($plan[4]['html'], 'Ir a evaluación ex-post &rarr;</a>') !== false
+    && strpos($plan[4]['html'], 'ficha_expost.php?courseid=19') !== false,
+    'el botón de la Fase 4 dice «Ir a evaluación ex-post» y lleva al asistente de la evaluación ex post');
 local_chatbot_verificar(strpos($plan[2]['html'], 'Acceder al asistente IA &rarr;') !== false && strpos($plan[3]['html'], 'etapa=4') !== false,
     'el botón de la Fase 3 lleva a la etapa 4 y el de la Fase 2 al asistente');
 // El cliente no pierde nada: el plan no toca sus textos ni sus enlaces provisionales.
@@ -113,7 +119,7 @@ $otras = array_map(static function(string $u): string {
     return str_replace('https://x.cl', 'https://otro.cl', $u);
 }, $urls);
 $plan3 = modulo3_setup::plan($curso19, $despues, $otras);
-local_chatbot_verificar(array_unique(array_column($plan3, 'accion')) === ['actualizar'] && count(array_filter(array_column($plan3, 'id'))) === 4
+local_chatbot_verificar(array_unique(array_column($plan3, 'accion')) === ['actualizar'] && count(array_filter(array_column($plan3, 'id'))) === 5
     && strpos($plan3[1]['html'], 'https://otro.cl/local/chatbot/ficha_implementacion.php?courseid=19') !== false,
     'con otra URL la etiqueta propia se actualiza, no se agrega otra');
 $despues3 = local_chatbot_aplicar($despues, $plan3);
@@ -133,14 +139,20 @@ local_chatbot_verificar($por['asistente']['accion'] === 'enlazar' && $por['asist
 local_chatbot_verificar($por['ficha']['accion'] === 'enlazar' && $por['ficha']['tipo'] === 'resumen' && $por['ficha']['id'] === 11
     && strpos($por['ficha']['html'], 'class="x"') !== false && strpos($por['ficha']['html'], 'ficha_implementacion.php') !== false,
     'también se enlaza un botón del cliente que esté en el resumen de la sección, conservando su estilo');
-local_chatbot_verificar($por['fase1']['accion'] === 'crear' && $por['ajuste']['accion'] === 'crear',
+local_chatbot_verificar($por['fase1']['accion'] === 'crear' && $por['ajuste']['accion'] === 'crear' && $por['expost']['accion'] === 'crear',
     'los botones que el cliente no puso se agregan');
 $aplicado = local_chatbot_aplicar($conboton, $plan4);
-local_chatbot_verificar(count($aplicado) === 4 && array_unique(array_column(modulo3_setup::plan($curso19, $aplicado, $urls), 'accion')) === ['ok'],
+local_chatbot_verificar(count($aplicado) === 5 && array_unique(array_column(modulo3_setup::plan($curso19, $aplicado, $urls), 'accion')) === ['ok'],
     'con el botón del cliente enlazado, una segunda pasada tampoco cambia nada');
 $yaenlazado = [['seccion' => 2, 'tipo' => 'label', 'id' => 700, 'html' => '<a href="' . $urls['asistente'] . '"> Acceder al asistente IA </a>']];
 local_chatbot_verificar(array_column(modulo3_setup::plan($curso19, $yaenlazado, $urls), 'accion', 'boton')['asistente'] === 'ok',
     'un botón del cliente que ya apunta al destino queda como está');
+// El cliente tambien puede traer el boton de la Fase 4 con «#» provisional: se enlaza ese.
+$conexpost = [['seccion' => 4, 'tipo' => 'label', 'id' => 800, 'html' => '<a href="#"> Ir a evaluación ex-post </a>']];
+$planx = array_column(modulo3_setup::plan($curso19, $conexpost, $urls), null, 'boton');
+local_chatbot_verificar($planx['expost']['accion'] === 'enlazar' && $planx['expost']['id'] === 800
+    && strpos($planx['expost']['html'], 'href="https://x.cl/local/chatbot/ficha_expost.php?courseid=19"') !== false,
+    'el botón «Ir a evaluación ex-post» que ya puso el cliente se enlaza al asistente');
 // Un texto parecido en otra hoja no cuenta: el boton va en su hoja.
 $otrahoja = [['seccion' => 1, 'tipo' => 'label', 'id' => 5, 'html' => '<a href="#">Acceder al asistente IA</a>']];
 local_chatbot_verificar(array_column(modulo3_setup::plan($curso19, $otrahoja, $urls), 'accion', 'boton')['asistente'] === 'crear',
@@ -156,6 +168,6 @@ local_chatbot_verificar(array_column(modulo3_setup::plan($curso19, [], ['fase1' 
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
-    echo "Botones del Módulo 3 conformes: textos del cliente, una etiqueta por hoja, enlace del botón del cliente e idempotencia.\n";
+    echo "Botones del Módulo 3 conformes: textos del cliente, una etiqueta por hoja (cinco), enlace del botón del cliente e idempotencia.\n";
 }
 exit($fallidos === 0 ? 0 : 1);

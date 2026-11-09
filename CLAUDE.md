@@ -135,10 +135,10 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   cliente del 06-11): al final de cada una de sus cuatro hojas, ubicadas por el nombre de la sección y no por id, una etiqueta con
   el botón y el texto exacto del cliente. «Ir a la Fase 1: Registro y Validación» → pestaña Fase 1 del curso; «Completar y validar
   la ficha de implementación» → `ficha_implementacion.php`; «Acceder al asistente IA» → `calidad.php`; «Ir al ajuste de la
-  experiencia de aprendizaje - Fase 3» → `calidad.php?etapa=4`. Idempotente: reconoce su etiqueta por el comentario
+  experiencia de aprendizaje - Fase 3» → `calidad.php?etapa=4`; «Ir a evaluación ex-post» (hoja «Fase 4: …», desde v1.23.0) → `ficha_expost.php`. Idempotente: reconoce su etiqueta por el comentario
   `<!-- BOTON M3 ... -->` y, si la hoja ya trae un botón del cliente con ese texto, enlaza ese en vez de agregar otro. El contenido de
   las hojas es del cliente y el guion no lo toca. **Correrlo de nuevo después de restaurar el curso.** `classes/ruta_m3.php` es la
-  barra de las tres fases. La **librería del Asistente de Aseguramiento de la Calidad** (ámbito `m3` de la base de conocimiento)
+  barra de las cuatro fases. La **librería del Asistente de Aseguramiento de la Calidad** (ámbito `m3` de la base de conocimiento)
   son los siete documentos de `deploy/libreria_m3/*.md`: el checklist y la ficha salen de las clases (si se cambia el código o el
   archivo, `verificar_libreria_m3.php` avisa del desfase), la guía y el ejemplo de llenado están transcritos de los PDF del cliente y
   los tres de referencia son los del Módulo 2 con las marcas de ruta reasignadas. Se enruta por tarea (`kb_router::TAREAS_M3`: `m3f1`
@@ -146,6 +146,26 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   `cli/cargar_libreria.php --dir=... --ambito=m3` (idempotente, `--simular`); interruptor `libreriam3`. Guía de instalación y de
   prueba: `docs/GUIA_INSTALAR_MODULO3.md`. Lo que **no** hay, porque no se pidió: tablero del Módulo 3 ni autorrevisión del checklist
   en pantalla.
+- `classes/expost.php` + `ficha_expost.php?courseid=ID` + `expost.php?courseid=ID&etapa=N` — **Módulo 3, Fase 4: evaluación ex post** (v1.23.0, prompt
+  complementario y documentos de Interfases del 07-11): cierra el ciclo con las etapas 9 a 15. **Activación** (`activation()`): Fases 1 a 3
+  completas y consolidadas (`load()['fases']`: etapa 8 vigente) y experiencia de continuidad confirmada por la persona; si cambia una etapa
+  anterior la Fase 4 se cierra. **Etapa 9:** `preload()` (puro) arma identificación, tabla 2.1 (todos los criterios del diseño con logro inicial;
+  pendientes en blanco, cruzando 2.1 de la ficha con el diseño por `match_criteria()`) y pendientes; las etiquetas de 3.1, 3.2 y 6.4 las prepara
+  la IA (`build_labels_prompt()`, `parse_labels()` impone máx. 10 palabras y 4 por tabla). `refresh_preload()` rehace la precarga si cambia su
+  huella. **Etapa 10:** ficha de 7 secciones (`sections()`, `field_keys()`; las tablas 2.1, 2.2, 3.1, 3.2 y 6.4 se arman con la precarga) y
+  checklist de 25 ítems en 8 secciones (3 CRÍTICO: `c2_1` suma por nivel, `c2_2` no regresión, `c8_1` coherencia global). Mismo patrón que
+  `implementacion`: `missing_inputs()` es el control de entrada; `system_checks()` resuelve por cálculo (`POR_CALCULO`: c1_2, c2_1 a c2_4, c5_2) y
+  manda sobre el modelo; `decide()` aplica la regla del cliente (un resultado desfavorable no rechaza la ficha). La validación guarda un
+  `snapshot` con ficha, precarga y etiquetas: las etapas 11 a 15 usan esa versión. **Etapas 11 a 14** como hojas de trabajo sobre
+  `local_chatbot_calidad` (etapas 11 a 15; `calidad::run()` despacha a `expost::generate()` con `is_phase4()`): `results()` calcula logro
+  inicial y final, variación (pp), promedios, cobertura evaluativa y movimientos de nivel y se entrega al modelo (`results_text()`); nivelación
+  = aumento de personas en Adecuado o Avanzado sobre las que estaban en Insuficiente o Básico y profundización = aumento en Avanzado: son
+  **estimaciones con los totales por nivel** (la ficha no tiene a cada persona). **Etapa 15:** consolidación (partes 10 a 14, huella
+  `stages_fingerprint()`). Pendientes «Parcialmente» o «No» quedan sin niveles (`normalize_pending()`). Tablas `local_chatbot_expost`
+  (una por ficha de implementación; `delete_ficha()` la borra) y `local_chatbot_expost_val`. Interruptor `fichaexpost`. La librería de la Fase 4
+  son `deploy/libreria_m3/08` a `11` (`08` y `09` salen del código: `verificar_libreria_m3.php` avisa del desfase), tareas `m3x9` a `m3x14`.
+  `verificar_expost.php` prueba con el caso del ejemplo del cliente. El quinto botón de `modulo3_setup` es «Ir a evaluación ex-post»
+  (`ficha_expost.php`), en la hoja «Fase 4: …».
 - `cli/preparar_curso.php` — crea las actividades del puente en un curso.
   El campo correcto para el código de actividad en `create_module()` es
   **`cmidnumber`**, no `idnumber` (ese se ignora en silencio).
@@ -154,10 +174,10 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ```bash
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
-  Deben pasar sin fallos. Al 06-11-2026 (M1-v1.22.0): **44 celdas de la matriz de acceso y 1892 claves de idioma**;
+  Deben pasar sin fallos. Al 09-11-2026 (M1-v1.23.0): **44 celdas de la matriz de acceso y 2001 claves de idioma**;
   `verificar_exante.php` 191 casos, `verificar_diseno.php` 227, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99,
-  `verificar_documento_final.php` 110 y, del Módulo 3, `verificar_implementacion.php` 129, `verificar_calidad.php` 108,
-  `verificar_libreria_m3.php` 78 y `verificar_modulo3.php` 24, entre otros, en 27 scripts.
+  `verificar_documento_final.php` 110 y, del Módulo 3, `verificar_implementacion.php` 129, `verificar_calidad.php` 114,
+  `verificar_libreria_m3.php` 129, `verificar_modulo3.php` 26 y, de la Fase 4, `verificar_expost.php` 95, entre otros, en 28 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:
   solo corren en el servidor. `verificar_idiomas.php` compara `lang/en` con `lang/es`:
   toda cadena nueva va en **los dos**, porque Moodle arma las claves desde el

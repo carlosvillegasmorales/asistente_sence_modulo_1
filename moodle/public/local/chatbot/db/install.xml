@@ -688,5 +688,55 @@
         <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_chatbot_expost" COMMENT="Modulo 3, Fase 4: ficha de evaluacion ex post de una evaluacion (una por ficha de implementacion), con su precarga y las etiquetas de las tablas 3.1, 3.2 y 6.4">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="implid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Ficha de implementacion (ciclo) a la que pertenece"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="data" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Respuestas de la ficha ex post en JSON (claves de expost::field_keys)"/>
+        <FIELD NAME="precarga" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Datos precargados desde las fases anteriores (expost::preload), en JSON"/>
+        <FIELD NAME="huella" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Huella de lo que alimenta la precarga"/>
+        <FIELD NAME="etiquetas" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Etiquetas de estrategias, instrumentos y buenas practicas, en JSON"/>
+        <FIELD NAME="etiq_estado" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="pendiente, procesando, listo o error"/>
+        <FIELD NAME="etiq_error" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="continuidad" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 si la persona confirmo que implemento la experiencia de continuidad"/>
+        <FIELD NAME="timecontinuidad" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="implid" UNIQUE="true" FIELDS="implid"/>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_expost_val" COMMENT="Validacion de una ficha ex post con el checklist del cliente (Etapa 10). Una fila por intento; no es una calificacion">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="expostid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="estado" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="pendiente, procesando, listo o error"/>
+        <FIELD NAME="condicion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="aprobado, observaciones o no_aprobado"/>
+        <FIELD NAME="huella" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Huella de la ficha ex post al validar"/>
+        <FIELD NAME="snapshot" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Ficha validada, precarga y etiquetas, en JSON"/>
+        <FIELD NAME="informe" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Resultado por item, regla, debilidades y sugerencias, en JSON"/>
+        <FIELD NAME="modelo" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="promptversion" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="error" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Motivo cuando estado es error"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="expostid" UNIQUE="false" FIELDS="expostid"/>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>

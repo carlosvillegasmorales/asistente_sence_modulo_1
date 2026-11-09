@@ -1230,7 +1230,7 @@ class calidad {
      * @return int
      */
     public static function max_seconds(int $etapa): int {
-        return $etapa === self::CONSOLIDACION ? self::CONSOLIDACION_MAX : implementacion::PROCESO_MAX;
+        return in_array($etapa, [self::CONSOLIDACION, expost::CONSOLIDACION], true) ? self::CONSOLIDACION_MAX : implementacion::PROCESO_MAX;
     }
 
     /**
@@ -1476,6 +1476,10 @@ class calidad {
      */
     private static function generate(\stdClass $fila): array {
         global $DB;
+        if (expost::is_phase4((int) $fila->etapa)) {
+            // Fase 4 (evaluacion ex post): sus etapas se generan en classes/expost.php.
+            return expost::generate($fila);
+        }
         if (!ai\provider_factory::is_configured()) {
             return [implementacion::ERROR, ['error' => 'sinclave']];
         }

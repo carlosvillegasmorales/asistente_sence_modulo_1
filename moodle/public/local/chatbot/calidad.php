@@ -463,6 +463,14 @@ echo $OUTPUT->header();
                     <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
                         <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('cal_final_download', 'local_chatbot'); ?></a></div>
                 </div>
+                <?php // Cierre del ciclo (Fase 4): la evaluacion ex post, cuando ya se implemento la experiencia de continuidad. ?>
+                <?php if (\local_chatbot\ux::on('fichaexpost')): ?>
+                    <div class="alert alert-info">
+                        <?php echo get_string('cal_go_expost_help', 'local_chatbot'); ?>
+                        <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url('/local/chatbot/ficha_expost.php',
+                            ['courseid' => $courseid]))->out(false); ?>"><?php echo get_string('cal_go_expost', 'local_chatbot'); ?></a></div>
+                    </div>
+                <?php endif; ?>
                 <?php // El modulo se usa una y otra vez: se puede volver a las etapas y evaluar otra implementacion. ?>
                 <div class="card border-0 bg-light mb-4">
                     <div class="card-body">

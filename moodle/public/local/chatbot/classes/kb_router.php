@@ -20,10 +20,10 @@ class kb_router {
 
     /**
      * @var string[] Tareas validas del Modulo 3 (ambito 'm3'): la validacion de la ficha (Etapa 0) y las etapas 1 a 7 de la
-     * calidad de los aprendizajes; la consolidacion (etapa 8) no usa libreria. Van aparte de TAREAS: las pruebas del
+     * calidad de los aprendizajes (m3e1 a m3e7) y las etapas 9 a 14 de la evaluacion ex post (m3x9 a m3x14); las consolidaciones (etapas 8 y 15) no usan libreria. Van aparte de TAREAS: las pruebas del
      * Modulo 2 recorren esa lista contra su propia libreria.
      */
-    const TAREAS_M3 = ['m3f1', 'm3e1', 'm3e2', 'm3e3', 'm3e4', 'm3e5', 'm3e6', 'm3e7'];
+    const TAREAS_M3 = ['m3f1', 'm3e1', 'm3e2', 'm3e3', 'm3e4', 'm3e5', 'm3e6', 'm3e7', 'm3x9', 'm3x10', 'm3x11', 'm3x12', 'm3x13', 'm3x14'];
 
     /**
      * Todas las tareas con libreria, de los dos modulos.

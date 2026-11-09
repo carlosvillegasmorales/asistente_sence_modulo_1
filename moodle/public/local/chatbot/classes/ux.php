@@ -83,6 +83,7 @@ class ux {
         'bienvenidam3' => 1,    // Modulo 3: bienvenida textual del Prompt Maestro al comienzo de la ficha (v1.22.0).
         'consolidacionm3' => 1, // Modulo 3, etapa 8: consolidacion con el asistente, en extenso y sin repetir campos comunes (v1.22.0).
         'avisosimpl' => 1,      // Modulo 3: avisos con reglas fijas al validar la ficha (v1.22.0).
+        'fichaexpost' => 1,     // Modulo 3, Fase 4: ficha de evaluacion ex post validada y etapas 11 a 15 del cierre del ciclo (v1.23.0).
     ];
 
     /**

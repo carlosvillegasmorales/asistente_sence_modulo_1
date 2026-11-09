@@ -1,5 +1,37 @@
 # Changelog
 
+## M1-v1.23.0 (2026-11-09)
+
+**Módulo 3, Fase 4: evaluación ex post** (pedido de Interfases del 09-11-2026; insumos: «Prompt Complementario Fase 4 -
+Evaluación Ex Post», ficha de evaluación ex post, guía de llenado, ejemplo «Comunicación efectiva» y checklist). Cierra el ciclo
+formativo con el mismo patrón de las otras fases. Base: dos tablas nuevas (`local_chatbot_expost`, `local_chatbot_expost_val`;
+versión `2026110900`); las etapas 11 a 15 usan `local_chatbot_calidad`.
+
+- **Botón «Ir a evaluación ex-post»** al final de la hoja «Fase 4: Evaluación Ex-post» del curso (`modulo3_setup`, quinto botón de
+  `cli/configurar_modulo3.php --curso=ID`), que lleva a `ficha_expost.php`. Mismo comportamiento que los otros cuatro: etiqueta propia
+  con `<!-- BOTON M3 EXPOST -->`, enlaza el botón del cliente si ya lo puso con ese texto, idempotente. La Fase 3 consolidada ofrece
+  además «Ir a la evaluación ex post».
+- **Condición de activación** (textual del prompt): la Fase 4 solo se abre con las Fases 1 a 3 completas y consolidadas y con la
+  experiencia de continuidad implementada (la persona lo confirma al empezar). Si una etapa de las fases anteriores cambia, la Fase 4 se
+  cierra hasta consolidar de nuevo.
+- **Etapa 9, precarga** (`expost::preload()`): identificación, tabla 2.1 con todos los criterios del diseño y su logro inicial (en blanco
+  los pendientes), pendientes de 2.2 y las etiquetas de estrategias didácticas, instrumentos evaluativos y buenas prácticas (máximo 10
+  palabras y 4 por tabla, que prepara la IA con las reglas del prompt). Pasan directo al formulario, sin revisión previa. Se rehace si
+  cambian las fases anteriores.
+- **Etapa 10, ficha y validación** (`ficha_expost.php`): ficha de 7 secciones con la bienvenida textual, control de entrada del prompt y
+  checklist de 25 ítems (3 CRÍTICO: suma por nivel, no regresión y coherencia global). Lo aritmético lo resuelve el código y no el
+  modelo (`system_checks()`: evaluados contra presentes, suma por nivel, principio de no regresión, logro final recalculado, pendientes
+  contra la tabla 2.1 y números del seguimiento). La condición la fija la regla del cliente; los resultados desfavorables no rechazan la
+  ficha.
+- **Etapas 11 a 15** (`expost.php`, `classes/expost.php`): resultados del ciclo, análisis metacognitivo, prácticas exitosas,
+  recomendaciones para una nueva ejecución y consolidación en Word. La plataforma calcula logro inicial y final, variación en puntos
+  porcentuales, promedios, cobertura evaluativa inicial y final y movimientos de nivel (nivelación y profundización, estimados con los
+  totales por nivel), y se los entrega al modelo (`results()`). Misma mecánica de las demás etapas: editar, pedir ajustes, aceptar, sin
+  avanzar sin aceptar la anterior, revisión automática y Word por etapa.
+- **Librería** (`deploy/libreria_m3/08` a `11`): checklist, ficha, guía y ejemplo de llenado de la Fase 4, enrutados por tarea
+  (`m3x9` a `m3x14`). La guía de la Fase 1 pasó de `{ruta: todas}` a sus tareas, para no viajar en los pedidos de la Fase 4.
+- La barra «Tu ruta del Módulo 3» tiene una cuarta fase. Interruptor nuevo: `fichaexpost`.
+
 ## M1-v1.22.0 (2026-11-06)
 
 **Módulo 3: Asistente de Aseguramiento de la Calidad de los Aprendizajes** (pedido de Interfases del 06-11-2026; insumos: ficha

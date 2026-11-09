@@ -1821,6 +1821,7 @@ class implementacion {
         $siguiente = exante::next_in_use($ids, $fichaid, (int) $ficha->activa === 1 ? $fichaid : 0);
 
         $tx = $DB->start_delegated_transaction();
+        expost::delete_for($fichaid);
         $DB->delete_records('local_chatbot_calidad', ['implid' => $fichaid]);
         $DB->delete_records('local_chatbot_impl_val', ['fichaid' => $fichaid]);
         $DB->delete_records('local_chatbot_impl', ['id' => $fichaid]);

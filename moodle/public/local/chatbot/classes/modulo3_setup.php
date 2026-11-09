@@ -6,14 +6,15 @@ defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/modulo2_setup.php');
 
 /**
- * Botones al final de las cuatro hojas del curso del Modulo 3 (pedido de Interfases del 06-11-2026, «al igual que en el
- * Modulo 2»):
+ * Botones al final de las cinco hojas del curso del Modulo 3 (pedido de Interfases del 06-11-2026, «al igual que en el
+ * Modulo 2»; el de la Fase 4, del 09-11-2026):
  *
  *   Bienvenida e Instrucciones Generales  →  «Ir a la Fase 1: Registro y Validación»  (pestaña Fase 1 del curso)
  *   Fase 1: Registro y Validación         →  «Completar y validar la ficha de implementación»  (ficha_implementacion.php)
  *   Fase 2: Evaluación de la Implementación →  «Acceder al asistente IA»  (calidad.php: etapas 1 a 3)
  *   Fase 3: Ajuste de la Experiencia de Aprendizaje → «Ir al ajuste de la experiencia de aprendizaje - Fase 3»
  *                                                      (calidad.php, etapa 4)
+ *   Fase 4: Evaluación Ex-post            →  «Ir a evaluación ex-post»  (ficha_expost.php: ficha ex post y etapas 9 a 15)
  *
  * Los textos de cada hoja son del cliente y los carga él: aqui solo se agregan los botones, con los textos que pidio, y
  * se enlaza el boton del propio texto del cliente si ya trae uno con ese mismo texto (con «#» provisional). Como en el
@@ -30,9 +31,10 @@ class modulo3_setup {
     const BOTON_FICHA = 'Completar y validar la ficha de implementación';
     const BOTON_ASISTENTE = 'Acceder al asistente IA';
     const BOTON_AJUSTE = 'Ir al ajuste de la experiencia de aprendizaje - Fase 3';
+    const BOTON_EXPOST = 'Ir a evaluación ex-post';
 
     /**
-     * Los cuatro botones: texto, marca con que se reconoce su etiqueta y hoja del curso donde van (0 es la bienvenida; 1 a 3
+     * Los cinco botones: texto, marca con que se reconoce su etiqueta y hoja del curso donde van (0 es la bienvenida; 1 a 4
      * son las pestañas «Fase N»).
      *
      * @return array clave => ['texto', 'marca', 'hoja'].
@@ -43,6 +45,7 @@ class modulo3_setup {
             'ficha' => ['texto' => self::BOTON_FICHA, 'marca' => 'BOTON M3 FICHA', 'hoja' => 1],
             'asistente' => ['texto' => self::BOTON_ASISTENTE, 'marca' => 'BOTON M3 ASISTENTE', 'hoja' => 2],
             'ajuste' => ['texto' => self::BOTON_AJUSTE, 'marca' => 'BOTON M3 AJUSTE', 'hoja' => 3],
+            'expost' => ['texto' => self::BOTON_EXPOST, 'marca' => 'BOTON M3 EXPOST', 'hoja' => 4],
         ];
     }
 

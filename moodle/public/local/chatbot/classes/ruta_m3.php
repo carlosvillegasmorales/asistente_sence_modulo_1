@@ -4,17 +4,18 @@ namespace local_chatbot;
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Barra «Tu ruta del Modulo 3» en las paginas del asistente: las tres fases con su estado, «Estas aqui», un resumen y el
+ * Barra «Tu ruta del Modulo 3» en las paginas del asistente: las cuatro fases con su estado, «Estas aqui», un resumen y el
  * proximo paso sugerido, con el mismo estilo que la ruta del Modulo 2 (ruta_m2) y la del Modulo 1.
  *
  * Fase 1: ficha de registro de la implementacion validada (Etapa 0). Fase 2: etapas 1 a 3 aceptadas. Fase 3: etapas 4 a 7
- * aceptadas y la consolidacion (etapa 8) confirmada.
+ * aceptadas y la consolidacion (etapa 8) confirmada. Fase 4 (evaluacion ex post): ficha ex post validada (etapas 9 y 10) y
+ * etapas 11 a 14 aceptadas y la consolidacion (etapa 15) confirmada; se abre con la Fase 3 consolidada.
  *
  * model() es funcion pura y la ejercita cli/verificar_calidad.php; state() lee la base y render() arma el HTML.
  */
 class ruta_m3 {
 
-    /** Estado de la ficha de la Fase 1. */
+    /** Estado de la ficha de la Fase 1 (y de la ficha ex post de la Fase 4). */
     const FICHA_SIN = 'sin';
     const FICHA_PENDIENTE = 'pendiente';
     const FICHA_NO_APROBADA = 'no_aprobada';
@@ -25,8 +26,9 @@ class ruta_m3 {
      * Modelo de la ruta.
      *
      * @param array $e ficha (FICHA_*), aceptadas (int[]), borradores (int[] con producto sin aceptar), fase y etapa de la
-     *        pantalla (etapa 0 en la ficha).
-     * @return array pasos (1..3 => done, here, locked, avance), resumen [clave, a] y siguiente [clave, a, fase, etapa].
+     *        pantalla (etapa 0 en las fichas) y expost (route de expost::route_state(): fases, continuidad, ficha, aceptadas,
+     *        borradores; opcional).
+     * @return array pasos (1..4 => done, here, locked, avance), resumen [clave, a] y siguiente [clave, a, fase, etapa].
      */
     public static function model(array $e): array {
         $aceptadas = $e['aceptadas'] ?? [];
@@ -37,10 +39,18 @@ class ruta_m3 {
         $fase3 = $fase2 && $hechas3 === count(calidad::stages_of_phase(3));
         $pantalla = (int) ($e['fase'] ?? 1);
 
+        // Fase 4: se abre con la Fase 3 consolidada.
+        $x = (array) ($e['expost'] ?? []);
+        $xficha = ($x['ficha'] ?? self::FICHA_SIN) === self::FICHA_OK;
+        $xacept = $x['aceptadas'] ?? [];
+        $xhechas = count(array_intersect(range(11, expost::CONSOLIDACION), $xacept));
+        $fase4 = $fase3 && $xficha && $xhechas === count(range(11, expost::CONSOLIDACION));
+
         $pasos = [
             1 => ['done' => $ficha, 'locked' => false, 'avance' => ''],
             2 => ['done' => $fase2, 'locked' => !$ficha, 'avance' => $ficha ? $hechas2 . '/3' : ''],
             3 => ['done' => $fase3, 'locked' => !$fase2, 'avance' => $fase2 ? $hechas3 . '/5' : ''],
+            4 => ['done' => $fase4, 'locked' => !$fase3, 'avance' => ($fase3 && $xficha) ? $xhechas . '/5' : ''],
         ];
         foreach ($pasos as $n => $p) {
             $pasos[$n]['here'] = $n === $pantalla;
@@ -51,11 +61,28 @@ class ruta_m3 {
             $clave = ['sin' => 'r3_next_ficha', 'pendiente' => 'r3_next_ficha_espera', 'no_aprobada' => 'r3_next_ficha_corregir',
                 'desactualizada' => 'r3_next_ficha_revalidar'][$e['ficha'] ?? self::FICHA_SIN] ?? 'r3_next_ficha';
             $siguiente = [$clave, null, 1, 0];
+        } else if ($fase3) {
+            if ($fase4) {
+                $siguiente = ['r3_next_expost_final', null, 4, expost::CONSOLIDACION];
+            } else if (empty($x['continuidad'])) {
+                $siguiente = ['r3_next_expost_continuidad', null, 4, 0];
+            } else if (!$xficha) {
+                $clave = ['sin' => 'r3_next_expost_ficha', 'pendiente' => 'r3_next_expost_espera',
+                    'no_aprobada' => 'r3_next_expost_corregir', 'desactualizada' => 'r3_next_expost_revalidar'][$x['ficha'] ?? self::FICHA_SIN]
+                    ?? 'r3_next_expost_ficha';
+                $siguiente = [$clave, null, 4, 0];
+            } else {
+                $n = expost::current_stage($xacept);
+                if ($n === expost::CONSOLIDACION) {
+                    $siguiente = ['r3_next_expost_consolidar', null, 4, $n];
+                } else {
+                    $siguiente = [in_array($n, $x['borradores'] ?? [], true) ? 'r3_next_aceptar' : 'r3_next_generar',
+                        (object) ['n' => $n, 'titulo' => expost::etapas()[$n]['titulo']], 4, $n];
+                }
+            }
         } else {
             $n = calidad::current_stage($aceptadas);
-            if ($n === calidad::CONSOLIDACION && in_array($n, $aceptadas, true)) {
-                $siguiente = ['r3_next_final', null, 3, calidad::CONSOLIDACION];
-            } else if ($n === calidad::CONSOLIDACION) {
+            if ($n === calidad::CONSOLIDACION) {
                 $siguiente = ['r3_next_consolidar', null, 3, $n];
             } else {
                 $siguiente = [in_array($n, $e['borradores'] ?? [], true) ? 'r3_next_aceptar' : 'r3_next_generar',
@@ -66,13 +93,20 @@ class ruta_m3 {
         $etapa = (int) ($e['etapa'] ?? 0);
         if ($pantalla === 1) {
             $resumen = ['r3_summary_1', null];
+        } else if ($pantalla === 4) {
+            $resumen = $etapa >= 11
+                ? ['r3_summary_etapa', (object) ['fase' => 4, 'n' => $etapa, 'titulo' => expost::titulos()[$etapa] ?? '',
+                    'estado' => in_array($etapa, $xacept, true) ? 'ok' : 'pendiente']]
+                : ['r3_summary_4', null];
         } else {
             $todas = calidad::todas();
             $resumen = ['r3_summary_etapa', (object) ['fase' => $pantalla, 'n' => $etapa, 'titulo' => $todas[$etapa]['titulo'] ?? '',
                 'estado' => in_array($etapa, $aceptadas, true) ? 'ok' : 'pendiente']];
         }
-        if ($fase3) {
+        if ($fase4) {
             $resumen = ['r3_summary_done', null];
+        } else if ($fase3 && $pantalla < 4) {
+            $resumen = ['r3_summary_fase3', null];
         }
         return ['pasos' => $pasos, 'resumen' => $resumen, 'siguiente' => $siguiente];
     }
@@ -109,12 +143,15 @@ class ruta_m3 {
         $filas = $ficha ? calidad::get_by_impl((int) $ficha->id) : [];
         $borradores = [];
         foreach ($filas as $n => $fila) {
-            if ($fila->estado !== calidad::ACEPTADO && trim(strip_tags((string) $fila->contenido)) !== '') {
+            if ($n <= calidad::CONSOLIDACION && $fila->estado !== calidad::ACEPTADO && trim(strip_tags((string) $fila->contenido)) !== '') {
                 $borradores[] = (int) $n;
             }
         }
-        return ['ficha' => $estado, 'aceptadas' => calidad::accepted($filas, $val ? (string) $val->huella : ''),
-            'borradores' => $borradores, 'ajuste' => calidad::decided_adjustment($filas)];
+        return ['ficha' => $estado, 'aceptadas' => array_values(array_filter(calidad::accepted($filas, $val ? (string) $val->huella : ''),
+            static function(int $n): bool {
+                return $n <= calidad::CONSOLIDACION;
+            })), 'borradores' => $borradores, 'ajuste' => calidad::decided_adjustment($filas),
+            'expost' => expost::route_state($ficha)];
     }
 
     /**
@@ -125,8 +162,13 @@ class ruta_m3 {
      */
     public static function evaluation_status(array $e): array {
         $aceptadas = $e['aceptadas'] ?? [];
+        $x = (array) ($e['expost'] ?? []);
         if (in_array(calidad::CONSOLIDACION, $aceptadas, true)) {
-            return ['r3_status_done', null];
+            if (in_array(expost::CONSOLIDACION, $x['aceptadas'] ?? [], true)) {
+                return ['r3_status_done', null];
+            }
+            $hechas = count(array_intersect(range(11, 15), $x['aceptadas'] ?? []));
+            return ($x['ficha'] ?? self::FICHA_SIN) === self::FICHA_OK ? ['r3_status_fase4', $hechas] : ['r3_status_fase3_done', null];
         }
         if (($e['ficha'] ?? self::FICHA_SIN) !== self::FICHA_OK) {
             return ['r3_status_fase1', null];
@@ -144,14 +186,20 @@ class ruta_m3 {
      * @param int $userid
      * @param int $courseid
      * @param int $fase Fase de la pantalla.
-     * @param int $etapa Etapa de la pantalla (0 en la ficha).
+     * @param int $etapa Etapa de la pantalla (0 en las fichas).
      * @return string
      */
     public static function render(int $userid, int $courseid, int $fase, int $etapa = 0): string {
         $modelo = self::model(self::state($userid, $courseid) + ['fase' => $fase, 'etapa' => $etapa]);
         $url = static function(int $f, int $n) use ($courseid) {
-            return $f === 1 ? new \moodle_url('/local/chatbot/ficha_implementacion.php', ['courseid' => $courseid])
-                : new \moodle_url('/local/chatbot/calidad.php', ['courseid' => $courseid] + ($n ? ['etapa' => $n] : []));
+            if ($f === 1) {
+                return new \moodle_url('/local/chatbot/ficha_implementacion.php', ['courseid' => $courseid]);
+            }
+            if ($f === 4) {
+                return $n >= 11 ? new \moodle_url('/local/chatbot/expost.php', ['courseid' => $courseid, 'etapa' => $n])
+                    : new \moodle_url('/local/chatbot/ficha_expost.php', ['courseid' => $courseid]);
+            }
+            return new \moodle_url('/local/chatbot/calidad.php', ['courseid' => $courseid] + ($n ? ['etapa' => $n] : []));
         };
         $items = '';
         foreach ($modelo['pasos'] as $n => $p) {

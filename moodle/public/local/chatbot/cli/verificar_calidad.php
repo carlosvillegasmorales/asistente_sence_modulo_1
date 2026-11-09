@@ -22,6 +22,7 @@ require_once(__DIR__ . '/../classes/diagrama.php');
 require_once(__DIR__ . '/../classes/documento_final.php');
 require_once(__DIR__ . '/../classes/implementacion.php');
 require_once(__DIR__ . '/../classes/calidad.php');
+require_once(__DIR__ . '/../classes/expost.php');
 require_once(__DIR__ . '/../classes/ruta_m3.php');
 
 use local_chatbot\calidad;
@@ -250,6 +251,7 @@ local_chatbot_verificar(calidad::allowed_adjustments($rem) === [$rem, $par, $tot
 $ok1 = ['ficha' => ruta_m3::FICHA_OK, 'aceptadas' => [], 'borradores' => [], 'fase' => 1, 'etapa' => 0];
 $m = ruta_m3::model(['ficha' => ruta_m3::FICHA_SIN] + $ok1);
 local_chatbot_verificar($m['pasos'][1]['done'] === false && $m['pasos'][2]['locked'] === true && $m['pasos'][3]['locked'] === true
+    && $m['pasos'][4]['locked'] === true
     && $m['pasos'][1]['here'] === true && $m['siguiente'][0] === 'r3_next_ficha' && $m['siguiente'][2] === 1,
     'sin ficha validada, las Fases 2 y 3 están cerradas y el próximo paso es la ficha');
 local_chatbot_verificar(ruta_m3::model(['ficha' => ruta_m3::FICHA_PENDIENTE] + $ok1)['siguiente'][0] === 'r3_next_ficha_espera'
@@ -271,13 +273,39 @@ $m = ruta_m3::model(['aceptadas' => [1, 2, 3, 4, 5, 6, 7], 'fase' => 3, 'etapa' 
 local_chatbot_verificar($m['siguiente'][0] === 'r3_next_consolidar' && $m['siguiente'][3] === 8 && $m['pasos'][3]['done'] === false,
     'con las siete etapas aceptadas falta confirmar la consolidación');
 $m = ruta_m3::model(['aceptadas' => range(1, 8), 'fase' => 3, 'etapa' => 8] + $ok1);
-local_chatbot_verificar($m['pasos'][3]['done'] === true && $m['siguiente'][0] === 'r3_next_final' && $m['resumen'][0] === 'r3_summary_done',
-    'con la consolidación confirmada, el proceso queda completo');
+local_chatbot_verificar($m['pasos'][3]['done'] === true && $m['pasos'][4]['locked'] === false && $m['pasos'][4]['done'] === false
+    && $m['siguiente'][0] === 'r3_next_expost_continuidad' && $m['siguiente'][2] === 4 && $m['resumen'][0] === 'r3_summary_fase3',
+    'con la consolidación confirmada se completan las Fases 1 a 3 y se abre la Fase 4 (evaluación ex post)');
 local_chatbot_verificar(ruta_m3::evaluation_status(['ficha' => ruta_m3::FICHA_SIN]) === ['r3_status_fase1', null]
     && ruta_m3::evaluation_status($ok1) === ['r3_status_fase2', 0]
     && ruta_m3::evaluation_status(['aceptadas' => [1, 2, 3, 5]] + $ok1) === ['r3_status_fase3', 1]
-    && ruta_m3::evaluation_status(['aceptadas' => range(1, 8)] + $ok1) === ['r3_status_done', null],
+    && ruta_m3::evaluation_status(['aceptadas' => range(1, 8)] + $ok1) === ['r3_status_fase3_done', null]
+    && ruta_m3::evaluation_status(['aceptadas' => range(1, 8), 'expost' => ['ficha' => ruta_m3::FICHA_OK, 'aceptadas' => [11, 12]]] + $ok1) === ['r3_status_fase4', 2]
+    && ruta_m3::evaluation_status(['aceptadas' => range(1, 8), 'expost' => ['ficha' => ruta_m3::FICHA_OK, 'aceptadas' => range(11, 15)]] + $ok1) === ['r3_status_done', null],
     'cada evaluación de la lista dice dónde va');
+// --- La Fase 4 en la barra de ruta ---
+$f3 = ['ficha' => ruta_m3::FICHA_OK, 'aceptadas' => range(1, 8), 'borradores' => [], 'fase' => 4, 'etapa' => 0];
+$x = ['fases' => true, 'continuidad' => true, 'ficha' => ruta_m3::FICHA_SIN, 'aceptadas' => [], 'borradores' => []];
+$m = ruta_m3::model($f3 + ['expost' => $x]);
+local_chatbot_verificar($m['pasos'][4]['here'] === true && $m['siguiente'][0] === 'r3_next_expost_ficha' && $m['siguiente'][2] === 4 && $m['resumen'][0] === 'r3_summary_4',
+    'con la continuidad confirmada, el próximo paso es completar la ficha ex post');
+local_chatbot_verificar(ruta_m3::model($f3 + ['expost' => ['ficha' => ruta_m3::FICHA_PENDIENTE] + $x])['siguiente'][0] === 'r3_next_expost_espera'
+    && ruta_m3::model($f3 + ['expost' => ['ficha' => ruta_m3::FICHA_NO_APROBADA] + $x])['siguiente'][0] === 'r3_next_expost_corregir'
+    && ruta_m3::model($f3 + ['expost' => ['ficha' => ruta_m3::FICHA_DESACTUALIZADA] + $x])['siguiente'][0] === 'r3_next_expost_revalidar',
+    'el próximo paso de la Fase 4 cambia según el estado de la ficha ex post');
+$okx = ['ficha' => ruta_m3::FICHA_OK] + $x;
+$m = ruta_m3::model(['etapa' => 11] + $f3 + ['expost' => $okx]);
+local_chatbot_verificar($m['siguiente'][0] === 'r3_next_generar' && $m['siguiente'][3] === 11 && $m['siguiente'][2] === 4 && $m['pasos'][4]['avance'] === '0/5'
+    && $m['resumen'][0] === 'r3_summary_etapa' && $m['resumen'][1]->fase === 4 && $m['resumen'][1]->titulo === 'Resultados del ciclo formativo',
+    'con la ficha ex post validada se sugiere generar la etapa 11');
+$m = ruta_m3::model($f3 + ['expost' => ['aceptadas' => [11, 12, 13, 14]] + $okx]);
+local_chatbot_verificar($m['siguiente'][0] === 'r3_next_expost_consolidar' && $m['siguiente'][3] === 15 && $m['pasos'][4]['done'] === false,
+    'con las etapas 11 a 14 aceptadas falta confirmar la consolidación');
+$m = ruta_m3::model($f3 + ['expost' => ['aceptadas' => range(11, 15)] + $okx]);
+local_chatbot_verificar($m['pasos'][4]['done'] === true && $m['siguiente'][0] === 'r3_next_expost_final' && $m['resumen'][0] === 'r3_summary_done',
+    'con la consolidación ex post confirmada, el ciclo queda cerrado');
+local_chatbot_verificar(ruta_m3::model(['ficha' => ruta_m3::FICHA_OK, 'aceptadas' => range(1, 7), 'fase' => 4, 'expost' => $okx])['pasos'][4]['locked'] === true,
+    'la Fase 4 sigue cerrada mientras la Fase 3 no esté consolidada');
 
 // --- Tiempos de la etapa 4 contra el tiempo restante ---
 $tabla = static function(array $filas, bool $total = true): string {

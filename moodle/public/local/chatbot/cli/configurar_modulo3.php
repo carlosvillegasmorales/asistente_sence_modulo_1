@@ -1,12 +1,13 @@
 <?php
 /**
- * Configura las cuatro hojas del curso del Modulo 3 (pedido de Interfases del 06-11-2026): al final de cada una, el boton
- * con el texto que pidio el cliente. Ver classes/modulo3_setup.php.
+ * Configura las cinco hojas del curso del Modulo 3 (pedido de Interfases del 06-11-2026, y el de la Fase 4 del 09-11-2026): al
+ * final de cada una, el boton con el texto que pidio el cliente. Ver classes/modulo3_setup.php.
  *
  *  - Bienvenida e Instrucciones Generales: «Ir a la Fase 1: Registro y Validación» (pestaña Fase 1 del curso).
  *  - Fase 1: «Completar y validar la ficha de implementación» (ficha_implementacion.php).
  *  - Fase 2: «Acceder al asistente IA» (calidad.php, etapas 1 a 3).
  *  - Fase 3: «Ir al ajuste de la experiencia de aprendizaje - Fase 3» (calidad.php, etapa 4).
+ *  - Fase 4: «Ir a evaluación ex-post» (ficha_expost.php: ficha ex post y etapas 9 a 15 de la evaluación ex post).
  *
  * Los textos del curso son del cliente y los carga él: el guion no los toca. Si una hoja ya trae un boton con ese mismo texto
  * (con «#» provisional), se enlaza ese; si no, se agrega una actividad «Texto y medios» al final de la seccion con el boton.
@@ -31,7 +32,7 @@ use local_chatbot\modulo3_setup;
     ['c' => 'curso', 'h' => 'help']);
 
 if ($options['help'] || empty($options['curso'])) {
-    echo "Pone al final de las cuatro hojas del curso del Modulo 3 su boton (Fase 1, ficha, asistente IA y ajuste).\n\n"
+    echo "Pone al final de las cinco hojas del curso del Modulo 3 su boton (Fase 1, ficha, asistente IA, ajuste y evaluacion ex-post).\n\n"
         . "  --curso=ID   curso del Modulo 3 (obligatorio)\n"
         . "  --simular    muestra lo que haria, sin escribir\n";
     exit(0);
@@ -73,6 +74,7 @@ $urls = [
     'ficha' => (new moodle_url('/local/chatbot/ficha_implementacion.php', ['courseid' => $cursoid]))->out(false),
     'asistente' => (new moodle_url('/local/chatbot/calidad.php', ['courseid' => $cursoid]))->out(false),
     'ajuste' => (new moodle_url('/local/chatbot/calidad.php', ['courseid' => $cursoid, 'etapa' => 4]))->out(false),
+    'expost' => (new moodle_url('/local/chatbot/ficha_expost.php', ['courseid' => $cursoid]))->out(false),
 ];
 
 $botones = modulo3_setup::buttons();

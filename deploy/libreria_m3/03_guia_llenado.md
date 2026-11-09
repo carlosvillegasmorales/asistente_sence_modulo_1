@@ -1,4 +1,4 @@
-# Guía de Llenado Ficha Registro Implementación - Evaluación Durante - Interfases {ruta: todas}
+# Guía de Llenado Ficha Registro Implementación - Evaluación Durante - Interfases {ruta: m3f1 m3e1 m3e2 m3e3 m3e4 m3e5 m3e6 m3e7}
 
 GUÍA DE LLENADO · Ficha de registro de la implementación de experiencias de aprendizaje por competencias. Guía paso a paso · Evaluación durante. Interfases Consultores. Documento de apoyo para personas facilitadoras de aprendizaje.
 
