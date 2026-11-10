@@ -110,6 +110,14 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   `send_m2_notices` (proveedor `avisom2`). Datos propios: envíos al control de entrada (`m2_envio`, se registran en
   `ficha_exante.php`), revisión experta, encuesta y `diseno.rondas`. Interruptores `tablerom2` y `avisosm2`; plazos «X»
   en los ajustes `m2plazocorreccion` y `m2plazodetenido`.
+- `classes/perfiles_m2.php` + `perfiles_m2.php` — **«Panorama integral»** (v1.21.8 en adelante): cruza el perfil del Módulo 1 con
+  el uso del Módulo 2 (dimensiones, sectores, ruta por módulos, diferencias entre grupos). Es de solo lectura: **no escribe en
+  ninguna tabla** y se calcula en cada carga, así que sigue los datos si cambian. Lo estadístico es puro (`aggregate()`, `cross()`,
+  `compare()`, `solid()`: una diferencia es «sólida» solo con prueba de dos proporciones o Welch al 95 %); mínimo `MINIMO = 3`
+  personas por grupo y `MINIMO_CONCLUSION = 5` para llamarla conclusión; «otro», «nr» y «sin perfil» no entran en las
+  comparaciones. `demo(90)` genera una cohorte ficticia para el modo demostración: **la cohorte de prueba solo existe en el VPS
+  propio, nunca en el del cliente**. Botón flotante sobre el de informes (`local_chatbot_get_profiles_button_html()`). Interruptor
+  `perfilesm2`. Verificador `verificar_perfiles_m2.php` (169 casos).
 - `classes/implementacion.php` + `ficha_implementacion.php?courseid=ID` — **Módulo 3, Fase 1** (v1.22.0): ficha de registro de la
   implementación, textual de los documentos de Interfases (`Documentacion modulo 3/`), validada por la IA con el checklist de 34
   ítems en 8 secciones (8 CRÍTICO: `implementacion::CRITICOS`). Mismo patrón que `exante`, con dos diferencias. (1) La persona **elige
@@ -177,7 +185,7 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   Deben pasar sin fallos. Al 09-11-2026 (M1-v1.23.0): **44 celdas de la matriz de acceso y 2001 claves de idioma**;
   `verificar_exante.php` 191 casos, `verificar_diseno.php` 227, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99,
   `verificar_documento_final.php` 110 y, del Módulo 3, `verificar_implementacion.php` 129, `verificar_calidad.php` 114,
-  `verificar_libreria_m3.php` 129, `verificar_modulo3.php` 26 y, de la Fase 4, `verificar_expost.php` 95, entre otros, en 28 scripts.
+  `verificar_libreria_m3.php` 129, `verificar_modulo3.php` 26 y, de la Fase 4, `verificar_expost.php` 95, entre otros, `verificar_perfiles_m2.php` 169, en 28 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:
   solo corren en el servidor. `verificar_idiomas.php` compara `lang/en` con `lang/es`:
   toda cadena nueva va en **los dos**, porque Moodle arma las claves desde el
