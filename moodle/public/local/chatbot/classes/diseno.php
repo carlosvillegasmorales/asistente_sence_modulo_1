@@ -1306,19 +1306,29 @@ class diseno {
      * Correcciones pendientes del control de cambios entre etapas, con lo que dicen los registros de ajustes de todas
      * las etapas. Una fila «Pendiente de actualizar» de la etapa de origen O queda pendiente para cada etapa afectada N
      * que no se haya vuelto a aceptar despues del ajuste de O (aceptacion de O, o su ultima modificacion si esta en
-     * borrador). Funcion pura.
+     * borrador). La etapa de origen es la de la columna «Etapa de origen» (el asistente copia en el registro de una etapa
+     * las filas que recibio de otra); las filas repetidas entre registros cuentan una vez. Funcion pura.
      *
      * @param array $etapas n => ['contenido' => html, 'aceptada' => bool, 'timeaccepted' => int, 'timemodified' => int].
      * @return array[] ['origen' => O, 'etapas' => N pendientes, 'afectadas' => texto de la columna, 'correccion' => texto].
      */
     public static function pending_changes(array $etapas): array {
         $lista = [];
-        foreach ($etapas as $origen => $e) {
-            $desde = !empty($e['aceptada']) ? (int) ($e['timeaccepted'] ?? 0) : (int) ($e['timemodified'] ?? 0);
-            foreach (self::section_rows((string) ($e['contenido'] ?? ''), '/registro de ajustes/') as $fila) {
+        $vistas = [];
+        foreach ($etapas as $producto => $p) {
+            foreach (self::section_rows((string) ($p['contenido'] ?? ''), '/registro de ajustes/') as $fila) {
                 if (!preg_match('/pendiente/', self::plain_lower(self::column($fila, '/^estado/')))) {
                     continue;
                 }
+                $origen = self::stage_numbers(self::column($fila, '/^(etapa de )?origen/'))[0] ?? (int) $producto;
+                $e = $etapas[$origen] ?? $p;
+                $desde = !empty($e['aceptada']) ? (int) ($e['timeaccepted'] ?? 0) : (int) ($e['timemodified'] ?? 0);
+                $clave = $origen . '|' . self::plain_lower(preg_replace('/\s+/u', ' ', self::column($fila, '/^etapas? afectad/') . '|'
+                    . self::column($fila, '/^correccion/')));
+                if (isset($vistas[$clave])) {
+                    continue;
+                }
+                $vistas[$clave] = true;
                 $afectadas = self::column($fila, '/^etapas? afectad/');
                 $pendientes = [];
                 foreach (self::stage_numbers($afectadas) as $n) {

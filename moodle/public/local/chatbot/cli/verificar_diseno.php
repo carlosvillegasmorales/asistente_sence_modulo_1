@@ -895,6 +895,11 @@ $pc5 = diseno::pending_changes([2 => ['contenido' => $fila3, 'aceptada' => false
 local_chatbot_verificar(count($pc5) === 1 && $pc5[0]['etapas'] === [3, 4], 'con la etapa de origen aún en borrador, cuenta desde su última modificación');
 local_chatbot_verificar(diseno::pending_changes([2 => ['contenido' => str_replace('Pendiente de actualizar', 'Inconsistencia aceptada', $fila3),
     'aceptada' => true, 'timeaccepted' => 1000, 'timemodified' => 1000]] + $base) === [], 'una inconsistencia aceptada no se avisa como pendiente');
+// Visto en producción: al ajustar la Etapa 3, el asistente copió en su registro las filas que venían de la Etapa 2.
+$copia = [3 => ['contenido' => $fila3, 'aceptada' => true, 'timeaccepted' => 1500, 'timemodified' => 1500]] + $base;
+$pc6 = diseno::pending_changes($copia);
+local_chatbot_verificar(count($pc6) === 1 && $pc6[0]['origen'] === 2 && $pc6[0]['etapas'] === [4],
+    'una fila copiada en el registro de otra etapa conserva su etapa de origen y no se avisa dos veces');
 $t = documento_final::parse_stage_title(diseno::ANEXO_CONSISTENCIA);
 local_chatbot_verificar(($t['etiqueta'] ?? '') === 'ANEXO', 'en el Word final el anexo de consistencia es un anexo con su página y entrada en el índice');
 $conregistro = '<h2>Etapa 3: Secuencia instruccional</h2>' . $registro;

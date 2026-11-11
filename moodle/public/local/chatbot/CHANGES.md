@@ -1,5 +1,14 @@
 # Changelog
 
+## M1-v1.24.3 (2026-11-10)
+
+- Control de cambios: la etapa de origen de cada corrección pendiente se lee de la columna «Etapa de origen», y una fila
+  repetida en los registros de varias etapas se avisa una vez. Visto al probar la v1.24.2 en el VPS del cliente: al
+  ajustar la Etapa 3 con la corrección que le dejó la Etapa 2, el asistente copió en su registro las filas de la Etapa
+  2 y la Etapa 4 mostraba la misma corrección «Desde la Etapa 2» y «Desde la Etapa 3». El resto de la prueba resultó
+  como se esperaba: la Etapa 3 recibió el aviso, «Usar como ajuste» copió la corrección y, al aceptarla, el aviso se
+  fue de la Etapa 3 y la Etapa 2 quedó con las Etapas 4 a 6 pendientes.
+
 ## M1-v1.24.2 (2026-11-10)
 
 - **Control de cambios: aviso también en las etapas afectadas.** La hoja de cada etapa muestra las correcciones que
