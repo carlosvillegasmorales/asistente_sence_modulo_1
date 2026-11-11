@@ -439,5 +439,16 @@ local_chatbot_verificar($posini !== false && $posfin !== false && $posfin > $pos
 local_chatbot_verificar(substr_count($partes['word/settings.xml'] ?? '', '<w:updateFields w:val="true"/>') === 1
     && strpos($partes['word/styles.xml'] ?? '', 'w:styleId="TOC1"') !== false && strpos($partes['word/styles.xml'] ?? '', 'w:styleId="TOC2"') !== false,
     'el Word se actualiza al abrir y trae los estilos TOC 1 y TOC 2 por si se actualiza la tabla');
+// Una columna de textos largos queda más ancha que una de textos medianos (registro de ajustes del anexo, 10-11-2026: con
+// el tope de peso 60 quedaban iguales y la última fila se partía dejando tres líneas solas en una página horizontal).
+$medio = str_repeat('Reorganización del grupo en subgrupos. ', 2);
+$largo = str_repeat('Actualizar las listas de cotejo e instrumentos de la etapa para reflejar la rotación. ', 5);
+$fila6 = '<tr><td>Etapa 2</td><td>' . $medio . '</td><td>Etapa 6</td><td>' . $largo . '</td><td>Actualizada</td><td>10-11-2026</td></tr>';
+$d17 = $construir('<h1>Etapa 1: A</h1><h2>Registro de ajustes</h2><table><tr><th>Etapa de origen</th><th>Cambio realizado</th>'
+    . '<th>Etapas afectadas</th><th>Corrección que corresponde</th><th>Estado</th><th>Fecha</th></tr>' . str_repeat($fila6, 3) . '</table>');
+preg_match('/<w:tblGrid>(.*?)<\/w:tblGrid>/s', $d17, $g17);
+preg_match_all('/w:w="(\d+)"/', $g17[1] ?? '', $c17);
+local_chatbot_verificar(count($c17[1]) === 6 && (int) $c17[1][3] > (int) $c17[1][1] * 1.4,
+    'la columna de textos largos («Corrección que corresponde») sale bastante más ancha que la de textos medianos');
 echo "Documento final conforme al ejemplo del cliente: {$total} casos verificados | Fallidos: {$fallidos}\n";
 exit($fallidos > 0 ? 1 : 0);

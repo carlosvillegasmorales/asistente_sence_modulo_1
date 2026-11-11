@@ -1803,7 +1803,9 @@ class documento_final {
             foreach ($celdas as $celda) {
                 if ($celda['span'] === 1 && $col < $cols) {
                     $texto = trim($celda['td']->textContent);
-                    $suma[$col] += min(120, \core_text::strlen($texto));
+                    // Tope 300: una columna de textos largos («Corrección que corresponde») pesa mas que una de textos
+                    // medianos; con tope 120 quedaban iguales y las filas salian tan altas que se partian entre paginas.
+                    $suma[$col] += min(300, \core_text::strlen($texto));
                     $cuenta[$col]++;
                     foreach (preg_split('/\s+/u', $texto) as $w) {
                         $palabra[$col] = max($palabra[$col], min(18, \core_text::strlen($w)));
@@ -1815,7 +1817,8 @@ class documento_final {
         $pesos = [];
         $minimos = [];
         for ($c = 0; $c < $cols; $c++) {
-            $pesos[] = max(8, min(60, $cuenta[$c] ? $suma[$c] / $cuenta[$c] : 8));
+            // Hasta 150: la columna de textos largos queda mas ancha que una de textos medianos (con 60 quedaban iguales).
+            $pesos[] = max(8, min(150, $cuenta[$c] ? $suma[$c] / $cuenta[$c] : 8));
             $minimos[] = max(700, $palabra[$c] * 105 + 280);
         }
         return [$pesos, $minimos];

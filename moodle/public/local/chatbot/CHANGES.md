@@ -1,5 +1,19 @@
 # Changelog
 
+## M1-v1.24.7 (2026-11-10)
+
+- Word: en las tablas, la columna de textos largos queda más ancha que una de textos medianos (peso de columna hasta
+  150 y por celda hasta 300, antes 60 y 120). Visto al probar en el VPS del cliente el Word final con la inconsistencia
+  aceptada: el «Registro de ajustes» del anexo partía su última fila y dejaba tres líneas solas en una página
+  horizontal; ahora cabe en una página, y en ese diseño el documento pasa de 60 a 58 páginas, sin empeorar las demás
+  tablas anchas.
+
+Prueba completa del control de cambios en el VPS del cliente (cuenta de prueba): ajuste en la Etapa 5 que afecta la
+Etapa 6, registrada como inconsistencia aceptada; la consolidación marca «Inconsistente (inconsistencia aceptada)» en
+estaciones y en evidencias e instrumentos; la página muestra la inconsistencia aceptada; la Etapa 8 baja el criterio 7 a
+3/4 y la incluye en debilidades y recomendaciones (35/36); el Word final trae el anexo con su entrada en el índice y los
+números del índice coinciden con las páginas.
+
 ## M1-v1.24.6 (2026-11-10)
 
 - Etapa 7: el botón «Consolidar con el asistente» aparece también cuando la consolidación está al día con las etapas
