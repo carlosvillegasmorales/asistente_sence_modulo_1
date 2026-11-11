@@ -862,6 +862,9 @@ $consistencia = '<h1>Anexo: Verificación de consistencia entre etapas y registr
     . '</tbody></table>';
 local_chatbot_verificar(diseno::inconsistencies($consistencia) === ['Tiempos: Etapa 3 suma 560 min; Etapa 2 dice 540'],
     'avisa las filas «Inconsistente» de la verificación (y no confunde «Consistente» con «Inconsistente»)');
+$conlargo = str_replace('<td>Tiempos</td>', '<td>Tiempos: tiempo por fase y suma total en cada etapa.</td>', $consistencia);
+local_chatbot_verificar(diseno::inconsistencies($conlargo) === ['Tiempos: Etapa 3 suma 560 min; Etapa 2 dice 540'],
+    'el aviso usa el nombre corto del elemento, sin la descripción de la fila (como la escribió el asistente en producción)');
 local_chatbot_verificar(diseno::inconsistencies(str_replace('<td>Inconsistente</td>', '<td>Consistente</td>', $consistencia)) === []
     && count(diseno::section_rows($consistencia, '/verificacion de consistencia/')) === 2,
     'con todo consistente no hay aviso, y la tabla se reconoce igual');

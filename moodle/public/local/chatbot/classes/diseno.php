@@ -1291,7 +1291,8 @@ class diseno {
             if (!preg_match('/\binconsistente\b/', self::plain_lower($resultado !== '' ? $resultado : implode(' ', $fila)))) {
                 continue;
             }
-            $elemento = (string) reset($fila);
+            // El nombre corto del elemento: «Fases, actividades o estaciones: número y nombre en cada etapa.» -> «Fases, ...».
+            $elemento = trim(preg_replace('/[\s.:]+$/u', '', preg_split('/:\s/u', (string) reset($fila), 2)[0]));
             $diferencia = self::column($fila, '/^etapas/');
             $lista[] = trim($elemento . ($diferencia !== '' ? ': ' . $diferencia : ''));
         }

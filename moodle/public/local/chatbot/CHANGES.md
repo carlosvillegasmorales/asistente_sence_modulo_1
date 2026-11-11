@@ -1,5 +1,12 @@
 # Changelog
 
+## M1-v1.24.1 (2026-11-10)
+
+- Aviso de inconsistencias de la etapa 7: cada fila se muestra con el nombre corto del elemento («Fases, actividades o
+  estaciones: …»), sin repetir la descripción que el asistente copia de la lista («…en cada etapa.:»). Visto al probar la
+  v1.24.0 en el VPS del cliente con la cuenta de prueba: el ajuste de la Etapa 2 dejó pendientes las Etapas 3 a 6 y la
+  consolidación encontró las dos inconsistencias esperadas.
+
 ## M1-v1.24.0 (2026-11-10)
 
 **Módulo 2: control de cambios entre etapas** (documento de Interfases «Ajuste Prompt Maestro M2 - Control de Cambios
