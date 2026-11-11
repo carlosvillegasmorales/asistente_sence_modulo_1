@@ -498,10 +498,11 @@ class diseno {
      * @param array $validacion Informe de la validacion de la ficha (items con estado y observacion), para que la
      *        evaluacion sea consistente con la calidad del diagnostico.
      * @param bool $control Inconsistencias aceptadas del control de cambios (interruptor «controlcambios»).
+     * @param string[] $aceptadas Inconsistencias aceptadas registradas en las etapas (accepted_inconsistencies()).
      * @return string
      */
     public static function build_eval_prompt(string $diseno, string $ficha, array $adjuntos, bool $conlibreria = false,
-            bool $conbusqueda = false, array $validacion = [], bool $control = false): string {
+            bool $conbusqueda = false, array $validacion = [], bool $control = false, array $aceptadas = []): string {
         $rubrica = [];
         foreach (self::rubrica() as $id => $c) {
             $rubrica[] = $id . '. ' . $c['nombre'];
@@ -542,7 +543,8 @@ class diseno {
                 . '(Calidad formal del documento) no se limita. ' . self::pending_observations($validacion),
             $limite,
             '',
-            $control ? self::REGLA_INCONSISTENCIAS . "\n" : '',
+            $control ? self::REGLA_INCONSISTENCIAS . ($aceptadas ? "\nInconsistencias aceptadas registradas en las etapas "
+                . "(considéralas aunque el anexo no las muestre):\n- " . implode("\n- ", $aceptadas) : '') . "\n" : '',
             'EVALÚA CON OJO CRÍTICO: este diseño se elaboró con apoyo de una IA, así que no lo des por bueno porque '
                 . 'esté bien redactado: revísalo como lo haría una persona revisora externa. Cada puntaje 4 debe '
                 . 'citar, en la justificación, la evidencia concreta del diseño que lo prueba (el elemento o fragmento '
@@ -707,6 +709,19 @@ class diseno {
                 $l[] = $linea;
             }
             $l[] = self::CONSISTENCIA_PLATAFORMA;
+            $l[] = 'Para la fila «Evidencias e instrumentos», compara criterio por criterio el instrumento que asigna la '
+                . 'Etapa 5 con el que desarrolla la Etapa 6 (nombre y tipo: lista de cotejo, escala de apreciación, rúbrica, '
+                . 'prueba): si algún criterio no coincide, la fila es «Inconsistente». Una fila no es «Consistente» si en el '
+                . 'elemento hay una inconsistencia aceptada.';
+            $aceptadas = self::accepted_inconsistencies($etapas);
+            if ($aceptadas) {
+                $l[] = 'INCONSISTENCIAS ACEPTADAS REGISTRADAS EN LAS ETAPAS (la persona facilitadora decidió no actualizar '
+                    . 'esas etapas): van en el «Registro de ajustes» del anexo con su estado «Inconsistencia aceptada», y la '
+                    . 'fila del elemento que afectan es «Inconsistente», con la mención «inconsistencia aceptada»:';
+                foreach ($aceptadas as $a) {
+                    $l[] = '- ' . $a;
+                }
+            }
             $l[] = '';
         }
         $l[] = 'REGLAS:';
@@ -1305,7 +1320,7 @@ class diseno {
     /**
      * Correcciones pendientes del control de cambios entre etapas, con lo que dicen los registros de ajustes de todas
      * las etapas. Una fila «Pendiente de actualizar» de la etapa de origen O queda pendiente para cada etapa afectada N
-     * que no se haya vuelto a aceptar despues del ajuste de O (aceptacion de O, o su ultima modificacion si esta en
+     * que no se haya vuelto a aceptar despues del ajuste de O (aunque hoy este en borrador) (aceptacion de O, o su ultima modificacion si esta en
      * borrador). La etapa de origen es la de la columna «Etapa de origen» (el asistente copia en el registro de una etapa
      * las filas que recibio de otra); las filas repetidas entre registros cuentan una vez. Funcion pura.
      *
@@ -1333,7 +1348,9 @@ class diseno {
                 $pendientes = [];
                 foreach (self::stage_numbers($afectadas) as $n) {
                     $otra = $etapas[$n] ?? null;
-                    $resuelta = $otra && !empty($otra['aceptada']) && (int) ($otra['timeaccepted'] ?? 0) > $desde;
+                    // Resuelta si la etapa afectada se acepto despues del ajuste, aunque hoy este en borrador por otro ajuste
+                    // (si no, la correccion ya aplicada reaparece mientras la persona trabaja en ella).
+                    $resuelta = $otra && (int) ($otra['timeaccepted'] ?? 0) > $desde;
                     if ($n !== (int) $origen && !$resuelta) {
                         $pendientes[] = $n;
                     }
@@ -1345,6 +1362,30 @@ class diseno {
             }
         }
         return $lista;
+    }
+
+    /**
+     * Inconsistencias aceptadas que registraron las etapas (filas «Inconsistencia aceptada» de sus registros de ajustes),
+     * sin repetir. Las detecta el codigo para que lleguen al anexo y a la etapa 8 aunque el asistente las pase por alto
+     * al consolidar (visto al probar en el VPS del cliente el 10-11-2026). Funcion pura.
+     *
+     * @param string[] $productos Numero de etapa => producto (HTML).
+     * @return string[] «Etapa 6 (Instrumentos evaluativos), desde la Etapa 5: corrección no aplicada. Efecto: ...».
+     */
+    public static function accepted_inconsistencies(array $productos): array {
+        $lista = [];
+        foreach ($productos as $n => $html) {
+            foreach (self::section_rows((string) $html, '/registro de ajustes/') as $fila) {
+                if (!preg_match('/inconsistencia aceptada/', self::plain_lower(self::column($fila, '/^estado/')))) {
+                    continue;
+                }
+                $origen = self::stage_numbers(self::column($fila, '/^(etapa de )?origen/'))[0] ?? (int) $n;
+                $texto = trim(self::column($fila, '/^etapas? afectad/') . ', desde la Etapa ' . $origen . ': '
+                    . (self::column($fila, '/^correccion/') ?: self::column($fila, '/^cambio/')));
+                $lista[self::plain_lower(preg_replace('/\s+/u', ' ', $texto))] = $texto;
+            }
+        }
+        return array_values($lista);
     }
 
     /**
@@ -2420,7 +2461,8 @@ class diseno {
         $buscar = exante::web_search_available();
         $prompt = self::build_eval_prompt(html_to_text((string) $c->contenido, 0, false),
             pseudonymizer::scrub(exante::to_text($ficha)), $etiquetas, $libreria !== '', $buscar, $validacion,
-            ux::on('controlcambios'));
+            ux::on('controlcambios'), ux::on('controlcambios') ? self::accepted_inconsistencies(array_map(
+                static fn($f) => (string) $f->contenido, array_intersect_key(self::get_by_ficha((int) $fila->fichaid), self::etapas()))) : []);
         $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
             ux::on('libreriaruta'))]];
         $modelo = ai\provider_factory::get_configured_model();

@@ -81,6 +81,14 @@ foreach (diseno::etapas() as $n => $e) {
             <ul class="mb-0 mt-1"><?php foreach ($faltan7 as $falta): ?><li><?php echo s($falta); ?></li><?php endforeach; ?></ul>
         </div>
     <?php endif; ?>
+    <?php // Inconsistencias aceptadas que registraron las etapas: siguen visibles hasta la Etapa 8 (bloque 1).
+    $aceptadascc = \local_chatbot\ux::on('controlcambios') ? diseno::accepted_inconsistencies($contenidos) : [];
+    if ($aceptadascc): ?>
+        <div class="alert alert-info small" role="status">
+            <?php echo get_string('diseno_cc_accepted', 'local_chatbot'); ?>
+            <ul class="mb-0 mt-1"><?php foreach ($aceptadascc as $a): ?><li><?php echo s($a); ?></li><?php endforeach; ?></ul>
+        </div>
+    <?php endif; ?>
     <?php // Verificacion de consistencia entre etapas (ajuste del Prompt Maestro del 10-11-2026).
     if (\local_chatbot\ux::on('controlcambios') && $porasistente):
         $inconsistencias = diseno::inconsistencies(diseno::normalize_product($documento));

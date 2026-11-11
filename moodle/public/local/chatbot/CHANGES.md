@@ -1,5 +1,21 @@
 # Changelog
 
+## M1-v1.24.5 (2026-11-10)
+
+- **Inconsistencias aceptadas detectadas por el código** (`diseno::accepted_inconsistencies()`, pura): las filas
+  «Inconsistencia aceptada» de los registros de ajustes de las etapas se entregan explícitamente al prompt de
+  consolidación (van al anexo y su elemento se marca «Inconsistente»), se muestran en la página de la etapa 7 y llegan
+  al prompt de la etapa 8. La consolidación compara además, criterio por criterio, el instrumento de la Etapa 5 con el
+  de la Etapa 6. Visto al probar en el VPS del cliente: con una escala de apreciación para el criterio 1.9 en la Etapa 5,
+  la lista de cotejo en la Etapa 6 y la diferencia registrada como inconsistencia aceptada, el asistente consolidó todo
+  «Consistente» y dejó la fila fuera del anexo.
+
+## M1-v1.24.4 (2026-11-10)
+
+- Control de cambios: una corrección se da por resuelta si la etapa afectada se aceptó después del ajuste de origen,
+  aunque hoy esté en borrador por otro ajuste. Visto al probar en el VPS del cliente: al ajustar la Etapa 5, mientras
+  estaba en borrador volvía a mostrar «Desde la Etapa 2» la corrección que ya se le había aplicado.
+
 ## M1-v1.24.3 (2026-11-10)
 
 - Control de cambios: la etapa de origen de cada corrección pendiente se lee de la columna «Etapa de origen», y una fila

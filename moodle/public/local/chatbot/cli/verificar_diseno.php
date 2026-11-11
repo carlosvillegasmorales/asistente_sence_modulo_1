@@ -895,11 +895,31 @@ $pc5 = diseno::pending_changes([2 => ['contenido' => $fila3, 'aceptada' => false
 local_chatbot_verificar(count($pc5) === 1 && $pc5[0]['etapas'] === [3, 4], 'con la etapa de origen aún en borrador, cuenta desde su última modificación');
 local_chatbot_verificar(diseno::pending_changes([2 => ['contenido' => str_replace('Pendiente de actualizar', 'Inconsistencia aceptada', $fila3),
     'aceptada' => true, 'timeaccepted' => 1000, 'timemodified' => 1000]] + $base) === [], 'una inconsistencia aceptada no se avisa como pendiente');
+// Visto en producción: una etapa ya corregida que vuelve a borrador por otro ajuste no recupera el aviso.
+local_chatbot_verificar(diseno::pending_changes([3 => ['contenido' => '<p>x</p>', 'aceptada' => false, 'timeaccepted' => 1500,
+    'timemodified' => 1800]] + $base)[0]['etapas'] === [4], 'una etapa aceptada después del ajuste y hoy en borrador sigue resuelta');
 // Visto en producción: al ajustar la Etapa 3, el asistente copió en su registro las filas que venían de la Etapa 2.
 $copia = [3 => ['contenido' => $fila3, 'aceptada' => true, 'timeaccepted' => 1500, 'timemodified' => 1500]] + $base;
 $pc6 = diseno::pending_changes($copia);
 local_chatbot_verificar(count($pc6) === 1 && $pc6[0]['origen'] === 2 && $pc6[0]['etapas'] === [4],
     'una fila copiada en el registro de otra etapa conserva su etapa de origen y no se avisa dos veces');
+// Inconsistencias aceptadas: las detecta el codigo y llegan a la consolidacion y a la etapa 8 (visto en el cliente: el
+// asistente consolidó todo «Consistente» y dejó fuera la fila aceptada).
+$aceptada = '<h3>Registro de ajustes</h3><table><tr><th>Etapa de origen</th><th>Cambio realizado</th><th>Etapas afectadas</th>'
+    . '<th>Corrección que corresponde</th><th>Estado</th><th>Fecha</th></tr>'
+    . '<tr><td>Etapa 5 (Plan de evaluación)</td><td>Escala para el 1.9</td><td>Etapa 6 (Instrumentos evaluativos)</td>'
+    . '<td>Cambiar la lista de cotejo del 1.9 por la escala</td><td>Inconsistencia aceptada</td><td>10-11-2026</td></tr></table>';
+$acep = diseno::accepted_inconsistencies([5 => $aceptada, 6 => $aceptada, 2 => $fila3]);
+local_chatbot_verificar($acep === ['Etapa 6 (Instrumentos evaluativos), desde la Etapa 5: Cambiar la lista de cotejo del 1.9 por la escala'],
+    'reúne las inconsistencias aceptadas de los registros, sin repetir y sin las pendientes');
+$pc7a = diseno::build_consolidation_prompt([5 => $aceptada, 6 => '<p>x</p>'], true);
+local_chatbot_verificar(strpos($pc7a, 'INCONSISTENCIAS ACEPTADAS REGISTRADAS') !== false && strpos($pc7a, 'Cambiar la lista de cotejo del 1.9') !== false
+    && strpos($pc7a, 'compara criterio por criterio el instrumento') !== false
+    && strpos(diseno::build_consolidation_prompt([5 => '<p>x</p>'], true), 'INCONSISTENCIAS ACEPTADAS REGISTRADAS') === false,
+    'la consolidación recibe las inconsistencias aceptadas y compara el instrumento de cada criterio entre las Etapas 5 y 6');
+$pe8a = diseno::build_eval_prompt('D', 'F', [], false, false, [], true, $acep);
+local_chatbot_verificar(strpos($pe8a, 'considéralas aunque el anexo no las muestre') !== false && strpos($pe8a, 'Cambiar la lista de cotejo del 1.9') !== false,
+    'la etapa 8 recibe las inconsistencias aceptadas que detecta el código');
 $t = documento_final::parse_stage_title(diseno::ANEXO_CONSISTENCIA);
 local_chatbot_verificar(($t['etiqueta'] ?? '') === 'ANEXO', 'en el Word final el anexo de consistencia es un anexo con su página y entrada en el índice');
 $conregistro = '<h2>Etapa 3: Secuencia instruccional</h2>' . $registro;
