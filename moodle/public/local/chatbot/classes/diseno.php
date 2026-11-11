@@ -1389,6 +1389,22 @@ class diseno {
     }
 
     /**
+     * Si la consolidacion del asistente debe poder rehacerse aunque este al dia con las etapas: no trae la verificacion
+     * de consistencia (es anterior al control de cambios), o hay inconsistencias aceptadas y su verificacion no marca
+     * ninguna fila «Inconsistente». Funcion pura.
+     *
+     * @param string $documento Consolidacion (HTML).
+     * @param string[] $aceptadas Inconsistencias aceptadas registradas en las etapas.
+     * @return bool
+     */
+    public static function needs_reconsolidation(string $documento, array $aceptadas): bool {
+        if (!self::section_rows($documento, '/verificacion de consistencia/')) {
+            return true;
+        }
+        return $aceptadas && !self::inconsistencies($documento);
+    }
+
+    /**
      * Inconsistencias de la verificacion de consistencia entre etapas del diseno consolidado: las filas «Inconsistente».
      * Funcion pura.
      *

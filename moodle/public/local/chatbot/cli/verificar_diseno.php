@@ -920,6 +920,11 @@ local_chatbot_verificar(strpos($pc7a, 'INCONSISTENCIAS ACEPTADAS REGISTRADAS') !
 $pe8a = diseno::build_eval_prompt('D', 'F', [], false, false, [], true, $acep);
 local_chatbot_verificar(strpos($pe8a, 'considéralas aunque el anexo no las muestre') !== false && strpos($pe8a, 'Cambiar la lista de cotejo del 1.9') !== false,
     'la etapa 8 recibe las inconsistencias aceptadas que detecta el código');
+local_chatbot_verificar(diseno::needs_reconsolidation('<h2>Parte 1</h2><p>sin anexo</p>', [])
+    && !diseno::needs_reconsolidation($consistencia, $acep)
+    && diseno::needs_reconsolidation(str_replace('<td>Inconsistente</td>', '<td>Consistente</td>', $consistencia), $acep)
+    && !diseno::needs_reconsolidation(str_replace('<td>Inconsistente</td>', '<td>Consistente</td>', $consistencia), []),
+    'se puede volver a consolidar si falta la verificación o si no marca las inconsistencias aceptadas (visto en el cliente)');
 $t = documento_final::parse_stage_title(diseno::ANEXO_CONSISTENCIA);
 local_chatbot_verificar(($t['etiqueta'] ?? '') === 'ANEXO', 'en el Word final el anexo de consistencia es un anexo con su página y entrada en el índice');
 $conregistro = '<h2>Etapa 3: Secuencia instruccional</h2>' . $registro;

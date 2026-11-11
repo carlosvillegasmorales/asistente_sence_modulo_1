@@ -105,7 +105,11 @@ foreach (diseno::etapas() as $n => $e) {
     <?php if (!$vigente && !$generando): ?>
         <form method="post" action="<?php echo $pageurl->out(false); ?>" class="mb-4 d-flex flex-wrap gap-2">
             <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
-            <?php if ($consolidaia && (!$porasistente || $faltan7)): ?>
+            <?php // Control de cambios: tambien si la consolidacion no trae la verificacion de consistencia o no marca las
+            // inconsistencias aceptadas que registraron las etapas.
+            $rehacercc = \local_chatbot\ux::on('controlcambios') && $porasistente
+                && diseno::needs_reconsolidation(diseno::normalize_product($documento), $aceptadascc); ?>
+            <?php if ($consolidaia && (!$porasistente || $faltan7 || $rehacercc)): ?>
                 <?php // Prompt Maestro: consolidar «en extenso», sin repetir los campos comunes (lo hace el asistente). ?>
                 <button type="submit" name="action" value="consolidar" class="btn btn-primary px-4"
                         data-espera="<?php echo s(get_string('diseno_consolidating', 'local_chatbot')); ?>">

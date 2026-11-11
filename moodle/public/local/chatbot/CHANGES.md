@@ -1,5 +1,12 @@
 # Changelog
 
+## M1-v1.24.6 (2026-11-10)
+
+- Etapa 7: el botón «Consolidar con el asistente» aparece también cuando la consolidación está al día con las etapas
+  pero no trae la verificación de consistencia (es anterior al control de cambios) o no marca las inconsistencias
+  aceptadas que registraron las etapas (`diseno::needs_reconsolidation()`, pura). Visto al probar la v1.24.5 en el VPS
+  del cliente: la consolidación hecha antes de la corrección no se podía rehacer.
+
 ## M1-v1.24.5 (2026-11-10)
 
 - **Inconsistencias aceptadas detectadas por el código** (`diseno::accepted_inconsistencies()`, pura): las filas
