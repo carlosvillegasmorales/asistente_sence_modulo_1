@@ -1278,6 +1278,66 @@ class diseno {
     }
 
     /**
+     * Etapas (1 a 6) que nombra la columna «Etapas afectadas» de un registro de ajustes: «Etapa 3 (Secuencia
+     * instruccional)», «Etapas 3, 4 y 5», «Etapas 3 a 6». Funcion pura.
+     *
+     * @param string $texto
+     * @return int[]
+     */
+    public static function stage_numbers(string $texto): array {
+        $numeros = [];
+        if (preg_match_all('/etapas?\s+((?:\d+(?:\s*(?:,|;|y|e|a|al|-|–|hasta)\s*)?)+)/u', self::plain_lower($texto), $m)) {
+            foreach ($m[1] as $lista) {
+                if (preg_match_all('/(\d+)\s*(?:a|al|-|–|hasta)\s*(\d+)/u', $lista, $rangos, PREG_SET_ORDER)) {
+                    foreach ($rangos as $r) {
+                        $numeros = array_merge($numeros, range((int) $r[1], max((int) $r[1], min((int) $r[2], 6))));
+                    }
+                }
+                preg_match_all('/\d+/', $lista, $sueltos);
+                $numeros = array_merge($numeros, array_map('intval', $sueltos[0]));
+            }
+        }
+        $numeros = array_values(array_unique(array_filter($numeros, static fn($n) => $n >= 1 && $n <= 6)));
+        sort($numeros);
+        return $numeros;
+    }
+
+    /**
+     * Correcciones pendientes del control de cambios entre etapas, con lo que dicen los registros de ajustes de todas
+     * las etapas. Una fila «Pendiente de actualizar» de la etapa de origen O queda pendiente para cada etapa afectada N
+     * que no se haya vuelto a aceptar despues del ajuste de O (aceptacion de O, o su ultima modificacion si esta en
+     * borrador). Funcion pura.
+     *
+     * @param array $etapas n => ['contenido' => html, 'aceptada' => bool, 'timeaccepted' => int, 'timemodified' => int].
+     * @return array[] ['origen' => O, 'etapas' => N pendientes, 'afectadas' => texto de la columna, 'correccion' => texto].
+     */
+    public static function pending_changes(array $etapas): array {
+        $lista = [];
+        foreach ($etapas as $origen => $e) {
+            $desde = !empty($e['aceptada']) ? (int) ($e['timeaccepted'] ?? 0) : (int) ($e['timemodified'] ?? 0);
+            foreach (self::section_rows((string) ($e['contenido'] ?? ''), '/registro de ajustes/') as $fila) {
+                if (!preg_match('/pendiente/', self::plain_lower(self::column($fila, '/^estado/')))) {
+                    continue;
+                }
+                $afectadas = self::column($fila, '/^etapas? afectad/');
+                $pendientes = [];
+                foreach (self::stage_numbers($afectadas) as $n) {
+                    $otra = $etapas[$n] ?? null;
+                    $resuelta = $otra && !empty($otra['aceptada']) && (int) ($otra['timeaccepted'] ?? 0) > $desde;
+                    if ($n !== (int) $origen && !$resuelta) {
+                        $pendientes[] = $n;
+                    }
+                }
+                if ($pendientes) {
+                    $lista[] = ['origen' => (int) $origen, 'etapas' => $pendientes, 'afectadas' => $afectadas,
+                        'correccion' => self::column($fila, '/^correccion/')];
+                }
+            }
+        }
+        return $lista;
+    }
+
+    /**
      * Inconsistencias de la verificacion de consistencia entre etapas del diseno consolidado: las filas «Inconsistente».
      * Funcion pura.
      *

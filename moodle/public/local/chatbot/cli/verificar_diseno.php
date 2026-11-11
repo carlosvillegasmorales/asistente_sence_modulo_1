@@ -868,6 +868,33 @@ local_chatbot_verificar(diseno::inconsistencies($conlargo) === ['Tiempos: Etapa 
 local_chatbot_verificar(diseno::inconsistencies(str_replace('<td>Inconsistente</td>', '<td>Consistente</td>', $consistencia)) === []
     && count(diseno::section_rows($consistencia, '/verificacion de consistencia/')) === 2,
     'con todo consistente no hay aviso, y la tabla se reconoce igual');
+// El aviso tambien en las etapas afectadas, hasta que se vuelven a aceptar despues del ajuste de origen.
+local_chatbot_verificar(diseno::stage_numbers('Etapa 3 (Secuencia instruccional)') === [3]
+    && diseno::stage_numbers('Etapas 3, 4 y 5') === [3, 4, 5] && diseno::stage_numbers('Etapas 3 a 6') === [3, 4, 5, 6]
+    && diseno::stage_numbers('Etapa 5 (Plan de evaluación) y Etapa 6') === [5, 6] && diseno::stage_numbers('5 subgrupos de 4') === []
+    && diseno::stage_numbers('Etapa 8') === [],
+    'lee las etapas afectadas (una, lista, rango) y no confunde otros números');
+$fila3 = '<h3>Registro de ajustes</h3><table><tr><th>Etapa de origen</th><th>Cambio realizado</th><th>Etapas afectadas</th>'
+    . '<th>Corrección que corresponde</th><th>Estado</th><th>Fecha</th></tr>'
+    . '<tr><td>Etapa 2</td><td>5 subgrupos de 4</td><td>Etapas 3 y 4</td><td>Usar 5 subgrupos de 4</td><td>Pendiente de actualizar</td><td>10-11-2026</td></tr></table>';
+$base = [2 => ['contenido' => $fila3, 'aceptada' => true, 'timeaccepted' => 1000, 'timemodified' => 1000],
+    3 => ['contenido' => '<p>x</p>', 'aceptada' => true, 'timeaccepted' => 500, 'timemodified' => 500],
+    4 => ['contenido' => '<p>y</p>', 'aceptada' => true, 'timeaccepted' => 600, 'timemodified' => 600]];
+$pc = diseno::pending_changes($base);
+local_chatbot_verificar(count($pc) === 1 && $pc[0]['origen'] === 2 && $pc[0]['etapas'] === [3, 4] && $pc[0]['correccion'] === 'Usar 5 subgrupos de 4',
+    'la corrección de la Etapa 2 queda pendiente para las Etapas 3 y 4, aceptadas antes del ajuste');
+$pc2 = diseno::pending_changes([3 => ['contenido' => '<p>x</p>', 'aceptada' => true, 'timeaccepted' => 1500, 'timemodified' => 1500]] + $base);
+local_chatbot_verificar(count($pc2) === 1 && $pc2[0]['etapas'] === [4], 'al volver a aceptar la Etapa 3 después del ajuste, solo queda pendiente la 4');
+$pc3 = diseno::pending_changes([3 => ['contenido' => '<p>x</p>', 'aceptada' => false, 'timeaccepted' => 0, 'timemodified' => 1600],
+    4 => ['contenido' => '<p>y</p>', 'aceptada' => true, 'timeaccepted' => 1700, 'timemodified' => 1700]] + $base);
+local_chatbot_verificar(count($pc3) === 1 && $pc3[0]['etapas'] === [3], 'una etapa afectada en borrador sigue pendiente hasta que se acepta');
+$pc4 = diseno::pending_changes([3 => ['contenido' => '<p>x</p>', 'aceptada' => true, 'timeaccepted' => 1500, 'timemodified' => 1500],
+    4 => ['contenido' => '<p>y</p>', 'aceptada' => true, 'timeaccepted' => 1700, 'timemodified' => 1700]] + $base);
+local_chatbot_verificar($pc4 === [], 'con las dos afectadas aceptadas después del ajuste, no queda nada pendiente (ni en la etapa de origen)');
+$pc5 = diseno::pending_changes([2 => ['contenido' => $fila3, 'aceptada' => false, 'timeaccepted' => 0, 'timemodified' => 2000]] + $base);
+local_chatbot_verificar(count($pc5) === 1 && $pc5[0]['etapas'] === [3, 4], 'con la etapa de origen aún en borrador, cuenta desde su última modificación');
+local_chatbot_verificar(diseno::pending_changes([2 => ['contenido' => str_replace('Pendiente de actualizar', 'Inconsistencia aceptada', $fila3),
+    'aceptada' => true, 'timeaccepted' => 1000, 'timemodified' => 1000]] + $base) === [], 'una inconsistencia aceptada no se avisa como pendiente');
 $t = documento_final::parse_stage_title(diseno::ANEXO_CONSISTENCIA);
 local_chatbot_verificar(($t['etiqueta'] ?? '') === 'ANEXO', 'en el Word final el anexo de consistencia es un anexo con su página y entrada en el índice');
 $conregistro = '<h2>Etapa 3: Secuencia instruccional</h2>' . $registro;

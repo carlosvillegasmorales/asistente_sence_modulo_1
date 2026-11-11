@@ -336,12 +336,43 @@ echo $OUTPUT->header();
                                 echo get_string('diseno_check_ok', 'local_chatbot'); ?></p>
                         <?php endif; ?>
                     <?php endif; ?>
-                    <?php // Control de cambios entre etapas (ajuste del Prompt Maestro del 10-11-2026).
-                    $pendientescc = \local_chatbot\ux::on('controlcambios') ? diseno::pending_adjustments((string) $fila->contenido) : [];
+                    <?php // Control de cambios entre etapas (ajuste del Prompt Maestro del 10-11-2026): las correcciones que un
+                    // ajuste dejo pendientes, en la etapa de origen y en cada etapa afectada, hasta que esta se vuelve a aceptar.
+                    $pendientescc = [];
+                    $entrantescc = [];
+                    if (\local_chatbot\ux::on('controlcambios')) {
+                        $datoscc = [];
+                        foreach (array_keys(diseno::etapas()) as $n) {
+                            if (!empty($filas[$n])) {
+                                $datoscc[$n] = ['contenido' => (string) $filas[$n]->contenido, 'aceptada' => $filas[$n]->estado === diseno::ACEPTADO,
+                                    'timeaccepted' => (int) ($filas[$n]->timeaccepted ?? 0), 'timemodified' => (int) $filas[$n]->timemodified];
+                            }
+                        }
+                        foreach (diseno::pending_changes($datoscc) as $c) {
+                            if ($c['origen'] === $etapa) {
+                                $pendientescc[] = trim($c['afectadas'] . ($c['correccion'] !== '' ? ': ' . $c['correccion'] : ''), ': ');
+                            } else if (in_array($etapa, $c['etapas'], true)) {
+                                $entrantescc[] = $c;
+                            }
+                        }
+                    }
                     if ($pendientescc): ?>
                         <div class="alert alert-warning small" role="status">
                             <?php echo get_string('diseno_cc_pending', 'local_chatbot'); ?>
                             <ul class="mb-0 mt-1"><?php foreach ($pendientescc as $p): ?><li><?php echo s($p); ?></li><?php endforeach; ?></ul>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($entrantescc): ?>
+                        <div class="alert alert-warning small" role="status">
+                            <?php echo get_string('diseno_cc_incoming', 'local_chatbot'); ?>
+                            <ul class="mb-0 mt-1"><?php foreach ($entrantescc as $c):
+                                $pedido = get_string('diseno_cc_request', 'local_chatbot', (object) ['origen' => $c['origen'],
+                                    'texto' => $c['correccion'] !== '' ? $c['correccion'] : $c['afectadas']]); ?>
+                                <li class="mb-1"><strong><?php echo get_string('diseno_cc_from', 'local_chatbot', $c['origen']); ?></strong>
+                                    <?php echo s($c['correccion'] !== '' ? $c['correccion'] : $c['afectadas']); ?>
+                                    <button type="button" class="btn btn-sm chatbot-gatebtn ms-1 chatbot-cc-usar" data-ajuste="<?php echo s($pedido); ?>">
+                                        <i class="fa fa-commenting-o me-1"></i><?php echo get_string('diseno_cc_use', 'local_chatbot'); ?></button></li>
+                            <?php endforeach; ?></ul>
                         </div>
                     <?php endif; ?>
                     <textarea id="diseno-contenido" name="contenido" rows="24" class="form-control mb-3"><?php
@@ -410,6 +441,19 @@ echo $OUTPUT->header();
 </div>
 
 <script>
+// Control de cambios: «Usar como ajuste» copia la correccion pendiente en «Pedir ajustes».
+document.querySelectorAll('.chatbot-cc-usar').forEach(function(boton) {
+    boton.addEventListener('click', function() {
+        var campo = document.getElementById('diseno-ajustes');
+        if (!campo) {
+            return;
+        }
+        var texto = boton.getAttribute('data-ajuste');
+        campo.value = campo.value.trim() === '' ? texto : campo.value.trim() + '\n' + texto;
+        campo.scrollIntoView({behavior: 'smooth', block: 'center'});
+        campo.focus();
+    });
+});
 (function() {
     var caja = document.getElementById('diseno-generando');
     if (!caja) {

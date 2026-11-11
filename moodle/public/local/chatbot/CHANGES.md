@@ -1,5 +1,13 @@
 # Changelog
 
+## M1-v1.24.2 (2026-11-10)
+
+- **Control de cambios: aviso también en las etapas afectadas.** La hoja de cada etapa muestra las correcciones que
+  un ajuste de otra etapa le dejó pendientes («Desde la Etapa 2: …»), con el botón «Usar como ajuste», que la copia en
+  «Pedir ajustes». La corrección se da por resuelta cuando la etapa afectada se vuelve a aceptar después del ajuste de
+  origen; entonces desaparece aquí y en la etapa de origen (`diseno::pending_changes()`, `stage_numbers()`, puras).
+  Una fila marcada «Inconsistencia aceptada» no se avisa.
+
 ## M1-v1.24.1 (2026-11-10)
 
 - Aviso de inconsistencias de la etapa 7: cada fila se muestra con el nombre corto del elemento («Fases, actividades o
