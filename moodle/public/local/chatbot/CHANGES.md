@@ -1,5 +1,30 @@
 # Changelog
 
+## M1-v1.24.0 (2026-11-10)
+
+**Módulo 2: control de cambios entre etapas** (documento de Interfases «Ajuste Prompt Maestro M2 - Control de Cambios
+entre Etapas», 10-11-2026). Interruptor `controlcambios` (encendido). Prompt `M2-F2-etapas-v12`. Sin cambios en la base.
+
+- **Bloque 1, textual, en el prompt de las etapas 1 a 6** (a continuación de las reglas de interacción y gobernanza):
+  elementos de dependencia, los seis pasos del procedimiento, la inconsistencia aceptada y la regla de no declarar un
+  ajuste «integrado» sin verificarlo. Cómo se cumple en la plataforma, donde cada respuesta trae solo el producto de la
+  etapa en curso: si un ajuste afecta etapas ya aceptadas, el producto lleva la sección «Registro de ajustes» (etapa de
+  origen, cambio, etapas afectadas, corrección que corresponde, estado y fecha). El asistente recibe también las etapas
+  siguientes ya aceptadas, para poder ver qué afecta el ajuste.
+- **Bloque 2, textual, en el control de calidad de cada etapa**: los elementos de dependencia coinciden con las etapas
+  aprobadas y ningún ajuste quedó sin propagar.
+- **Bloque 3, textual, al inicio de la etapa 7**: verificación de consistencia entre las etapas 2 a 6 en una tabla
+  (fases, organización del grupo, tiempos, criterios, evidencias e instrumentos; «Consistente» o «Inconsistente»). La
+  consolidación cierra con el anexo «Verificación de consistencia entre etapas y registro de ajustes», previo a la
+  evaluación técnica, también en el Word final. La etapa 8 señala las inconsistencias aceptadas en debilidades y
+  recomendaciones y las considera en el puntaje, sin modificar la rúbrica.
+- **Avisos en la página**: en la hoja de cada etapa, las correcciones «Pendiente de actualizar» del registro de ajustes
+  (`diseno::pending_adjustments()`); en la etapa 7, las filas «Inconsistente» de la verificación
+  (`diseno::inconsistencies()`), con las dos salidas del bloque 3: corregir esas etapas y volver a consolidar, o confirmar
+  la consolidación y dejarlas como inconsistencias aceptadas.
+- Verificadores: `verificar_diseno.php` (+16 casos, con los textos del cliente), `verificar_experiencia.php` y
+  `verificar_libreria_ruta.php` (prompt v12).
+
 ## M1-v1.23.0 (2026-11-09)
 
 **Módulo 3, Fase 4: evaluación ex post** (pedido de Interfases del 09-11-2026; insumos: «Prompt Complementario Fase 4 -

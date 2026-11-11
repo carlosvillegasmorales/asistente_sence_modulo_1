@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 class diseno {
 
     /** @var string Version del prompt de diseno: se guarda con cada producto (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F2-etapas-v11';
+    const PROMPT_VERSION = 'M2-F2-etapas-v12';
 
     /** @var int Desde esta version del prompt cada etapa cierra con vacios, verificacion y referencias (revision del 02-11). */
     const PROMPT_CIERRE = 11;
@@ -36,6 +36,119 @@ class diseno {
         . 'y texto normal. Nunca en bloques de código, con líneas de puntos (.....), separadores (-----, =====) ni '
         . 'columnas alineadas con espacios: en la página y en el Word se desarman. No uses emojis ni íconos (la plataforma no '
         . 'los guarda y aparecen como «?»): para marcar, usa ☐.';
+
+    /** @var string Seccion del producto con el registro de ajustes entre etapas (control de cambios del 10-11-2026). */
+    const SECCION_AJUSTES = 'Registro de ajustes';
+
+    /**
+     * @var string[] Bloque 1 del documento «Ajuste Prompt Maestro M2 - Control de Cambios entre Etapas» (Interfases,
+     * 10-11-2026), textual, para las etapas 1 a 6. Va a continuacion de las reglas de gobernanza.
+     */
+    const BLOQUE_CONTROL_CAMBIOS = [
+        'CONTROL DE CAMBIOS ENTRE ETAPAS:',
+        'Las etapas del diseño son interdependientes: un ajuste en una etapa puede afectar a las anteriores y a las '
+            . 'siguientes. Debes aplicar este control cada vez que la persona facilitadora solicite un ajuste en la etapa '
+            . 'en curso o en una etapa ya aprobada, o entregue contenido modificado por ella fuera del asistente.',
+        'Elementos de dependencia que debes revisar en cada ajuste:',
+        '- Número, nombre y orden de las fases, actividades, estaciones o sesiones.',
+        '- Organización de las personas participantes (subgrupos, duplas, turnos y rotaciones).',
+        '- Distribución de los tiempos y su suma respecto del tiempo asignado a la experiencia.',
+        '- Criterios de evaluación abordados en cada fase, actividad o estación.',
+        '- Evidencias, instrumentos y momentos de evaluación asociados a cada criterio.',
+        '- Recursos, materiales y condiciones de implementación que dependen de los elementos anteriores.',
+        'Procedimiento obligatorio:',
+        '1. Identifica qué elementos de dependencia cambia el ajuste solicitado.',
+        '2. Identifica en qué etapas ya aprobadas, anteriores o siguientes, aparecen esos elementos.',
+        '3. Informa a la persona facilitadora, antes de aplicar el ajuste, qué etapas se verán afectadas y qué cambiará '
+            . 'en cada una.',
+        '4. Aplica el ajuste en la etapa solicitada y actualiza todas las etapas afectadas, entregando la versión '
+            . 'corregida de cada una.',
+        '5. Registra el ajuste en el registro de ajustes: etapa de origen, cambio realizado, etapas actualizadas y fecha '
+            . 'o turno de la conversación.',
+        '6. No avances a la etapa siguiente mientras alguna etapa afectada no esté actualizada y aprobada por la persona '
+            . 'facilitadora.',
+        'Si la persona facilitadora decide no actualizar una etapa afectada, regístralo en el registro de ajustes como '
+            . 'inconsistencia aceptada, explica su efecto en la implementación y mantenla visible hasta la Etapa 8.',
+        'En la verificación de calidad de cada etapa, no declares que un ajuste fue «integrado» o «incorporado '
+            . 'plenamente» si no verificaste que los elementos de dependencia coinciden con las etapas ya aprobadas.',
+    ];
+
+    /**
+     * @var string Como se cumple el bloque 1 en la plataforma: cada respuesta trae solo el producto de la etapa en curso,
+     * y cada etapa se ajusta y se aprueba en su propia hoja. El registro de ajustes vive en una seccion del producto.
+     */
+    const CONTROL_CAMBIOS_PLATAFORMA = 'CÓMO SE APLICA EN ESTA PLATAFORMA: en esta respuesta entregas solo el producto de '
+        . 'esta etapa; cada etapa se ajusta y se aprueba en su propia hoja de trabajo. Los pasos 3 a 5 se cumplen así: si '
+        . 'el ajuste (o el contenido que modificó la persona) afecta otras etapas ya aprobadas, el producto incluye, antes '
+        . 'de «### Registro de vacíos de información y propuestas de solución», la sección «### Registro de ajustes» con una '
+        . 'tabla de columnas «Etapa de origen», «Cambio realizado», «Etapas afectadas», «Corrección que corresponde», '
+        . '«Estado» y «Fecha». En «Corrección que corresponde» escribe, para cada etapa afectada, qué cambiar y cómo, para '
+        . 'que la persona lo aplique al ajustar esa etapa; en «Estado» escribe «Pendiente de actualizar», «Actualizada» '
+        . '(cuando el producto de esa etapa ya lo refleja) o «Inconsistencia aceptada» (si la persona decidió no '
+        . 'actualizarla, con su efecto en la implementación). Si el producto actual ya trae un registro de ajustes, '
+        . 'conserva sus filas y actualiza su estado; revisa también los registros de ajustes de las etapas aceptadas. Si '
+        . 'ningún ajuste afecta otras etapas, no agregues la sección. La plataforma le muestra a la persona las etapas '
+        . 'pendientes de actualizar.';
+
+    /** @var string[] Bloque 2, textual: se agrega al control de calidad de cada etapa, despues de detectar inconsistencias. */
+    const BLOQUE_CALIDAD_DEPENDENCIA = [
+        '- Verificar que los elementos de dependencia de la etapa (fases, actividades o estaciones; organización del grupo; '
+            . 'tiempos; criterios; evidencias e instrumentos) coinciden con los de las etapas ya aprobadas.',
+        '- Revisar el registro de ajustes y confirmar que ningún ajuste quedó sin propagar a las etapas afectadas.',
+    ];
+
+    /** @var string[] Bloque 3, textual: al inicio de la etapa 7, antes de consolidar. */
+    const BLOQUE_CONSISTENCIA = [
+        'VERIFICACIÓN DE CONSISTENCIA ENTRE ETAPAS:',
+        'Antes de consolidar, debes realizar una verificación de consistencia entre las Etapas 2 a 6 y entregarla a la '
+            . 'persona facilitadora en una tabla con las siguientes filas:',
+        '- Fases, actividades o estaciones: número y nombre en cada etapa.',
+        '- Organización del grupo: subgrupos, duplas y rotaciones en cada etapa.',
+        '- Tiempos: tiempo por fase y suma total en cada etapa, comparados con el tiempo asignado a la experiencia.',
+        '- Criterios de evaluación: criterios abordados por fase, actividad o estación en cada etapa; todos los criterios '
+            . 'del plan formativo deben estar cubiertos.',
+        '- Evidencias e instrumentos: instrumento y momento de evaluación de cada criterio en las Etapas 5 y 6, y su '
+            . 'correspondencia con las actividades de la Etapa 3.',
+        'Para cada fila indica «Consistente» o «Inconsistente» y, si es inconsistente, en qué etapas aparece la diferencia '
+            . 'y cuál es.',
+        'Aplicación:',
+        '- Si todas las filas son consistentes, informa el resultado y continúa con la consolidación.',
+        '- Si hay al menos una inconsistencia, detén la consolidación, propone la corrección de cada etapa afectada y '
+            . 'espera la aprobación de la persona facilitadora. Después de corregir, repite la verificación.',
+        '- Si la persona facilitadora decide mantener una inconsistencia, regístrala como inconsistencia aceptada.',
+        'El documento consolidado debe incluir, como anexo previo a la evaluación técnica, la tabla de verificación de '
+            . 'consistencia y el registro de ajustes.',
+        'Las inconsistencias aceptadas que permanezcan en el documento consolidado deben señalarse en las debilidades y '
+            . 'recomendaciones de la Etapa 8, y considerarse al asignar el puntaje de los criterios de la rúbrica que '
+            . 'correspondan, sin modificar la rúbrica.',
+    ];
+
+    /** @var string Titulos del anexo de la consolidacion con la verificacion de consistencia y el registro de ajustes. */
+    const ANEXO_CONSISTENCIA = 'Anexo: Verificación de consistencia entre etapas y registro de ajustes';
+    const SECCION_CONSISTENCIA = 'Verificación de consistencia entre etapas';
+
+    /**
+     * @var string Como se cumple el bloque 3 en la plataforma: la consolidacion se genera de una vez y la evaluacion tecnica
+     * la agrega la plataforma despues; la decision sobre las inconsistencias la toma la persona en la pagina.
+     */
+    const CONSISTENCIA_PLATAFORMA = 'CÓMO SE APLICA EN ESTA PLATAFORMA: la consolidación se genera en un solo paso y la '
+        . 'evaluación técnica la agrega la plataforma después del documento. Haz la verificación con los productos '
+        . 'aceptados de abajo y entrega la consolidación completa, que termina, después de «Referencias consultadas», con '
+        . 'el anexo «# Anexo: Verificación de consistencia entre etapas y registro de ajustes». Ese anexo tiene dos '
+        . 'secciones: «## Verificación de consistencia entre etapas», una tabla con una fila por cada elemento de la lista '
+        . 'y las columnas «Elemento», «Resultado» («Consistente» o «Inconsistente»), «Etapas y diferencia» y «Corrección '
+        . 'propuesta»; y «## Registro de ajustes», con las filas de los registros de ajustes de las etapas reunidas en una '
+        . 'sola tabla (si ninguna etapa trae registro, dilo en una línea). Si hay inconsistencias, no corrijas tú las '
+        . 'etapas ni las ocultes: anota en «Corrección propuesta» la corrección de cada etapa afectada. La plataforma se lo '
+        . 'muestra a la persona facilitadora, que decide corregir esas etapas y volver a consolidar, o confirmar la '
+        . 'consolidación manteniéndolas como inconsistencias aceptadas.';
+
+    /** @var string Regla de la etapa 8 sobre las inconsistencias aceptadas (ultimo parrafo del bloque 3). */
+    const REGLA_INCONSISTENCIAS = 'INCONSISTENCIAS ACEPTADAS: si el diseño consolidado trae, en su anexo de verificación '
+        . 'de consistencia entre etapas, filas «Inconsistente», o inconsistencias aceptadas en el registro de ajustes, son '
+        . 'inconsistencias aceptadas por la persona facilitadora. Señálalas en las debilidades y en las recomendaciones, y '
+        . 'considéralas al asignar el puntaje de los criterios de la rúbrica que correspondan, sin modificar la rúbrica. Si '
+        . 'todas las filas son «Consistente», no hay inconsistencias que considerar.';
 
     /** Estado del producto. */
     const BORRADOR = 'borrador';
@@ -384,10 +497,11 @@ class diseno {
      * @param bool $conbusqueda Si el modelo puede buscar en la web.
      * @param array $validacion Informe de la validacion de la ficha (items con estado y observacion), para que la
      *        evaluacion sea consistente con la calidad del diagnostico.
+     * @param bool $control Inconsistencias aceptadas del control de cambios (interruptor «controlcambios»).
      * @return string
      */
     public static function build_eval_prompt(string $diseno, string $ficha, array $adjuntos, bool $conlibreria = false,
-            bool $conbusqueda = false, array $validacion = []): string {
+            bool $conbusqueda = false, array $validacion = [], bool $control = false): string {
         $rubrica = [];
         foreach (self::rubrica() as $id => $c) {
             $rubrica[] = $id . '. ' . $c['nombre'];
@@ -428,6 +542,7 @@ class diseno {
                 . '(Calidad formal del documento) no se limita. ' . self::pending_observations($validacion),
             $limite,
             '',
+            $control ? self::REGLA_INCONSISTENCIAS . "\n" : '',
             'EVALÚA CON OJO CRÍTICO: este diseño se elaboró con apoyo de una IA, así que no lo des por bueno porque '
                 . 'esté bien redactado: revísalo como lo haría una persona revisora externa. Cada puntaje 4 debe '
                 . 'citar, en la justificación, la evidencia concreta del diseño que lo prueba (el elemento o fragmento '
@@ -574,9 +689,10 @@ class diseno {
      * «en extenso» en un documento unico, sin repetir los campos comunes. Funcion pura.
      *
      * @param string[] $etapas Numero de etapa (1 a 6) => producto aceptado (HTML).
+     * @param bool $control Verificacion de consistencia entre etapas (interruptor «controlcambios»).
      * @return string
      */
-    public static function build_consolidation_prompt(array $etapas): string {
+    public static function build_consolidation_prompt(array $etapas, bool $control = false): string {
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, '
             . 'especializado en formación de personas adultas en contextos de capacitación laboral.';
@@ -585,6 +701,14 @@ class diseno {
             . 'listo para descargar en Word, sin repetir aquellos campos que puedan ser comunes. El documento tiene estas '
             . 'partes, en este orden: Análisis, Diseño, Secuencia, Materiales, Evaluación, Instrumentos.';
         $l[] = '';
+        if ($control) {
+            // Bloque 3 del ajuste del Prompt Maestro del 10-11-2026: antes de «consolidar todos los entregables».
+            foreach (self::BLOQUE_CONSISTENCIA as $linea) {
+                $l[] = $linea;
+            }
+            $l[] = self::CONSISTENCIA_PLATAFORMA;
+            $l[] = '';
+        }
         $l[] = 'REGLAS:';
         $l[] = '- "En extenso": conserva todo el contenido de cada etapa: actividades, tiempos, recursos, tablas, materiales, '
             . 'indicadores e instrumentos completos, con todos sus niveles, ítems y criterios. No resumas ni acortes.';
@@ -594,7 +718,8 @@ class diseno {
         $l[] = '- No agregues contenido nuevo ni cambies decisiones de diseño: solo reorganizas lo que la persona aceptó.';
         $l[] = '- Cada parte conserva todas las secciones de su etapa, con sus nombres, incluidas «' . self::SECCION_VACIOS
             . '» y «' . self::SECCION_VERIFICACION . '» de esa etapa, al final de la parte. Solo los datos generales '
-            . 'comunes van una vez al comienzo.';
+            . 'comunes van una vez al comienzo.' . ($control ? ' El «' . self::SECCION_AJUSTES . '» de cada etapa no va en su '
+            . 'parte: sus filas pasan al anexo.' : '');
         $l[] = '- No uses citas numéricas ni marcas entre corchetes dentro del texto (como [1] o [2]). Reúne las '
             . 'referencias de las etapas (incluidas las fuentes web) en una sola sección «Referencias consultadas» al '
             . 'final del documento, sin repetirlas.';
@@ -782,10 +907,16 @@ class diseno {
      * @param string[] $adjuntos Etiquetas de los documentos complementarios que se adjuntan.
      * @param string $actual Producto actual de la etapa, si se piden ajustes.
      * @param string $ajustes Ajustes que pide la persona.
+     * @param bool $conlibreria
+     * @param bool $conbusqueda
+     * @param bool $control Control de cambios entre etapas (interruptor «controlcambios»).
+     * @param string[] $posteriores Numero de etapa => texto de las etapas siguientes ya aceptadas (para el control).
+     * @param string $hoy Fecha de hoy, para el registro de ajustes.
      * @return string
      */
     public static function build_prompt(int $etapa, string $ficha, array $informe, array $previas, array $adjuntos,
-            string $actual = '', string $ajustes = '', bool $conlibreria = false, bool $conbusqueda = false): string {
+            string $actual = '', string $ajustes = '', bool $conlibreria = false, bool $conbusqueda = false,
+            bool $control = false, array $posteriores = [], string $hoy = ''): string {
         $e = self::etapas()[$etapa];
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, especializado en formación '
@@ -821,6 +952,14 @@ class diseno {
             . 'inglés ni en otro idioma.';
         $l[] = '- Detecta vacíos de información y repórtalos. Propón soluciones viables sin alterar el plan formativo.';
         $l[] = '';
+        if ($control) {
+            // Bloque 1 del ajuste del Prompt Maestro del 10-11-2026, con su forma de cumplirlo en la plataforma.
+            foreach (self::BLOQUE_CONTROL_CAMBIOS as $linea) {
+                $l[] = $linea;
+            }
+            $l[] = self::CONTROL_CAMBIOS_PLATAFORMA . ($hoy !== '' ? ' Fecha de hoy: ' . $hoy . '.' : '');
+            $l[] = '';
+        }
         foreach (exante::knowledge_rules($conlibreria, $conbusqueda) as $regla) {
             $l[] = $regla;
         }
@@ -852,6 +991,12 @@ class diseno {
             . 'asignado a la experiencia (2.3) y con el tiempo total disponible (2.2). Termina el documento con una '
             . 'sección breve «Verificación de calidad de la etapa» que diga qué verificaste y, si detectas una '
             . 'inconsistencia, qué ajuste se necesita.';
+        if ($control) {
+            // Bloque 2: despues de «detectar inconsistencias».
+            foreach (self::BLOQUE_CALIDAD_DEPENDENCIA as $linea) {
+                $l[] = $linea;
+            }
+        }
         $l[] = '';
         $l[] = 'FORMATO: entrega el producto en Markdown, estructurado, institucional y aplicable, listo para copiar en '
             . 'un documento Word: títulos con ## y ###, listas y tablas Markdown cuando ayuden. Empieza directamente '
@@ -888,6 +1033,12 @@ class diseno {
         foreach ($previas as $n => $texto) {
             $l[] = '';
             $l[] = 'PRODUCTO ACEPTADO DE LA ETAPA ' . $n . ' (' . self::etapas()[$n]['titulo'] . '):';
+            $l[] = guardrails::isolate_user_content(\core_text::substr($texto, 0, self::PREVIA_MAX));
+        }
+        foreach ($control ? $posteriores : [] as $n => $texto) {
+            $l[] = '';
+            $l[] = 'PRODUCTO ACEPTADO DE LA ETAPA ' . $n . ' (' . self::etapas()[$n]['titulo'] . '), POSTERIOR A ESTA (solo para '
+                . 'el control de cambios: no la desarrolles):';
             $l[] = guardrails::isolate_user_content(\core_text::substr($texto, 0, self::PREVIA_MAX));
         }
         if (trim($ajustes) !== '') {
@@ -1041,6 +1192,112 @@ class diseno {
      * @param string $t
      * @return string
      */
+    /**
+     * Filas de la primera tabla que sigue a un titulo, como [encabezado en minuscula sin tildes => texto]. Funcion pura.
+     *
+     * @param string $html
+     * @param string $titulo Expresion regular sobre el titulo, en minuscula y sin tildes.
+     * @return array[]
+     */
+    public static function section_rows(string $html, string $titulo): array {
+        if (trim($html) === '') {
+            return [];
+        }
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>');
+        libxml_clear_errors();
+        $filas = [];
+        $dentro = false;
+        foreach ((new \DOMXPath($dom))->query('//h1|//h2|//h3|//h4|//h5|//h6|//table') as $el) {
+            if ($el->nodeName !== 'table') {
+                $dentro = preg_match($titulo, self::plain_lower(trim($el->textContent))) === 1;
+                continue;
+            }
+            if (!$dentro) {
+                continue;
+            }
+            $cabecera = [];
+            foreach ($el->getElementsByTagName('tr') as $tr) {
+                $celdas = [];
+                foreach ($tr->childNodes as $c) {
+                    if ($c instanceof \DOMElement && ($c->nodeName === 'td' || $c->nodeName === 'th')) {
+                        $celdas[] = trim(preg_replace('/\s+/u', ' ', $c->textContent));
+                    }
+                }
+                if (!$cabecera) {
+                    $cabecera = array_map([self::class, 'plain_lower'], $celdas);
+                    continue;
+                }
+                $fila = [];
+                foreach ($celdas as $k => $texto) {
+                    $fila[$cabecera[$k] ?? (string) $k] = $texto;
+                }
+                $filas[] = $fila;
+            }
+            $dentro = false;
+        }
+        return $filas;
+    }
+
+    /**
+     * @param array $fila Fila de section_rows().
+     * @param string $columna Expresion regular sobre el encabezado.
+     * @return string Texto de la primera columna que calza, o ''.
+     */
+    private static function column(array $fila, string $columna): string {
+        foreach ($fila as $encabezado => $texto) {
+            if (preg_match($columna, (string) $encabezado)) {
+                return (string) $texto;
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Correcciones pendientes del registro de ajustes de un producto (control de cambios entre etapas): las filas cuyo
+     * estado es «Pendiente de actualizar». Funcion pura.
+     *
+     * @param string $html Producto de la etapa.
+     * @return string[] «Etapas afectadas: corrección».
+     */
+    public static function pending_adjustments(string $html): array {
+        $pendientes = [];
+        foreach (self::section_rows($html, '/registro de ajustes/') as $fila) {
+            if (!preg_match('/pendiente/', self::plain_lower(self::column($fila, '/^estado/')))) {
+                continue;
+            }
+            $etapas = self::column($fila, '/^etapas? afectad/');
+            $correccion = self::column($fila, '/^correccion/');
+            $texto = trim($etapas . ($etapas !== '' && $correccion !== '' ? ': ' : '') . $correccion);
+            if ($texto !== '') {
+                $pendientes[] = $texto;
+            }
+        }
+        return $pendientes;
+    }
+
+    /**
+     * Inconsistencias de la verificacion de consistencia entre etapas del diseno consolidado: las filas «Inconsistente».
+     * Funcion pura.
+     *
+     * @param string $html Diseno consolidado.
+     * @return string[] «Elemento: etapas y diferencia».
+     */
+    public static function inconsistencies(string $html): array {
+        $lista = [];
+        foreach (self::section_rows($html, '/verificacion de consistencia/') as $fila) {
+            $resultado = self::column($fila, '/^resultado/');
+            if (!preg_match('/\binconsistente\b/', self::plain_lower($resultado !== '' ? $resultado : implode(' ', $fila)))) {
+                continue;
+            }
+            $elemento = (string) reset($fila);
+            $diferencia = self::column($fila, '/^etapas/');
+            $lista[] = trim($elemento . ($diferencia !== '' ? ': ' . $diferencia : ''));
+        }
+        return $lista;
+    }
+
     public static function plain_lower(string $t): string {
         return strtr(\core_text::strtolower($t), ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u',
             'ñ' => 'n']);
@@ -1995,13 +2252,21 @@ class diseno {
         }
 
         $previas = [];
-        // Las etapas del mismo diseno, aunque la persona haya cambiado de diseno mientras esto corria.
+        $posteriores = [];
+        // Las etapas del mismo diseno, aunque la persona haya cambiado de diseno mientras esto corria. Las siguientes ya
+        // aceptadas van solo para el control de cambios entre etapas.
         foreach (self::get_by_ficha((int) $fila->fichaid) as $n => $otra) {
-            if ($n < (int) $fila->etapa && $otra->estado === self::ACEPTADO && $otra->contenido) {
-                $previas[$n] = html_to_text((string) $otra->contenido, 0, false);
+            if ($otra->estado === self::ACEPTADO && $otra->contenido && isset(self::etapas()[$n])) {
+                if ($n < (int) $fila->etapa) {
+                    $previas[$n] = html_to_text((string) $otra->contenido, 0, false);
+                } else if ($n > (int) $fila->etapa) {
+                    $posteriores[$n] = html_to_text((string) $otra->contenido, 0, false);
+                }
             }
         }
         ksort($previas);
+        ksort($posteriores);
+        $control = ux::on('controlcambios');
 
         [$partes, $etiquetas] = exante::attachment_parts((int) $val->fichaid);
         $actual = $fila->contenido ? html_to_text((string) $fila->contenido, 0, false) : '';
@@ -2009,7 +2274,8 @@ class diseno {
         $libreria = exante::role_library('e' . (int) $fila->etapa, (string) ($ficha['nivel'] ?? ''));
         $buscar = exante::web_search_available();
         $prompt = self::build_prompt((int) $fila->etapa, pseudonymizer::scrub(exante::to_text($ficha)), $informe,
-            $previas, $etiquetas, $actual, (string) $fila->ajustes, $libreria !== '', $buscar);
+            $previas, $etiquetas, $actual, (string) $fila->ajustes, $libreria !== '', $buscar, $control, $posteriores,
+            $control ? userdate(time(), '%d-%m-%Y') : '');
         $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
             ux::on('libreriaruta'))]];
 
@@ -2046,7 +2312,7 @@ class diseno {
             $etapas[$n] = (string) $filas[$n]->contenido;
         }
         $huella = self::stages_fingerprint($filas);
-        $contenido = [['role' => 'user', 'parts' => [['text' => self::build_consolidation_prompt($etapas)]]]];
+        $contenido = [['role' => 'user', 'parts' => [['text' => self::build_consolidation_prompt($etapas, ux::on('controlcambios'))]]]];
         $modelo = ai\provider_factory::get_configured_model();
         $resultado = exante::generate_steady($contenido, 600, $modelo);
         if (isset($resultado['error'])) {
@@ -2082,7 +2348,8 @@ class diseno {
         $libreria = exante::role_library('e8', (string) ($ficha['nivel'] ?? ''));
         $buscar = exante::web_search_available();
         $prompt = self::build_eval_prompt(html_to_text((string) $c->contenido, 0, false),
-            pseudonymizer::scrub(exante::to_text($ficha)), $etiquetas, $libreria !== '', $buscar, $validacion);
+            pseudonymizer::scrub(exante::to_text($ficha)), $etiquetas, $libreria !== '', $buscar, $validacion,
+            ux::on('controlcambios'));
         $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
             ux::on('libreriaruta'))]];
         $modelo = ai\provider_factory::get_configured_model();

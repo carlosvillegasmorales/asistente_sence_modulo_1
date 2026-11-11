@@ -619,7 +619,7 @@ local_chatbot_verificar(diseno::plain_math('$x \leq 60\%$ y \text{Total} = A \ti
 local_chatbot_verificar(diseno::clean_markdown("## Etapa 6\n" . $latex) === "## Etapa 6\nPorcentaje Final de Logro = (% Inst. 1 × 0.20) + (% Inst. 3 × 0.60) + (% Inst. 5 × 0.20)",
     'clean_markdown convierte las formulas de los productos nuevos');
 local_chatbot_verificar(strpos(diseno::build_prompt(6, 'F', [], [], []), 'Nunca uses LaTeX') !== false
-    && strpos(diseno::build_consolidation_prompt(['F'], array_fill(1, 6, 'x')), 'Nunca uses LaTeX') !== false,
+    && strpos(diseno::build_consolidation_prompt(array_fill(1, 6, 'x')), 'Nunca uses LaTeX') !== false,
     'los prompts de las etapas y de la consolidacion piden formulas en texto, sin LaTeX');
 // Formularios en bloque preformateado (revision del cliente del 02-11: la Etapa 6 entregaba la hoja de registro con
 // lineas de puntos y casillas alineadas, y el Word la mostraba con otro formato).
@@ -793,6 +793,84 @@ local_chatbot_verificar(diseno::consolidation_shown($c7, [1 => '<p>E1</p>'], 'h1
     'se muestra la consolidación del asistente solo si está al día; si no, la completa por código');
 local_chatbot_verificar(diseno::max_seconds(diseno::CONSOLIDACION) === diseno::CONSOLIDACION_MAX && diseno::max_seconds(3) === exante::PROCESO_MAX,
     'la consolidación tiene más tiempo que una etapa');
+// --- Ajuste del Prompt Maestro del 10-11-2026: control de cambios entre etapas ---
+$cc = diseno::build_prompt(3, 'F', [], [1 => 'E1', 2 => 'E2'], [], 'ACTUAL', 'cambia las estaciones', false, false, true,
+    [4 => 'PRODUCTO DE LA ETAPA 4', 5 => 'PRODUCTO DE LA ETAPA 5'], '10-11-2026');
+$sincc = diseno::build_prompt(3, 'F', [], [1 => 'E1', 2 => 'E2'], [], 'ACTUAL', 'cambia las estaciones', false, false, false,
+    [4 => 'PRODUCTO DE LA ETAPA 4'], '10-11-2026');
+local_chatbot_verificar(strpos($cc, 'CONTROL DE CAMBIOS ENTRE ETAPAS:') !== false && strpos($sincc, 'CONTROL DE CAMBIOS') === false,
+    'el bloque 1 (control de cambios entre etapas) va solo con el interruptor encendido');
+$textuales1 = ['Las etapas del diseño son interdependientes: un ajuste en una etapa puede afectar a las anteriores y a las siguientes.',
+    '- Distribución de los tiempos y su suma respecto del tiempo asignado a la experiencia.',
+    '4. Aplica el ajuste en la etapa solicitada y actualiza todas las etapas afectadas, entregando la versión corregida de cada una.',
+    '6. No avances a la etapa siguiente mientras alguna etapa afectada no esté actualizada y aprobada por la persona facilitadora.',
+    'regístralo en el registro de ajustes como inconsistencia aceptada, explica su efecto en la implementación y mantenla visible hasta la Etapa 8.',
+    'no declares que un ajuste fue «integrado» o «incorporado plenamente» si no verificaste'];
+$todos1 = true;
+foreach ($textuales1 as $t) {
+    $todos1 = $todos1 && strpos($cc, $t) !== false;
+}
+local_chatbot_verificar($todos1, 'el bloque 1 va textual: elementos de dependencia, los seis pasos, la inconsistencia aceptada y la regla de la verificación');
+local_chatbot_verificar(strpos($cc, '«### Registro de ajustes»') !== false && strpos($cc, 'Pendiente de actualizar') !== false
+    && strpos($cc, 'Fecha de hoy: 10-11-2026.') !== false,
+    'en la plataforma el registro de ajustes es una sección del producto, con estado de cada etapa afectada y la fecha');
+local_chatbot_verificar(strpos($cc, 'PRODUCTO DE LA ETAPA 4') !== false && strpos($cc, 'PRODUCTO DE LA ETAPA 5') !== false
+    && strpos($cc, 'POSTERIOR A ESTA') !== false && strpos($sincc, 'PRODUCTO DE LA ETAPA 4') === false,
+    'con control de cambios el asistente ve también las etapas siguientes ya aceptadas (sin él, no)');
+local_chatbot_verificar(strpos($cc, '- Verificar que los elementos de dependencia de la etapa (fases, actividades o estaciones; organización del grupo; tiempos; criterios; evidencias e instrumentos) coinciden con los de las etapas ya aprobadas.') !== false
+    && strpos($cc, '- Revisar el registro de ajustes y confirmar que ningún ajuste quedó sin propagar a las etapas afectadas.') !== false
+    && strpos($cc, 'qué ajuste se necesita.') < strpos($cc, '- Verificar que los elementos de dependencia') && strpos($sincc, 'sin propagar') === false,
+    'el bloque 2 va textual en el control de calidad, después de detectar inconsistencias');
+local_chatbot_verificar(strpos($cc, 'REGLAS DE GOBERNANZA') < strpos($cc, 'CONTROL DE CAMBIOS ENTRE ETAPAS:')
+    && strpos($cc, 'CONTROL DE CAMBIOS ENTRE ETAPAS:') < strpos($cc, 'CONTROL DE CALIDAD:'),
+    'el control de cambios va a continuación de las reglas de interacción y gobernanza');
+
+$pc7 = diseno::build_consolidation_prompt([1 => '<p>A</p>', 2 => '<p>B</p>'], true);
+$pc7sin = diseno::build_consolidation_prompt([1 => '<p>A</p>', 2 => '<p>B</p>'], false);
+local_chatbot_verificar(strpos($pc7, 'Antes de consolidar, debes realizar una verificación de consistencia entre las Etapas 2 a 6') !== false
+    && strpos($pc7, '- Evidencias e instrumentos: instrumento y momento de evaluación de cada criterio en las Etapas 5 y 6, y su correspondencia con las actividades de la Etapa 3.') !== false
+    && strpos($pc7, '- Si hay al menos una inconsistencia, detén la consolidación, propone la corrección de cada etapa afectada y espera la aprobación de la persona facilitadora.') !== false
+    && strpos($pc7, 'como anexo previo a la evaluación técnica, la tabla de verificación de consistencia y el registro de ajustes.') !== false,
+    'el bloque 3 va textual en la consolidación');
+local_chatbot_verificar(strpos($pc7, 'VERIFICACIÓN DE CONSISTENCIA') < strpos($pc7, 'REGLAS:') && strpos($pc7, '# ' . diseno::ANEXO_CONSISTENCIA) !== false
+    && strpos($pc7, '«Corrección propuesta»') !== false && strpos($pc7, 'sus filas pasan al anexo') !== false
+    && strpos($pc7sin, 'VERIFICACIÓN DE CONSISTENCIA') === false && strpos($pc7sin, 'sus filas pasan al anexo') === false,
+    'la verificación va antes de las reglas de consolidación, con el anexo al final; sin el interruptor, nada de eso');
+$pe8cc = diseno::build_eval_prompt('D', 'F', [], false, false, [], true);
+local_chatbot_verificar(strpos($pe8cc, 'INCONSISTENCIAS ACEPTADAS') !== false && strpos($pe8cc, 'sin modificar la rúbrica') !== false
+    && strpos(diseno::build_eval_prompt('D', 'F', []), 'INCONSISTENCIAS ACEPTADAS') === false,
+    'la etapa 8 considera las inconsistencias aceptadas en debilidades, recomendaciones y puntaje, sin cambiar la rúbrica');
+local_chatbot_verificar(diseno::PROMPT_VERSION === 'M2-F2-etapas-v12' && diseno::prompt_number(diseno::PROMPT_VERSION) >= diseno::PROMPT_CIERRE,
+    'la versión del prompt sube a la v12 y mantiene el cierre de cada etapa');
+
+// Lectores de las tablas: lo que la página avisa.
+$registro = '<h3>Registro de ajustes</h3><table><thead><tr><th>Etapa de origen</th><th>Cambio realizado</th><th>Etapas afectadas</th>'
+    . '<th>Corrección que corresponde</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>'
+    . '<tr><td>Etapa 3</td><td>4 estaciones en vez de 3</td><td>Etapa 4</td><td>Agregar la ficha de la estación D</td><td>Pendiente de actualizar</td><td>10-11-2026</td></tr>'
+    . '<tr><td>Etapa 3</td><td>4 estaciones</td><td>Etapa 2</td><td>Nada más</td><td>Actualizada</td><td>10-11-2026</td></tr>'
+    . '<tr><td>Etapa 3</td><td>4 estaciones</td><td>Etapa 6</td><td>Lista de cotejo de la estación D</td><td>Inconsistencia aceptada</td><td>10-11-2026</td></tr>'
+    . '</tbody></table><h3>Registro de vacíos de información y propuestas de solución</h3><table><tr><th>Estado</th></tr><tr><td>Pendiente</td></tr></table>';
+local_chatbot_verificar(diseno::pending_adjustments($registro) === ['Etapa 4: Agregar la ficha de la estación D'],
+    'avisa solo las correcciones pendientes del registro de ajustes (no las actualizadas, las aceptadas ni otras tablas)');
+local_chatbot_verificar(diseno::pending_adjustments('<h3>Verificación de calidad de la etapa</h3><p>Todo bien.</p>') === []
+    && diseno::pending_adjustments('') === [], 'sin registro de ajustes no hay aviso');
+$consistencia = '<h1>Anexo: Verificación de consistencia entre etapas y registro de ajustes</h1>'
+    . '<h2>Verificación de consistencia entre etapas</h2><table><thead><tr><th>Elemento</th><th>Resultado</th><th>Etapas y diferencia</th>'
+    . '<th>Corrección propuesta</th></tr></thead><tbody>'
+    . '<tr><td>Fases, actividades o estaciones</td><td>Consistente</td><td>—</td><td>—</td></tr>'
+    . '<tr><td>Tiempos</td><td>Inconsistente</td><td>Etapa 3 suma 560 min; Etapa 2 dice 540</td><td>Ajustar la Etapa 3</td></tr>'
+    . '</tbody></table>';
+local_chatbot_verificar(diseno::inconsistencies($consistencia) === ['Tiempos: Etapa 3 suma 560 min; Etapa 2 dice 540'],
+    'avisa las filas «Inconsistente» de la verificación (y no confunde «Consistente» con «Inconsistente»)');
+local_chatbot_verificar(diseno::inconsistencies(str_replace('<td>Inconsistente</td>', '<td>Consistente</td>', $consistencia)) === []
+    && count(diseno::section_rows($consistencia, '/verificacion de consistencia/')) === 2,
+    'con todo consistente no hay aviso, y la tabla se reconoce igual');
+$t = documento_final::parse_stage_title(diseno::ANEXO_CONSISTENCIA);
+local_chatbot_verificar(($t['etiqueta'] ?? '') === 'ANEXO', 'en el Word final el anexo de consistencia es un anexo con su página y entrada en el índice');
+$conregistro = '<h2>Etapa 3: Secuencia instruccional</h2>' . $registro;
+local_chatbot_verificar(diseno::missing_items(3, $conregistro, true) === diseno::missing_items(3, '<h2>Etapa 3: Secuencia instruccional</h2>' . substr($registro, strpos($registro, '<h3>Registro de vacíos')), true),
+    'la sección «Registro de ajustes» no cambia la revisión automática de la etapa');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Fases 2 y 3 del Módulo 2 conformes: etapas del Prompt Maestro, sin saltos, rúbrica textual y Word válido.\n";

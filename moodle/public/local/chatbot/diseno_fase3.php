@@ -81,6 +81,19 @@ foreach (diseno::etapas() as $n => $e) {
             <ul class="mb-0 mt-1"><?php foreach ($faltan7 as $falta): ?><li><?php echo s($falta); ?></li><?php endforeach; ?></ul>
         </div>
     <?php endif; ?>
+    <?php // Verificacion de consistencia entre etapas (ajuste del Prompt Maestro del 10-11-2026).
+    if (\local_chatbot\ux::on('controlcambios') && $porasistente):
+        $inconsistencias = diseno::inconsistencies(diseno::normalize_product($documento));
+        if ($inconsistencias): ?>
+            <div class="alert alert-warning small" role="status">
+                <?php echo get_string('diseno_cc_inconsistent', 'local_chatbot'); ?>
+                <ul class="mb-0 mt-1"><?php foreach ($inconsistencias as $i): ?><li><?php echo s($i); ?></li><?php endforeach; ?></ul>
+            </div>
+        <?php elseif (diseno::section_rows(diseno::normalize_product($documento), '/verificacion de consistencia/')): ?>
+            <p class="small text-success mb-2"><i class="fa fa-check-circle me-1"></i><?php
+                echo get_string('diseno_cc_consistent', 'local_chatbot'); ?></p>
+        <?php endif;
+    endif; ?>
     <?php if (!$vigente && !$generando): ?>
         <form method="post" action="<?php echo $pageurl->out(false); ?>" class="mb-4 d-flex flex-wrap gap-2">
             <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">

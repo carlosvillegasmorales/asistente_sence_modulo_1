@@ -84,6 +84,8 @@ class ux {
         'consolidacionm3' => 1, // Modulo 3, etapa 8: consolidacion con el asistente, en extenso y sin repetir campos comunes (v1.22.0).
         'avisosimpl' => 1,      // Modulo 3: avisos con reglas fijas al validar la ficha (v1.22.0).
         'fichaexpost' => 1,     // Modulo 3, Fase 4: ficha de evaluacion ex post validada y etapas 11 a 15 del cierre del ciclo (v1.23.0).
+        // Ajuste del Prompt Maestro del Modulo 2 de Interfases (10-11-2026): control de cambios entre etapas.
+        'controlcambios' => 1,  // Modulo 2: control de cambios entre etapas, registro de ajustes y verificacion de consistencia antes de consolidar (v1.24.0).
     ];
 
     /**

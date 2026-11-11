@@ -279,7 +279,7 @@ local_chatbot_verificar(
 local_chatbot_verificar(
     (ux::DEFAULTS['libreriaruta'] ?? null) === 1
     && exante::PROMPT_VERSION === 'M2-F1-checklist-v6'
-    && diseno::PROMPT_VERSION === 'M2-F2-etapas-v11',
+    && diseno::PROMPT_VERSION === 'M2-F2-etapas-v12',
     'interruptor libreriaruta encendido por defecto y versiones de prompt actualizadas (v6 / v8)'
 );
 
