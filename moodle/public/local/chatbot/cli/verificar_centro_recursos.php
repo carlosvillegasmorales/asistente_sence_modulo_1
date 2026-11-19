@@ -518,6 +518,17 @@ if ($docxValido) {
     $zipCheck->close();
 }
 local_chatbot_verificar($docxValido, 'build_docx genera un archivo Word (.docx) OOXML válido');
+// Tarjetas de un dibujo ASCII (M3 del cliente): en el Word conservan su color, no el de las franjas de una tabla.
+$docxTarjetas = $tmpDir . '/tarjetas.docx';
+$okTarjetas = recurso_export::build_docx($docxTarjetas, 'M3', '', '<h2>2.2</h2>' . $listaM3);
+$xmlTarjetas = '';
+if ($okTarjetas && $zipCheck->open($docxTarjetas) === true) {
+    $xmlTarjetas = (string) $zipCheck->getFromName('word/document.xml');
+    $zipCheck->close();
+}
+local_chatbot_verificar(substr_count($xmlTarjetas, 'w:fill="F4F8FC"') === 2 && strpos($xmlTarjetas, '+---') === false
+    && strpos($xmlTarjetas, 'Presencia de enfermedades') !== false,
+    'en el Word las tarjetas lado a lado llevan su color de fondo y sus viñetas, sin restos del dibujo ASCII');
 
 $xlsxPath = $tmpDir . '/planilla.xlsx';
 $okXlsx = recurso_export::build_xlsx($xlsxPath, [

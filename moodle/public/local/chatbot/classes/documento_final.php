@@ -1572,13 +1572,15 @@ class documento_final {
             $cols = max($cols, array_sum(array_column($f, 'span')));
         }
         $diagrama = strpos(' ' . $tabla->getAttribute('class') . ' ', ' m2-diagrama ') !== false;
+        // Tarjetas lado a lado (diagrama::ascii_html): sus colores y bordes, texto a la izquierda, sin partirse.
+        $tarjetas = strpos(' ' . $tabla->getAttribute('class') . ' ', ' m2-tarjetas ') !== false;
         $caracteres = 0;
         foreach ($filas as $f) {
             foreach ($f as $celda) {
                 $caracteres += \core_text::strlen(trim(preg_replace('/\s+/u', ' ', $celda['td']->textContent)));
             }
         }
-        $ancha = !$diagrama && self::is_wide($cols, $caracteres / count($filas));
+        $ancha = !$diagrama && !$tarjetas && self::is_wide($cols, $caracteres / count($filas));
         if ($ancha) {
             // El titulo de la tabla (por ejemplo «3.3 Matriz...») pasa a la pagina horizontal junto con ella.
             $titulo = $this->sacar_cola();
@@ -1641,7 +1643,7 @@ class documento_final {
         // Una tabla baja (o un diagrama) no se parte entre paginas. En una alta, la fila que ocupa mas de un tercio de pagina
         // puede partirse: si no, salta entera a la pagina siguiente y deja media pagina en blanco. El encabezado se repite.
         $pagina = ($this->orient === 'h' ? 12240 : 15840) - 2500;
-        $juntas = $diagrama || array_sum($altos) <= 0.45 * $pagina;
+        $juntas = $diagrama || $tarjetas || array_sum($altos) <= 0.45 * $pagina;
         foreach ($filas as $r => $celdas) {
             $esenc = $encabezado && $r === 0;
             $cuerpo = $r - ($encabezado ? 1 : 0);
@@ -1655,8 +1657,8 @@ class documento_final {
             $col = 0;
             foreach ($celdas as $c => $celda) {
                 $span = $celda['span'];
-                $xml .= $this->celda($celda['td'], $esenc, $cuerpo, $col, $span, $anchos, $diagrama, $vacio, $c === 0 && $cols > 1,
-                    ($juntas || $grupo) && $r < count($filas) - 1);
+                $xml .= $this->celda($celda['td'], $esenc, $cuerpo, $col, $span, $anchos, $diagrama || $tarjetas, $vacio,
+                    $c === 0 && $cols > 1, ($juntas || $grupo) && $r < count($filas) - 1, $tarjetas);
                 if ($vacio && $col === 0) {
                     $xml .= $this->celda_flecha($esenc, $cuerpo, $anchos[1]);
                     $col++;
@@ -1890,7 +1892,7 @@ class documento_final {
      * @return string
      */
     private function celda(\DOMElement $td, bool $esenc, int $cuerpo, int $col, int $span, array $anchos, bool $diagrama,
-            bool $vacio, bool $primera, bool $mantener = false): string {
+            bool $vacio, bool $primera, bool $mantener = false, bool $tarjeta = false): string {
         $ancho = array_sum(array_slice($anchos, $col, $span));
         $th = strtolower($td->nodeName) === 'th';
         $texto = trim(preg_replace('/\s+/u', ' ', $td->textContent));
@@ -1909,6 +1911,9 @@ class documento_final {
             $fondo = $e['fondo'];
             $fmt = $flecha ? ['sz' => 36, 'b' => 1, 'color' => $e['color'] ?: self::AZUL] : ['sz' => 20];
             $o['jc'] = 'center';
+            if ($tarjeta) {
+                unset($o['jc']);
+            }
             $mar = '<w:top w:w="100" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/>';
         } else if ($esenc) {
             $fmt = ['sz' => 18, 'b' => 1, 'color' => 'FFFFFF'];

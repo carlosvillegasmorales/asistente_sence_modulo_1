@@ -1,5 +1,13 @@
 # Changelog
 
+## M1-v1.27.2 (2026-11-19)
+
+- **Word del centro:** las tarjetas lado a lado (dibujos ASCII convertidos, `m2-tarjetas`) conservan su color de fondo,
+  su borde y sus viñetas, con el texto a la izquierda y sin partirse entre páginas; antes tomaban las franjas de una tabla
+  común (`documento_final`). Revisado con el PDF y el Word del M1 y del M3 descargados del cliente con la v1.27.1: flujo en
+  vertical con «▼», tarjetas, niveles en secuencia, casillas ❏ y pictogramas como «Ilustración sugerida». Sin cambios en
+  la base.
+
 ## M1-v1.27.1 (2026-11-19)
 
 Revisión de los PDF del M1 y del M3 descargados del VPS del cliente con la v1.27.0. Sin cambios en la base.
