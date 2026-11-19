@@ -1,5 +1,16 @@
 # Changelog
 
+## M1-v1.26.1 (2026-11-19)
+
+**Centro de producción, Modo C: videos verificados de verdad.** Al probar en el VPS del cliente, el asistente entregó
+cuatro enlaces de YouTube inventados (`watch?v=VocesMayoresINDH`) y la verificación los aceptó, porque YouTube responde
+200 aunque el video no exista. Sin cambios en la base.
+
+- `video_ref()` (pura) reconoce YouTube y Vimeo y rechaza ids con formato imposible; `verify_url()` confirma cada video
+  con oEmbed (existe y es público) y la ficha muestra su título y canal reales.
+- Si ningún enlace existe, la búsqueda se repite una vez indicando cuáles fallaron.
+- El prompt del Modo C prohíbe construir o adivinar enlaces y recuerda «experiencia de aprendizaje», nunca «sesión».
+
 ## M1-v1.26.0 (2026-11-19)
 
 **Centro de producción: materiales mixtos (B/C, A/B, A/C).** Hasta ahora un material que combina partes en distintos

@@ -510,7 +510,47 @@ class centro_recursos {
     }
 
     /**
+     * Referencia de un video de YouTube o Vimeo: plataforma, id, si el id tiene un formato posible y la direccion de
+     * oEmbed que confirma que el video existe y es publico. Null si el enlace no es de esas plataformas. Funcion pura.
+     *
+     * Visto al probar en el VPS del cliente el 19-11-2026: el asistente invento enlaces como «watch?v=VocesMayoresINDH»
+     * y YouTube responde 200 aunque el video no exista, asi que el codigo HTTP no basta.
+     *
+     * @param string $url
+     * @return array|null ['plataforma' => 'youtube'|'vimeo', 'id' => string, 'valido' => bool, 'oembed' => string].
+     */
+    public static function video_ref(string $url): ?array {
+        $p = parse_url(trim($url));
+        if (!is_array($p)) {
+            return null;
+        }
+        $host = (string) preg_replace('/^(www\.|m\.)/', '', strtolower((string) ($p['host'] ?? '')));
+        $ruta = (string) ($p['path'] ?? '');
+        if (in_array($host, ['youtube.com', 'youtu.be', 'youtube-nocookie.com', 'music.youtube.com'], true)) {
+            if ($host === 'youtu.be') {
+                $id = trim($ruta, '/');
+            } else {
+                parse_str((string) ($p['query'] ?? ''), $q);
+                $id = (string) ($q['v'] ?? '');
+                if ($id === '' && preg_match('#^/(?:embed|shorts|live|v)/([^/?]+)#', $ruta, $m)) {
+                    $id = $m[1];
+                }
+            }
+            return ['plataforma' => 'youtube', 'id' => $id, 'valido' => preg_match('/^[A-Za-z0-9_-]{11}$/', $id) === 1,
+                'oembed' => 'https://www.youtube.com/oembed?format=json&url='
+                    . rawurlencode('https://www.youtube.com/watch?v=' . $id)];
+        }
+        if ($host === 'vimeo.com' || $host === 'player.vimeo.com') {
+            $id = preg_match('#/(?:video/)?(\d{5,})#', $ruta, $m) ? $m[1] : '';
+            return ['plataforma' => 'vimeo', 'id' => $id, 'valido' => $id !== '',
+                'oembed' => 'https://vimeo.com/api/oembed.json?url=' . rawurlencode('https://vimeo.com/' . $id)];
+        }
+        return null;
+    }
+
+    /**
      * Verifica por HTTP que un enlace exista y sea accesible (Modo C: «Solo se recomiendan recursos con enlace verificado»).
+     * Los videos de YouTube y Vimeo se verifican con oEmbed (existen y son publicos) y devuelven su titulo y canal reales.
      * Resuelve redirecciones y rechaza direcciones privadas o codigos >= 400.
      *
      * @param string $url
@@ -527,6 +567,25 @@ class centro_recursos {
         $ip = gethostbyname($host);
         if ($ip !== $host && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
             return ['ok' => false, 'url' => $url, 'code' => 0];
+        }
+        $video = self::video_ref($url);
+        if ($video !== null) {
+            if (!$video['valido']) {
+                return ['ok' => false, 'url' => $url, 'code' => 0];
+            }
+            $ch = curl_init($video['oembed']);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; SENCE-CentroRecursos/1.0)');
+            $cuerpo = (string) curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $datos = json_decode($cuerpo, true);
+            $titulo = is_array($datos) ? trim((string) ($datos['title'] ?? '')) : '';
+            return ['ok' => $code === 200 && $titulo !== '', 'url' => $url, 'code' => $code, 'titulo' => $titulo,
+                'autor' => is_array($datos) ? trim((string) ($datos['author_name'] ?? '')) : ''];
         }
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -579,6 +638,13 @@ class centro_recursos {
             $res = $verificador($enlace);
             if (!empty($res['ok'])) {
                 $op['enlace'] = (string) ($res['url'] ?? $enlace);
+                // En un video, titulo y canal son los que informa la plataforma, no los que escribio el asistente.
+                if (trim((string) ($res['titulo'] ?? '')) !== '') {
+                    $op['titulo'] = (string) $res['titulo'];
+                }
+                if (trim((string) ($res['autor'] ?? '')) !== '') {
+                    $op['fuente'] = (string) $res['autor'];
+                }
                 $verificadas[] = $op;
             } else {
                 $descartadas++;
@@ -1005,6 +1071,10 @@ class centro_recursos {
             $l[] = '- En las advertencias indica, por ejemplo, tramos que no corresponden o diferencias con la normativa nacional.';
             $l[] = '- No descargues ni reproduzcas los recursos: solo se enlazan. La persona facilitadora selecciona los '
                 . 'recursos que usará.';
+            $l[] = '- Usa solo enlaces exactos que aparezcan en los resultados de la búsqueda. Nunca construyas, completes '
+                . 'ni adivines un enlace o el identificador de un video: la plataforma comprueba cada video en YouTube o Vimeo '
+                . 'y descarta los que no existen.';
+            $l[] = '- En el momento de uso, la justificación y las advertencias usa «experiencia de aprendizaje», nunca «sesión».';
             $l[] = '- Devuelve ÚNICAMENTE un objeto JSON válido, sin texto antes ni después y sin bloques de código:';
             $l[] = '{"criterios_busqueda": "...", "opciones": [{"titulo": "...", "fuente": "...", "duracion": "7 min", '
                 . '"idioma": "Español", "enlace": "https://...", "momento": "...", "justificacion": "...", "advertencias": "..."}]}';
@@ -1685,6 +1755,20 @@ class centro_recursos {
             $raw = (string) gemini_client::extract_text($res);
             if (trim($raw) === '') {
                 return self::fail_resource($id, 'ilegible');
+            }
+            // Modo C: si ningun enlace existe, se busca una vez mas diciendo cuales fallaron.
+            $cur = $modo === 'C' ? self::parse_curaduria_json($raw) : null;
+            if ($cur !== null && $cur['opciones']
+                    && !self::filter_verified_links($cur['opciones'], [self::class, 'verify_url'])['verificadas']) {
+                $fallidos = array_map(static fn($o) => (string) ($o['enlace'] ?? ''), $cur['opciones']);
+                $parts[0] = ['text' => $prompt . "\n\nREINTENTO: ninguno de estos enlaces existe o es público: "
+                    . implode(', ', $fallidos) . '. Vuelve a buscar y usa solo enlaces exactos que aparezcan en los '
+                    . 'resultados de la búsqueda; si no encuentras recursos que cumplan los criterios, devuelve menos opciones.'];
+                $res2 = exante::generate_steady([['role' => 'user', 'parts' => $parts]], 240, $modelo, $usarWeb);
+                $raw2 = isset($res2['error']) ? '' : (string) gemini_client::extract_text($res2);
+                if (trim($raw2) !== '' && self::parse_curaduria_json($raw2) !== null) {
+                    $raw = $raw2;
+                }
             }
             return self::store_produced_material($r, $raw, $esJsonModoB, $esQuiz, $formatos, (string) $modelo, $modo === 'C');
         } finally {

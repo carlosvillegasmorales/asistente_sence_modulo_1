@@ -275,6 +275,36 @@ local_chatbot_verificar(
     'headings_as_markdown deja negritas y cursivas en Markdown (html_to_text las pondría en MAYÚSCULAS)'
 );
 
+// --- Modo C: videos verificados con oEmbed (YouTube responde 200 aunque el video no exista) ---
+$yt = centro_recursos::video_ref('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10');
+local_chatbot_verificar(
+    $yt !== null && $yt['plataforma'] === 'youtube' && $yt['id'] === 'dQw4w9WgXcQ' && $yt['valido']
+    && strpos($yt['oembed'], 'https://www.youtube.com/oembed?format=json&url=') === 0
+    && centro_recursos::video_ref('https://youtu.be/dQw4w9WgXcQ')['valido']
+    && centro_recursos::video_ref('https://www.youtube.com/shorts/dQw4w9WgXcQ')['id'] === 'dQw4w9WgXcQ'
+    && !centro_recursos::video_ref('https://www.youtube.com/watch?v=VocesMayoresINDH')['valido']
+    && !centro_recursos::video_ref('https://www.youtube.com/watch?v=BuenTratoSENAMA')['valido']
+    && centro_recursos::video_ref('https://vimeo.com/76979871')['id'] === '76979871'
+    && centro_recursos::video_ref('https://www.minsal.cl/guia/') === null,
+    'video_ref reconoce YouTube y Vimeo y rechaza ids inventados como «VocesMayoresINDH» (el id tiene 11 caracteres)'
+);
+$verifVideo = centro_recursos::filter_verified_links([
+    ['titulo' => 'Título inventado', 'fuente' => 'Fuente inventada', 'enlace' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
+    ['titulo' => 'Falso', 'fuente' => 'X', 'enlace' => 'https://www.youtube.com/watch?v=VocesMayoresINDH'],
+], static fn(string $u): array => strpos($u, 'dQw4w9WgXcQ') !== false
+    ? ['ok' => true, 'url' => $u, 'code' => 200, 'titulo' => 'Título real', 'autor' => 'Canal real']
+    : ['ok' => false, 'url' => $u, 'code' => 0]);
+local_chatbot_verificar(
+    count($verifVideo['verificadas']) === 1 && $verifVideo['verificadas'][0]['titulo'] === 'Título real'
+    && $verifVideo['verificadas'][0]['fuente'] === 'Canal real' && $verifVideo['descartadas'] === 1,
+    'la ficha usa el título y el canal reales del video y descarta los que no existen'
+);
+local_chatbot_verificar(
+    strpos($pC, 'Nunca construyas, completes ni adivines un enlace') !== false
+    && strpos($pC, 'usa «experiencia de aprendizaje», nunca «sesión»') !== false,
+    'el prompt del Modo C prohíbe inventar enlaces y recuerda la regla de «experiencia de aprendizaje»'
+);
+
 // --- Materiales mixtos: cada parte en su modo y «Entregado parcialmente» hasta entregar todas ---
 $mixto = centro_recursos::parse_plan_json(json_encode(['materiales' => [
     ['codigo' => 'M2', 'nombre' => 'Cápsula audiovisual y tarjetas de debate', 'fase' => 'Fase 1', 'modo' => 'B/C',
