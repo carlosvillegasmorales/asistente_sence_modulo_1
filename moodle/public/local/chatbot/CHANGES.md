@@ -1,5 +1,20 @@
 # Changelog
 
+## M1-v1.26.0 (2026-11-19)
+
+**Centro de producción: materiales mixtos (B/C, A/B, A/C).** Hasta ahora un material que combina partes en distintos
+modos (por ejemplo, la cápsula audiovisual con tarjetas de debate) se producía solo en su parte B. Sin cambios en la base.
+
+- **Etapa 9:** el plan divide cada material mixto en una fila por parte (`M2-B`, `M2-C`), con el modo y el formato de
+  cada una (los declara el asistente en «partes» o se deducen del formato: `split_mixed()`, `part_format()`, puras).
+  Un plan anterior con la fila mixta sin producir se reemplaza por sus partes al actualizarlo.
+- **Etapa 10:** cada parte se produce en su modo (la C como ficha de curaduría con búsqueda y enlaces verificados) y los
+  prompts indican qué parte es (`part_note()`).
+- **Etapa 11:** el material queda «Entregado parcialmente» mientras falte una parte y «Entregado» con todas
+  (`material_groups()`); el plan muestra el estado del material bajo cada parte y el estado del centro cuenta materiales.
+  Sale el botón manual «Registrar como entrega parcial».
+- **Etapa 12:** el repertorio muestra el material mixto en una fila, con el modo, los formatos y la versión de cada parte.
+
 ## M1-v1.25.1 (2026-11-19)
 
 Correcciones encontradas al probar el centro de producción en el VPS del cliente con una cuenta de estudiante (lista de

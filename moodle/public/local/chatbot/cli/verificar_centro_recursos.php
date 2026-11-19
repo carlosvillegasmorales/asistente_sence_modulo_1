@@ -275,6 +275,67 @@ local_chatbot_verificar(
     'headings_as_markdown deja negritas y cursivas en Markdown (html_to_text las pondría en MAYÚSCULAS)'
 );
 
+// --- Materiales mixtos: cada parte en su modo y «Entregado parcialmente» hasta entregar todas ---
+$mixto = centro_recursos::parse_plan_json(json_encode(['materiales' => [
+    ['codigo' => 'M2', 'nombre' => 'Cápsula audiovisual y tarjetas de debate', 'fase' => 'Fase 1', 'modo' => 'B/C',
+        'formato' => 'Word (.docx) / PDF Carta / Vídeo', 'especificacion' => 'completa', 'estado' => 'pendiente',
+        'partes' => [['modo' => 'C', 'nombre' => 'cápsula audiovisual', 'formato' => 'Ficha de recomendación'],
+            ['modo' => 'B', 'nombre' => 'tarjetas de debate', 'formato' => 'Word (.docx) / PDF Carta']]],
+    ['codigo' => 'M3', 'nombre' => 'Guía', 'fase' => 'F2', 'modo' => 'A/B', 'formato' => 'Texto / Word (.docx)',
+        'especificacion' => 'completa', 'estado' => 'pendiente'],
+    ['codigo' => 'M4', 'nombre' => 'Dossier', 'fase' => 'F2', 'modo' => 'B', 'formato' => 'Word', 'estado' => 'pendiente'],
+]], JSON_UNESCAPED_UNICODE));
+$mm = $mixto['materiales'] ?? [];
+local_chatbot_verificar(
+    count($mm) === 5
+    && $mm[0]['codigo'] === 'M2-B' && $mm[0]['modo'] === 'B' && $mm[0]['formato'] === 'Word (.docx) / PDF Carta'
+    && $mm[0]['nombre'] === 'Cápsula audiovisual y tarjetas de debate · parte B: tarjetas de debate'
+    && $mm[1]['codigo'] === 'M2-C' && $mm[1]['modo'] === 'C' && $mm[1]['formato'] === 'Ficha de recomendación'
+    && $mm[2]['codigo'] === 'M3-A' && $mm[2]['modo'] === 'A' && $mm[3]['codigo'] === 'M3-B'
+    && $mm[4]['codigo'] === 'M4' && $mm[4]['modo'] === 'B',
+    'el plan divide los materiales mixtos en una fila por parte (con lo que declara el asistente o deducido del formato)'
+);
+local_chatbot_verificar(
+    centro_recursos::part_format('C', 'Word / Vídeo') === 'Ficha de recomendación'
+    && centro_recursos::part_format('B', 'Word (.docx) / PDF Carta / Vídeo') === 'Word (.docx) / PDF Carta'
+    && centro_recursos::part_format('B', 'Vídeo de YouTube') === 'Word (.docx)'
+    && centro_recursos::base_code('M2-C') === 'M2' && centro_recursos::base_code('M12') === 'M12'
+    && centro_recursos::part_letter('M2-C') === 'C' && centro_recursos::part_letter('M12') === '',
+    'part_format, base_code y part_letter resuelven formato, material y parte'
+);
+$filasMix = [
+    (object) ['codigo' => 'M1', 'estado' => centro_recursos::MAT_ENTREGADO],
+    (object) ['codigo' => 'M2-B', 'estado' => centro_recursos::MAT_ENTREGADO, 'modo' => 'B', 'nombre' => 'Cápsula · parte B: tarjetas',
+        'formato' => 'Word', 'version' => 1, 'revisar_count' => 1],
+    (object) ['codigo' => 'M2-C', 'estado' => centro_recursos::MAT_PENDIENTE, 'modo' => 'C', 'nombre' => 'Cápsula · parte C: videos',
+        'formato' => 'Ficha de recomendación', 'version' => 0, 'revisar_count' => 0],
+    (object) ['codigo' => 'M3', 'estado' => centro_recursos::MAT_PENDIENTE],
+];
+$gruposMix = centro_recursos::material_groups($filasMix);
+local_chatbot_verificar(
+    array_keys($gruposMix) === ['M1', 'M2', 'M3']
+    && $gruposMix['M2']['estado'] === centro_recursos::MAT_ENTREGADO_PARCIAL
+    && centro_recursos::design_status_label($pEn, $filasMix) === 'En producción: 2 de 3'
+    && centro_recursos::material_groups([$filasMix[1], (object) ['codigo' => 'M2-C', 'estado' => centro_recursos::MAT_ENTREGADO]])['M2']['estado']
+        === centro_recursos::MAT_ENTREGADO,
+    'el material mixto queda «Entregado parcialmente» con una parte y «Entregado» con todas; el estado del centro cuenta materiales'
+);
+$repMix = centro_recursos::repertory_html(['experiencia' => 'X'], array_slice($filasMix, 1, 2), []);
+local_chatbot_verificar(
+    strpos($repMix, '<td>M2</td><td>Cápsula</td><td>B/C</td><td>B: Word</td><td>B: v1 · C: —</td><td>Entregado parcialmente</td><td>1</td>') !== false,
+    'el repertorio muestra el material mixto en una fila, con el modo y la versión de cada parte y su estado'
+);
+$matParte = ['codigo' => 'M2-C', 'nombre' => 'Cápsula · parte C: videos', 'fase' => 'F1', 'modo' => 'C',
+    'formato' => 'Ficha de recomendación', 'especificacion' => 'completa', 'espec_detalle' => ''];
+local_chatbot_verificar(
+    strpos(centro_recursos::build_content_prompt($matParte, 'E', [], 'D', 'F'), 'es la parte C del material M2') !== false
+    && strpos(centro_recursos::build_structure_prompt($matParte, [], 'D', 'F'), 'es la parte C del material M2') !== false
+    && strpos(centro_recursos::build_content_prompt($matParte, 'E', [], 'D', 'F'), 'INSTRUCCIONES MODO C') !== false
+    && centro_recursos::part_note($matPrueba) === ''
+    && strpos($p9, '"partes"') !== false,
+    'la parte C se produce como curaduría y los prompts dicen qué parte es; el plan pide las partes de los mixtos'
+);
+
 // --- Cuestionarios desde una sola fuente: GIFT + Google Apps Script + HTML imprimible con pauta ---
 $quiz = [
     'titulo' => 'Cuestionario: Bioseguridad {Nivel 1}',

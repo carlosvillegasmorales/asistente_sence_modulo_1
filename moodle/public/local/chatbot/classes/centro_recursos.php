@@ -331,6 +331,134 @@ class centro_recursos {
     }
 
     /**
+     * Divide un material mixto del plan (modo «B/C», «A/B» o «A/C») en una fila por parte: codigo «M2-B», «M2-C», modo
+     * de la parte y su formato. Usa las partes que declara el asistente y, si faltan, las deduce del formato. Un
+     * material de un solo modo vuelve tal cual. Funcion pura.
+     *
+     * @param array $fila Material ya normalizado por parse_plan_json().
+     * @param array $partesModelo [['modo' => 'C', 'nombre' => '...', 'formato' => '...'], ...] (opcional).
+     * @return array[]
+     */
+    public static function split_mixed(array $fila, array $partesModelo = []): array {
+        $letras = array_values(array_unique(array_filter(array_map('trim', explode('/', (string) $fila['modo'])),
+            static fn($x) => in_array($x, ['A', 'B', 'C'], true))));
+        if (count($letras) < 2) {
+            $fila['modo'] = $letras[0] ?? 'B';
+            return [$fila];
+        }
+        $porModo = [];
+        foreach ($partesModelo as $p) {
+            $mm = is_array($p) ? strtoupper(trim((string) ($p['modo'] ?? ''))) : '';
+            if (in_array($mm, $letras, true) && !isset($porModo[$mm])) {
+                $porModo[$mm] = $p;
+            }
+        }
+        $filas = [];
+        foreach ($letras as $letra) {
+            $p = $porModo[$letra] ?? [];
+            $desc = trim((string) ($p['nombre'] ?? ''));
+            $formato = trim((string) ($p['formato'] ?? ''));
+            $f = $fila;
+            $f['codigo'] = mb_substr((string) $fila['codigo'], 0, 17, 'UTF-8') . '-' . $letra;
+            $f['nombre'] = mb_substr($fila['nombre'] . ' · parte ' . $letra . ($desc !== '' ? ': ' . $desc : ''), 0, 250, 'UTF-8');
+            $f['modo'] = $letra;
+            $f['formato'] = mb_substr($formato !== '' ? $formato : self::part_format($letra, (string) $fila['formato']), 0, 180, 'UTF-8');
+            $filas[] = $f;
+        }
+        return $filas;
+    }
+
+    /**
+     * Formato de salida de una parte cuando el asistente no lo indico: la parte C es una ficha de recomendacion; las
+     * partes A y B toman del formato del material lo que no es video ni enlace. Funcion pura.
+     *
+     * @param string $letra 'A', 'B' o 'C'.
+     * @param string $formato Formato del material completo.
+     * @return string
+     */
+    public static function part_format(string $letra, string $formato): string {
+        if ($letra === 'C') {
+            return 'Ficha de recomendación';
+        }
+        $resto = implode(' / ', array_filter(array_map('trim', preg_split('/\s*[\/,;]\s*/u', $formato)),
+            static fn($t) => $t !== '' && !preg_match('/v[ií]deo|youtube|enlace|curadur|recomendaci[oó]n|simulador/u',
+                mb_strtolower($t, 'UTF-8'))));
+        if ($resto !== '') {
+            return $resto;
+        }
+        return $letra === 'A' ? 'Texto y HTML para Moodle' : 'Word (.docx)';
+    }
+
+    /**
+     * Codigo del material al que pertenece una parte («M2-C» → «M2»; «M5» → «M5»). Funcion pura.
+     *
+     * @param string $codigo
+     * @return string
+     */
+    public static function base_code(string $codigo): string {
+        return preg_match('/^(.+)-([ABC])$/u', trim($codigo), $m) ? $m[1] : trim($codigo);
+    }
+
+    /**
+     * Letra de la parte («M2-C» → «C»; un material de un solo modo → «»). Funcion pura.
+     *
+     * @param string $codigo
+     * @return string
+     */
+    public static function part_letter(string $codigo): string {
+        return preg_match('/-([ABC])$/u', trim($codigo), $m) ? $m[1] : '';
+    }
+
+    /**
+     * Agrupa las filas del plan por material (las partes de un material mixto juntas) con el estado del material:
+     * todas las partes entregadas → Entregado; alguna → Entregado parcialmente; ninguna → Pendiente. Funcion pura.
+     *
+     * @param array $recursos Filas de local_chatbot_recurso.
+     * @return array codigo base => ['filas' => [...], 'estado' => estado del material].
+     */
+    public static function material_groups(array $recursos): array {
+        $grupos = [];
+        foreach ($recursos as $i => $r) {
+            $codigo = (string) ($r->codigo ?? '');
+            $grupos[$codigo !== '' ? self::base_code($codigo) : '#' . $i][] = $r;
+        }
+        $fuera = [self::MAT_NO_PRODUCIBLE, self::MAT_INSTRUMENTO];
+        $out = [];
+        foreach ($grupos as $base => $filas) {
+            $estados = array_map(static fn($r) => (string) ($r->estado ?? self::MAT_PENDIENTE), $filas);
+            $prod = array_values(array_filter($estados, static fn($e) => !in_array($e, $fuera, true)));
+            if (count($filas) === 1 || !$prod) {
+                $estado = $estados[0];
+            } else {
+                $entregadas = count(array_filter($prod, static fn($e) => $e === self::MAT_ENTREGADO));
+                $estado = $entregadas === count($prod) ? self::MAT_ENTREGADO
+                    : ($entregadas > 0 || in_array(self::MAT_ENTREGADO_PARCIAL, $prod, true)
+                        ? self::MAT_ENTREGADO_PARCIAL : self::MAT_PENDIENTE);
+            }
+            $out[(string) $base] = ['filas' => $filas, 'estado' => $estado];
+        }
+        return $out;
+    }
+
+    /**
+     * Linea para los prompts de una parte de un material mixto (vacia si el material tiene un solo modo). Funcion pura.
+     *
+     * @param array $material ['codigo', 'modo', ...].
+     * @return string
+     */
+    public static function part_note(array $material): string {
+        $letra = self::part_letter((string) ($material['codigo'] ?? ''));
+        if ($letra === '') {
+            return '';
+        }
+        $modos = ['A' => 'Modo A (producción completa con IA)', 'B' => 'Modo B (producción con IA y servicios de la '
+            . 'plataforma)', 'C' => 'Modo C (curaduría de recursos existentes)'];
+        return '- Este material es la parte ' . $letra . ' del material ' . self::base_code((string) $material['codigo'])
+            . ' del diseño, que combina partes en distintos modos: produce solo esta parte, en ' . $modos[$letra]
+            . '. Las demás partes se producen por separado.';
+    }
+
+    /**
      * Etiqueta legible del estado del centro para un diseno (tabla de Seleccion del diseno).
      *
      * @param object|null $plan
@@ -346,8 +474,8 @@ class centro_recursos {
         }
         $producibles = 0;
         $entregados = 0;
-        foreach ($recursos as $r) {
-            $est = (string) ($r->estado ?? '');
+        foreach (self::material_groups($recursos) as $grupo) {
+            $est = (string) $grupo['estado'];
             if (in_array($est, [self::MAT_NO_PRODUCIBLE, self::MAT_INSTRUMENTO], true)) {
                 continue;
             }
@@ -501,7 +629,7 @@ class centro_recursos {
             }
             $especRaw = mb_strtolower(trim((string) ($m['especificacion'] ?? 'completa')), 'UTF-8');
             $espec = strpos($especRaw, 'incomplet') !== false ? 'incompleta' : 'completa';
-            $lista[] = [
+            $fila = [
                 'orden' => $idx,
                 'codigo' => mb_substr($codigo, 0, 20, 'UTF-8'),
                 'nombre' => mb_substr($nombre, 0, 250, 'UTF-8'),
@@ -512,6 +640,10 @@ class centro_recursos {
                 'espec_detalle' => trim((string) ($m['faltantes'] ?? ($m['espec_detalle'] ?? ''))),
                 'estado' => $estado,
             ];
+            // Material mixto: una fila por parte, cada una en su modo (Etapa 9: «indica el modo de cada parte»).
+            foreach ($estado === self::MAT_PENDIENTE ? self::split_mixed($fila, (array) ($m['partes'] ?? [])) : [$fila] as $f) {
+                $lista[] = $f;
+            }
         }
         if (!$lista) {
             return null;
@@ -738,6 +870,9 @@ class centro_recursos {
                 . 'esos instrumentos, regístralo con estado «Instrumento de evaluación del diseño».',
             '- Si un material no puede producirse en ninguno de los tres modos habilitados, regístralo con estado '
                 . '«No producible por el centro», sin proponer alternativas.',
+            '- Si un material combina partes que se producen en distintos modos (por ejemplo, una selección de videos y '
+                . 'un expediente documental), indica el modo de cada parte: su modo es la combinación («B/C») y en «partes» '
+                . 'va una entrada por parte con su modo, qué es (en pocas palabras) y su formato de salida.',
             '- Para cada material verifica si la especificación incluye destinatarios, propósito y actividad, contenidos y '
                 . 'secuencia, extensión, estructura, formato de salida, modo y (en Modo C) especificación de búsqueda. Si falta '
                 . 'algo, marca especificacion «incompleta» y anota brevemente qué falta en «faltantes» (sin proponer cambios al diseño).',
@@ -748,7 +883,10 @@ class centro_recursos {
             '{"materiales": [{"codigo": "M1", "nombre": "...", "fase": "J1 · inicio / actividad...", "modo": "A|B|C|A/B|B/C", '
                 . '"formato": "Word (.docx) / PDF A4 / Excel (.xlsx) / Presentación (.pptx) / Cuestionario GIFT / Ficha de recomendación...", '
                 . '"especificacion": "completa|incompleta", "faltantes": "", '
-                . '"estado": "pendiente|no_producible|instrumento"}], "excluidos_fisicos": ["..."]}',
+                . '"estado": "pendiente|no_producible|instrumento", "partes": [{"modo": "B", "nombre": "...", '
+                . '"formato": "..."}, {"modo": "C", "nombre": "...", "formato": "Ficha de recomendación"}]}], '
+                . '"excluidos_fisicos": ["..."]}',
+            '(«partes» solo en los materiales mixtos; en los demás, déjalo vacío o no lo incluyas).',
             '',
             'FICHA DE DIAGNÓSTICO VALIDADA:',
             guardrails::isolate_user_content($fichaTexto),
@@ -783,6 +921,7 @@ class centro_recursos {
             '- Modo: ' . $material['modo'] . ' | Formato de salida: ' . $material['formato'],
             '- Especificación en el diseño: ' . $material['especificacion']
                 . ($material['espec_detalle'] !== '' ? ' (' . $material['espec_detalle'] . ')' : ''),
+            self::part_note($material),
             '- Datos para cabecera (no de diseño): Organismo: ' . ($datosNoDiseno['organismo'] ?? '(sin indicar)')
                 . '; Curso: ' . ($datosNoDiseno['curso'] ?? '(sin indicar)')
                 . '; Persona facilitadora: ' . ($datosNoDiseno['facilitador'] ?? '(sin indicar)')
@@ -842,6 +981,7 @@ class centro_recursos {
             '- Código y nombre: ' . $material['codigo'] . ' · ' . $material['nombre'],
             '- Fase y actividad: ' . ($material['fase'] ?: 'según diseño'),
             '- Modo: ' . $modo . ' | Formato de salida: ' . $material['formato'],
+            self::part_note($material),
             '- Datos de cabecera: Organismo: ' . ($datosNoDiseno['organismo'] ?? '')
                 . ' | Curso: ' . ($datosNoDiseno['curso'] ?? '')
                 . ' | Persona facilitadora: ' . ($datosNoDiseno['facilitador'] ?? '')
@@ -990,20 +1130,36 @@ class centro_recursos {
             . '<th>Formatos entregados</th><th>Versión</th><th>Estado</th><th>Marcas [REVISAR]</th></tr></thead><tbody>';
         $totalRevisar = 0;
         $modoC = [];
-        foreach ($recursos as $r) {
-            $est = (string) ($r->estado ?? self::MAT_PENDIENTE);
-            $rev = (int) ($r->revisar_count ?? 0);
-            if (in_array($est, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)) {
-                $totalRevisar += $rev;
+        $entregada = static fn($r) => in_array((string) ($r->estado ?? ''), [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true);
+        foreach (self::material_groups($recursos) as $base => $grupo) {
+            $filas = $grupo['filas'];
+            $est = (string) $grupo['estado'];
+            $mixto = count($filas) > 1;
+            $rev = 0;
+            $fmts = [];
+            $vers = [];
+            foreach ($filas as $r) {
+                $letra = $mixto ? self::part_letter((string) $r->codigo) . ': ' : '';
+                if ($entregada($r)) {
+                    $rev += (int) ($r->revisar_count ?? 0);
+                    $fmts[] = $letra . (string) ($r->formato ?? '');
+                }
+                $vers[] = $letra . (((int) ($r->version ?? 0)) > 0 ? 'v' . (int) $r->version : '—');
             }
-            $ver = ((int) ($r->version ?? 0)) > 0 ? ('v' . (int) $r->version) : '—';
-            $fmts = in_array($est, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)
-                ? (string) ($r->formato ?? '—') : '—';
-            $html .= '<tr><td>' . $e((string) $r->codigo) . '</td><td>' . $e((string) $r->nombre) . '</td>'
-                . '<td>' . $e((string) $r->modo) . '</td><td>' . $e($fmts) . '</td><td>' . $e($ver) . '</td>'
-                . '<td>' . $e($estados[$est] ?? $est) . '</td><td>'
-                . (in_array($est, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true) ? $rev : '—') . '</td></tr>';
-
+            $totalRevisar += $rev;
+            $nombre = (string) $filas[0]->nombre;
+            $modo = (string) $filas[0]->modo;
+            if ($mixto) {
+                $nombre = (string) preg_replace('/ · parte [ABC](: .*)?$/u', '', $nombre);
+                $modo = implode('/', array_map(static fn($r) => (string) $r->modo, $filas));
+            }
+            $algo = $fmts !== [];
+            $html .= '<tr><td>' . $e((string) $base) . '</td><td>' . $e($nombre) . '</td>'
+                . '<td>' . $e($modo) . '</td><td>' . $e($algo ? implode('; ', $fmts) : '—') . '</td>'
+                . '<td>' . $e($mixto ? implode(' · ', $vers) : $vers[0]) . '</td>'
+                . '<td>' . $e($estados[$est] ?? $est) . '</td><td>' . ($algo ? $rev : '—') . '</td></tr>';
+        }
+        foreach ($recursos as $r) {
             if (strtoupper((string) $r->modo) === 'C' && !empty($r->estructurado)) {
                 $cur = json_decode((string) $r->estructurado, true);
                 $sel = json_decode((string) ($r->seleccionados ?? '[]'), true) ?: [];
@@ -1259,6 +1415,12 @@ class centro_recursos {
                 return exante::ERROR;
             }
 
+            // Un material mixto de un plan anterior (una sola fila «B/C») sin producir se reemplaza por sus partes.
+            foreach (self::get_resources((int) $ficha->id) as $r) {
+                if (strpos((string) $r->modo, '/') !== false && (int) $r->version === 0) {
+                    $DB->delete_records('local_chatbot_recurso', ['id' => $r->id]);
+                }
+            }
             // Conservar materiales ya producidos si se regenera el plan; agregar los nuevos por codigo.
             $existentes = [];
             foreach (self::get_resources((int) $ficha->id) as $r) {

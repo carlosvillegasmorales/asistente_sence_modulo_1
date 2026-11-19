@@ -617,9 +617,6 @@ $estadoEtiqueta = [
                             <button type="submit" class="btn btn-success">
                                 <?php echo get_string('centro_approve', 'local_chatbot', ((int) $recActual->version) + 1); ?>
                             </button>
-                            <button type="submit" name="parcial" value="1" class="btn btn-outline-success btn-sm">
-                                <?php echo get_string('centro_approve_partial', 'local_chatbot'); ?>
-                            </button>
                         </form>
                     </div>
                 </div>
@@ -771,7 +768,8 @@ $estadoEtiqueta = [
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($recursos as $idx => $r):
+                                <?php $gruposcr = centro_recursos::material_groups($recursos);
+                                foreach ($recursos as $idx => $r):
                                     [$etTxt, $etCls] = $estadoEtiqueta[$r->estado] ?? [$r->estado, 'bg-secondary'];
                                     $producible = !in_array($r->estado, [centro_recursos::MAT_NO_PRODUCIBLE, centro_recursos::MAT_INSTRUMENTO], true);
                                     $rurl = new moodle_url('/local/chatbot/centro_recursos.php', [
@@ -793,6 +791,11 @@ $estadoEtiqueta = [
                                             <span class="badge <?php echo $etCls; ?>"><?php echo s($etTxt); ?></span>
                                             <?php if ((int) $r->version > 0): ?><br><small>v<?php echo (int) $r->version; ?></small><?php endif; ?>
                                             <?php if ((int) $r->revisar_count > 0): ?><br><small class="text-warning-emphasis">[REVISAR]: <?php echo (int) $r->revisar_count; ?></small><?php endif; ?>
+                                            <?php if (centro_recursos::part_letter((string) $r->codigo) !== ''):
+                                                $estgrupo = $gruposcr[centro_recursos::base_code((string) $r->codigo)]['estado'] ?? ''; ?>
+                                                <br><small class="text-muted"><?php echo get_string('centro_group_state', 'local_chatbot',
+                                                    $estadoEtiqueta[$estgrupo][0] ?? $estgrupo); ?></small>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-end">
                                             <?php if ($producible): ?>
