@@ -189,9 +189,9 @@ foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') 
         $despues = modulo2_setup::remove_dashboard_block($despues);
     }
     if ($centro !== null && (int) $seccion->section === $centro) {
-        $despues = trim(strip_tags($despues)) === ''
-            ? modulo2_setup::center_tab_html($centrourl)
-            : modulo2_setup::add_center_button($despues, $centrourl);
+        // Solo el boton de acceso directo: la presentacion y el «Cómo trabajar» los pone el cliente como recursos de la
+        // pestana (pedido del 19-11-2026). center_tab_html() queda para un curso sin esos recursos.
+        $despues = modulo2_setup::add_center_button($despues, $centrourl);
     }
     if (strpos($antes, '<!-- MATERIAL 1 -->') !== false) {
         $despues = modulo2_setup::link_materials($despues, [1 => $url($recursos['material1']),

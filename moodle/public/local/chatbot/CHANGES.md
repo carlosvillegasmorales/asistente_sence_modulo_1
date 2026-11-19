@@ -1,5 +1,12 @@
 # Changelog
 
+## M1-v1.27.3 (2026-11-19)
+
+- **Acceso directo al centro de producción en el curso** (pedido del 19-11-2026): `configurar_modulo2.php` pone en la
+  pestaña «Centro de Producción de Recursos de Aprendizaje» solo el botón «Ir al Centro de producción de recursos»; ya no
+  agrega el texto de presentación, porque la pestaña del cliente trae sus propios recursos (Presentación del Centro, Cómo
+  trabajar con el Centro, Repositorio). Idempotente. Sin cambios en la base.
+
 ## M1-v1.27.2 (2026-11-19)
 
 - **Word del centro:** las tarjetas lado a lado (dibujos ASCII convertidos, `m2-tarjetas`) conservan su color de fondo,
