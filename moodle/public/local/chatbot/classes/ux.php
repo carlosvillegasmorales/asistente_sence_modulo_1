@@ -86,6 +86,8 @@ class ux {
         'fichaexpost' => 1,     // Modulo 3, Fase 4: ficha de evaluacion ex post validada y etapas 11 a 15 del cierre del ciclo (v1.23.0).
         // Ajuste del Prompt Maestro del Modulo 2 de Interfases (10-11-2026): control de cambios entre etapas.
         'controlcambios' => 1,  // Modulo 2: control de cambios entre etapas, registro de ajustes y verificacion de consistencia antes de consolidar (v1.24.0).
+        // Ajuste del Prompt Maestro del Modulo 2 de Interfases (19-11-2026): reglas de consistencia del diseno (bloques 4 a 6).
+        'reglasconsistencia' => 1, // Modulo 2: 10 reglas de consistencia del diseno, ampliacion de verificacion en etapa 7 y control de calidad (v1.24.8).
     ];
 
     /**

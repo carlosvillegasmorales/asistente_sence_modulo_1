@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 class diseno {
 
     /** @var string Version del prompt de diseno: se guarda con cada producto (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F2-etapas-v12';
+    const PROMPT_VERSION = 'M2-F2-etapas-v13';
 
     /** @var int Desde esta version del prompt cada etapa cierra con vacios, verificacion y referencias (revision del 02-11). */
     const PROMPT_CIERRE = 11;
@@ -149,6 +149,90 @@ class diseno {
         . 'inconsistencias aceptadas por la persona facilitadora. Señálalas en las debilidades y en las recomendaciones, y '
         . 'considéralas al asignar el puntaje de los criterios de la rúbrica que correspondan, sin modificar la rúbrica. Si '
         . 'todas las filas son «Consistente», no hay inconsistencias que considerar.';
+
+    /**
+     * @var string[] Bloque 4 del documento «Ajuste Prompt Maestro M2 - Reglas de Consistencia del Diseño» (Interfases,
+     * 19-11-2026, version generica), textual, para las etapas 1 a 6. Va a continuacion de «CONTROL DE CAMBIOS ENTRE ETAPAS».
+     */
+    const BLOQUE_REGLAS_CONSISTENCIA = [
+        'REGLAS DE CONSISTENCIA DEL DISEÑO:',
+        'REGLA 1. FUENTE ÚNICA DE CADA ELEMENTO',
+        'Cada elemento del diseño se define en una sola etapa, y las demás lo citan por su nombre sin redefinirlo:',
+        '- Fases, tiempos por fase y organización del grupo: se definen en la Etapa 2 y se desglosan en la Etapa 3, que no '
+            . 'puede cambiarlos.',
+        '- Instrumentos de evaluación: se definen en la Etapa 5 y se desarrollan en la Etapa 6. La Etapa 3 solo los nombra '
+            . 'como evidencias.',
+        '- No incluyas ejemplos, borradores ni versiones resumidas de instrumentos fuera de la Etapa 6.',
+        'REGLA 2. REGISTRO DE INSTRUMENTOS',
+        'En la Etapa 5 debes crear un registro de instrumentos con una fila por instrumento y estas columnas: número, '
+            . 'nombre, tipo, criterios que evalúa, momento y actividad de aplicación, unidad evaluada (persona o dupla), '
+            . 'puntaje máximo, umbral de aprobación, ponderación y formato (por ejemplo, número de casos o de ítems).',
+        '- La Etapa 6 debe desarrollar exactamente los instrumentos del registro, con el mismo número, nombre, puntaje, '
+            . 'umbral y formato.',
+        '- Toda mención posterior a un instrumento debe usar su número y nombre del registro.',
+        'REGLA 3. UMBRAL ÚNICO',
+        'Cada umbral de aprobación se declara una sola vez, en el registro de instrumentos o en la regla de juicio '
+            . 'evaluativo. Cualquier otra mención debe reproducir el mismo valor. Si en una etapa posterior se modifica un '
+            . 'umbral, aplica el control de cambios entre etapas.',
+        'REGLA 4. VERIFICACIÓN ARITMÉTICA',
+        'Antes de cerrar las Etapas 3, 5 y 6, verifica y muestra el cálculo de:',
+        '- La suma de los tiempos de las actividades de cada fase y del total, respecto del tiempo asignado a la '
+            . 'experiencia.',
+        '- La suma de los puntajes de cada instrumento respecto de su puntaje máximo.',
+        '- La suma de los porcentajes de las tablas de especificaciones y de las ponderaciones, que debe ser 100 %.',
+        '- La equivalencia entre el umbral en puntos y el umbral en porcentaje. Si el porcentaje declarado no corresponde '
+            . 'a un número entero de puntos, declara el puntaje mínimo redondeado hacia arriba y su porcentaje real.',
+        'Si un cálculo no cuadra, corrígelo antes de entregar la etapa.',
+        'REGLA 5. EVALUACIÓN INDIVIDUAL DEL DESEMPEÑO',
+        'Aunque las actividades se realicen en duplas o subgrupos, las evidencias sumativas se registran y califican por '
+            . 'persona. Indica cómo se individualiza la observación (por ejemplo, rol rotativo o turno individual de '
+            . 'ejecución) y no describas la unidad evaluada como «la dupla» en ninguna etapa.',
+        'REGLA 6. COHERENCIA DE LOS AGRUPAMIENTOS',
+        'Verifica que el número de participantes permita formar las duplas y los subgrupos declarados sin separar duplas. '
+            . 'Si la división no es exacta, explicita la solución (por ejemplo, un trío o subgrupos de distinto tamaño) en '
+            . 'la Etapa 2 y mantenla en las demás etapas.',
+        'REGLA 7. FACTIBILIDAD DE LA OBSERVACIÓN',
+        'Cuando dos o más estaciones o subgrupos trabajen en paralelo:',
+        '- Indica quién acompaña cada estación.',
+        '- Calcula el tiempo de observación disponible por persona (tiempo de la estación ÷ personas observadas) en cada '
+            . 'instrumento de desempeño.',
+        '- Si una sola persona facilitadora debe evaluar en una estación y acompañar otra al mismo tiempo, o si el tiempo '
+            . 'por persona es insuficiente para aplicar el instrumento completo, regístralo como restricción y propone una '
+            . 'solución (persona de apoyo, guía autónoma o más tiempo).',
+        'REGLA 8. VACÍOS DE INFORMACIÓN Y SOLUCIONES',
+        'Una propuesta de solución no puede contradecir los valores vigentes del diseño. Si la solución modifica tiempos, '
+            . 'actividades u organización, aplícala en la etapa correspondiente mediante el control de cambios entre etapas, '
+            . 'o redáctala como medida condicional que indique cuándo se activa y qué valores reemplaza.',
+        'REGLA 9. NUMERACIÓN',
+        'Numera las subsecciones de cada etapa según la estructura definida en este prompt, sin repetir números ni abrir '
+            . 'una numeración nueva dentro de una etapa.',
+        'REGLA 10. COMPATIBILIDAD CON EL MÓDULO DE ASEGURAMIENTO DE LA CALIDAD',
+        'Los niveles de cada instrumento deben poder traducirse a los cuatro niveles de la ficha de registro de la '
+            . 'implementación: Insuficiente, Básico, Adecuado y Avanzado. En cada instrumento de la Etapa 6 incluye la regla '
+            . 'de equivalencia (rangos de puntaje por nivel), incluidas las condiciones críticas que llevan a Insuficiente. '
+            . 'Si el instrumento ya usa esos cuatro niveles, indícalo.',
+    ];
+
+    /**
+     * @var string[] Bloque 5, textual: ampliacion de la tabla de verificacion de consistencia del Bloque 3 (Etapa 7),
+     * despues de «Evidencias e instrumentos».
+     */
+    const BLOQUE_CONSISTENCIA_EXTRA = [
+        '- Registro de instrumentos: número, nombre, puntaje máximo, umbral, ponderación, formato y unidad evaluada de '
+            . 'cada instrumento, comparados entre las Etapas 3, 5 y 6.',
+        '- Verificación aritmética: tiempos, puntajes, porcentajes y umbrales, según la regla 4.',
+        '- Agrupamientos y observación: duplas, subgrupos, persona que acompaña cada estación y tiempo de observación por '
+            . 'persona, según las reglas 6 y 7.',
+        '- Vacíos de información: propuestas de solución que contradicen valores vigentes, según la regla 8.',
+        '- Equivalencia de niveles: regla de equivalencia a los cuatro niveles de la ficha de registro, según la regla 10.',
+    ];
+
+    /** @var string[] Bloque 6, textual: se agrega al final del control de calidad interno de cada etapa. */
+    const BLOQUE_CALIDAD_CONSISTENCIA = [
+        '- Verificar el cumplimiento de las reglas de consistencia del diseño que aplican a la etapa.',
+        '- No declarar en la verificación de calidad que algo «coincide exactamente» o tiene «alineación absoluta» sin '
+            . 'haber hecho la comparación o el cálculo correspondiente.',
+    ];
 
     /** Estado del producto. */
     const BORRADOR = 'borrador';
@@ -692,9 +776,10 @@ class diseno {
      *
      * @param string[] $etapas Numero de etapa (1 a 6) => producto aceptado (HTML).
      * @param bool $control Verificacion de consistencia entre etapas (interruptor «controlcambios»).
+     * @param bool $consistencia Ampliacion de la verificacion de consistencia (bloque 5, interruptor «reglasconsistencia»).
      * @return string
      */
-    public static function build_consolidation_prompt(array $etapas, bool $control = false): string {
+    public static function build_consolidation_prompt(array $etapas, bool $control = false, bool $consistencia = false): string {
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, '
             . 'especializado en formación de personas adultas en contextos de capacitación laboral.';
@@ -707,6 +792,12 @@ class diseno {
             // Bloque 3 del ajuste del Prompt Maestro del 10-11-2026: antes de «consolidar todos los entregables».
             foreach (self::BLOQUE_CONSISTENCIA as $linea) {
                 $l[] = $linea;
+                // Bloque 5 del ajuste del Prompt Maestro del 19-11-2026: despues de «Evidencias e instrumentos».
+                if ($consistencia && strpos($linea, '- Evidencias e instrumentos:') === 0) {
+                    foreach (self::BLOQUE_CONSISTENCIA_EXTRA as $extra) {
+                        $l[] = $extra;
+                    }
+                }
             }
             $l[] = self::CONSISTENCIA_PLATAFORMA;
             $l[] = 'Para la fila «Evidencias e instrumentos», compara criterio por criterio el instrumento que asigna la '
@@ -927,11 +1018,12 @@ class diseno {
      * @param bool $control Control de cambios entre etapas (interruptor «controlcambios»).
      * @param string[] $posteriores Numero de etapa => texto de las etapas siguientes ya aceptadas (para el control).
      * @param string $hoy Fecha de hoy, para el registro de ajustes.
+     * @param bool $consistencia Reglas de consistencia del diseno (bloques 4 y 6, interruptor «reglasconsistencia»).
      * @return string
      */
     public static function build_prompt(int $etapa, string $ficha, array $informe, array $previas, array $adjuntos,
             string $actual = '', string $ajustes = '', bool $conlibreria = false, bool $conbusqueda = false,
-            bool $control = false, array $posteriores = [], string $hoy = ''): string {
+            bool $control = false, array $posteriores = [], string $hoy = '', bool $consistencia = false): string {
         $e = self::etapas()[$etapa];
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, especializado en formación '
@@ -975,6 +1067,13 @@ class diseno {
             $l[] = self::CONTROL_CAMBIOS_PLATAFORMA . ($hoy !== '' ? ' Fecha de hoy: ' . $hoy . '.' : '');
             $l[] = '';
         }
+        if ($consistencia) {
+            // Bloque 4 del ajuste del Prompt Maestro del 19-11-2026: reglas de consistencia del diseno (genericas).
+            foreach (self::BLOQUE_REGLAS_CONSISTENCIA as $linea) {
+                $l[] = $linea;
+            }
+            $l[] = '';
+        }
         foreach (exante::knowledge_rules($conlibreria, $conbusqueda) as $regla) {
             $l[] = $regla;
         }
@@ -1009,6 +1108,12 @@ class diseno {
         if ($control) {
             // Bloque 2: despues de «detectar inconsistencias».
             foreach (self::BLOQUE_CALIDAD_DEPENDENCIA as $linea) {
+                $l[] = $linea;
+            }
+        }
+        if ($consistencia) {
+            // Bloque 6: al final del control de calidad interno.
+            foreach (self::BLOQUE_CALIDAD_CONSISTENCIA as $linea) {
                 $l[] = $linea;
             }
         }
@@ -2403,7 +2508,7 @@ class diseno {
         $buscar = exante::web_search_available();
         $prompt = self::build_prompt((int) $fila->etapa, pseudonymizer::scrub(exante::to_text($ficha)), $informe,
             $previas, $etiquetas, $actual, (string) $fila->ajustes, $libreria !== '', $buscar, $control, $posteriores,
-            $control ? userdate(time(), '%d-%m-%Y') : '');
+            $control ? userdate(time(), '%d-%m-%Y') : '', ux::on('reglasconsistencia'));
         $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
             ux::on('libreriaruta'))]];
 
@@ -2440,7 +2545,8 @@ class diseno {
             $etapas[$n] = (string) $filas[$n]->contenido;
         }
         $huella = self::stages_fingerprint($filas);
-        $contenido = [['role' => 'user', 'parts' => [['text' => self::build_consolidation_prompt($etapas, ux::on('controlcambios'))]]]];
+        $contenido = [['role' => 'user', 'parts' => [['text' => self::build_consolidation_prompt($etapas,
+            ux::on('controlcambios'), ux::on('reglasconsistencia'))]]]];
         $modelo = ai\provider_factory::get_configured_model();
         $resultado = exante::generate_steady($contenido, 600, $modelo);
         if (isset($resultado['error'])) {

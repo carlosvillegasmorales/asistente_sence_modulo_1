@@ -1,5 +1,23 @@
 # Changelog
 
+## M1-v1.24.8 (2026-11-19)
+
+**Módulo 2: reglas de consistencia del diseño** (documento de Interfases «Ajuste Prompt Maestro M2 - Reglas de
+Consistencia del Diseño», versión genérica del 19-11-2026). Interruptor `reglasconsistencia` (encendido). Prompt
+`M2-F2-etapas-v13`. Sin cambios en la base.
+
+- **Bloque 4, textual, en el prompt de las etapas 1 a 6** (`diseno::BLOQUE_REGLAS_CONSISTENCIA`), a continuación de
+  «CONTROL DE CAMBIOS ENTRE ETAPAS»: diez reglas de consistencia aplicables a cualquier diseño (fuente única de cada
+  elemento, registro de instrumentos en Etapa 5, umbral único, verificación aritmética en Etapas 3, 5 y 6, evaluación
+  individual del desempeño, coherencia de agrupamientos, factibilidad de la observación, vacíos y soluciones sin
+  contradicción, numeración y equivalencia a los cuatro niveles del Módulo 3).
+- **Bloque 5, textual, en la Etapa 7** (`diseno::BLOQUE_CONSISTENCIA_EXTRA`): cinco filas nuevas en la tabla de
+  verificación de consistencia del Bloque 3, después de «Evidencias e instrumentos» (registro de instrumentos,
+  verificación aritmética, agrupamientos y observación, vacíos de información y equivalencia de niveles).
+- **Bloque 6, textual, al final del control de calidad interno de cada etapa** (`diseno::BLOQUE_CALIDAD_CONSISTENCIA`):
+  verificar el cumplimiento de las reglas de consistencia aplicables y no declarar coincidencias exactas o alineación
+  absoluta sin haber hecho la comparación o el cálculo correspondiente. No modifica etapas, rúbrica ni reglas vigentes.
+
 ## M1-v1.24.7 (2026-11-10)
 
 - Word: en las tablas, la columna de textos largos queda más ancha que una de textos medianos (peso de columna hasta

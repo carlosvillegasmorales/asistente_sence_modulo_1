@@ -840,8 +840,8 @@ $pe8cc = diseno::build_eval_prompt('D', 'F', [], false, false, [], true);
 local_chatbot_verificar(strpos($pe8cc, 'INCONSISTENCIAS ACEPTADAS') !== false && strpos($pe8cc, 'sin modificar la rúbrica') !== false
     && strpos(diseno::build_eval_prompt('D', 'F', []), 'INCONSISTENCIAS ACEPTADAS') === false,
     'la etapa 8 considera las inconsistencias aceptadas en debilidades, recomendaciones y puntaje, sin cambiar la rúbrica');
-local_chatbot_verificar(diseno::PROMPT_VERSION === 'M2-F2-etapas-v12' && diseno::prompt_number(diseno::PROMPT_VERSION) >= diseno::PROMPT_CIERRE,
-    'la versión del prompt sube a la v12 y mantiene el cierre de cada etapa');
+local_chatbot_verificar(diseno::PROMPT_VERSION === 'M2-F2-etapas-v13' && diseno::prompt_number(diseno::PROMPT_VERSION) >= diseno::PROMPT_CIERRE,
+    'la versión del prompt sube a la v13 y mantiene el cierre de cada etapa');
 
 // Lectores de las tablas: lo que la página avisa.
 $registro = '<h3>Registro de ajustes</h3><table><thead><tr><th>Etapa de origen</th><th>Cambio realizado</th><th>Etapas afectadas</th>'
@@ -930,6 +930,78 @@ local_chatbot_verificar(($t['etiqueta'] ?? '') === 'ANEXO', 'en el Word final el
 $conregistro = '<h2>Etapa 3: Secuencia instruccional</h2>' . $registro;
 local_chatbot_verificar(diseno::missing_items(3, $conregistro, true) === diseno::missing_items(3, '<h2>Etapa 3: Secuencia instruccional</h2>' . substr($registro, strpos($registro, '<h3>Registro de vacíos')), true),
     'la sección «Registro de ajustes» no cambia la revisión automática de la etapa');
+
+// --- Ajuste del Prompt Maestro del 19-11-2026: reglas de consistencia del diseño (bloques 4, 5 y 6, versión genérica) ---
+$rc = diseno::build_prompt(5, 'F', [], [1 => 'E1', 2 => 'E2', 3 => 'E3', 4 => 'E4'], [], '', '', false, false, true,
+    [], '19-11-2026', true);
+$sinrc = diseno::build_prompt(5, 'F', [], [1 => 'E1', 2 => 'E2'], [], '', '', false, false, true, [], '19-11-2026', false);
+local_chatbot_verificar(strpos($rc, 'REGLAS DE CONSISTENCIA DEL DISEÑO:') !== false
+    && strpos($sinrc, 'REGLAS DE CONSISTENCIA DEL DISEÑO:') === false,
+    'el bloque 4 (reglas de consistencia del diseño) va solo con el interruptor encendido');
+$textuales4 = [
+    'REGLA 1. FUENTE ÚNICA DE CADA ELEMENTO',
+    'No incluyas ejemplos, borradores ni versiones resumidas de instrumentos fuera de la Etapa 6.',
+    'REGLA 2. REGISTRO DE INSTRUMENTOS',
+    'En la Etapa 5 debes crear un registro de instrumentos con una fila por instrumento y estas columnas: número, nombre, tipo, criterios que evalúa, momento y actividad de aplicación, unidad evaluada (persona o dupla), puntaje máximo, umbral de aprobación, ponderación y formato (por ejemplo, número de casos o de ítems).',
+    'REGLA 3. UMBRAL ÚNICO',
+    'REGLA 4. VERIFICACIÓN ARITMÉTICA',
+    'La equivalencia entre el umbral en puntos y el umbral en porcentaje. Si el porcentaje declarado no corresponde a un número entero de puntos, declara el puntaje mínimo redondeado hacia arriba y su porcentaje real.',
+    'REGLA 5. EVALUACIÓN INDIVIDUAL DEL DESEMPEÑO',
+    'Indica cómo se individualiza la observación (por ejemplo, rol rotativo o turno individual de ejecución) y no describas la unidad evaluada como «la dupla» en ninguna etapa.',
+    'REGLA 6. COHERENCIA DE LOS AGRUPAMIENTOS',
+    'REGLA 7. FACTIBILIDAD DE LA OBSERVACIÓN',
+    'Calcula el tiempo de observación disponible por persona (tiempo de la estación ÷ personas observadas) en cada instrumento de desempeño.',
+    'REGLA 8. VACÍOS DE INFORMACIÓN Y SOLUCIONES',
+    'REGLA 9. NUMERACIÓN',
+    'REGLA 10. COMPATIBILIDAD CON EL MÓDULO DE ASEGURAMIENTO DE LA CALIDAD',
+    'Insuficiente, Básico, Adecuado y Avanzado. En cada instrumento de la Etapa 6 incluye la regla de equivalencia (rangos de puntaje por nivel), incluidas las condiciones críticas que llevan a Insuficiente.',
+];
+$todos4 = true;
+foreach ($textuales4 as $t) {
+    $todos4 = $todos4 && strpos($rc, $t) !== false;
+}
+local_chatbot_verificar($todos4, 'el bloque 4 va textual con las 10 reglas de consistencia del diseño (versión genérica)');
+local_chatbot_verificar(stripos($rc, 'montaje de estructuras') === false && stripos($rc, 'rol rotativo de supervisión') === false,
+    'el bloque 4 usa la versión genérica (sin alusiones al caso de prueba)');
+local_chatbot_verificar(strpos($rc, 'CONTROL DE CAMBIOS ENTRE ETAPAS:') < strpos($rc, 'REGLAS DE CONSISTENCIA DEL DISEÑO:')
+    && strpos($rc, 'REGLAS DE CONSISTENCIA DEL DISEÑO:') < strpos($rc, 'FUENTES DE CONOCIMIENTO:'),
+    'el bloque 4 va a continuación de «CONTROL DE CAMBIOS ENTRE ETAPAS»');
+local_chatbot_verificar(strpos($rc, '- Verificar el cumplimiento de las reglas de consistencia del diseño que aplican a la etapa.') !== false
+    && strpos($rc, '- No declarar en la verificación de calidad que algo «coincide exactamente» o tiene «alineación absoluta» sin haber hecho la comparación o el cálculo correspondiente.') !== false
+    && strpos($rc, '- Revisar el registro de ajustes') < strpos($rc, '- Verificar el cumplimiento de las reglas de consistencia')
+    && strpos($rc, '- No declarar en la verificación de calidad') < strpos($rc, 'FORMATO:')
+    && strpos($sinrc, 'alineación absoluta') === false,
+    'el bloque 6 va textual al final del control de calidad interno solo con el interruptor encendido');
+
+$pc7rc = diseno::build_consolidation_prompt([1 => '<p>A</p>', 2 => '<p>B</p>'], true, true);
+$pc7sinrc = diseno::build_consolidation_prompt([1 => '<p>A</p>', 2 => '<p>B</p>'], true, false);
+$textuales5 = [
+    '- Registro de instrumentos: número, nombre, puntaje máximo, umbral, ponderación, formato y unidad evaluada de cada instrumento, comparados entre las Etapas 3, 5 y 6.',
+    '- Verificación aritmética: tiempos, puntajes, porcentajes y umbrales, según la regla 4.',
+    '- Agrupamientos y observación: duplas, subgrupos, persona que acompaña cada estación y tiempo de observación por persona, según las reglas 6 y 7.',
+    '- Vacíos de información: propuestas de solución que contradicen valores vigentes, según la regla 8.',
+    '- Equivalencia de niveles: regla de equivalencia a los cuatro niveles de la ficha de registro, según la regla 10.',
+];
+$todos5 = true;
+foreach ($textuales5 as $t) {
+    $todos5 = $todos5 && strpos($pc7rc, $t) !== false && strpos($pc7sinrc, $t) === false;
+}
+local_chatbot_verificar($todos5
+    && strpos($pc7rc, '- Evidencias e instrumentos:') < strpos($pc7rc, '- Registro de instrumentos:')
+    && strpos($pc7rc, '- Equivalencia de niveles:') < strpos($pc7rc, 'Para cada fila indica «Consistente» o «Inconsistente»'),
+    'el bloque 5 agrega las 5 filas textuales a la tabla de verificación de la Etapa 7, después de «Evidencias e instrumentos»');
+
+$consistencia5 = '<h1>Anexo: Verificación de consistencia entre etapas y registro de ajustes</h1>'
+    . '<h2>Verificación de consistencia entre etapas</h2><table><thead><tr><th>Elemento</th><th>Resultado</th><th>Etapas y diferencia</th>'
+    . '<th>Corrección propuesta</th></tr></thead><tbody>'
+    . '<tr><td>Registro de instrumentos: número, nombre y puntaje.</td><td>Inconsistente</td><td>Etapa 5 dice 24 pts; Etapa 6 suma 26</td><td>Ajustar Etapa 6</td></tr>'
+    . '<tr><td>Verificación aritmética</td><td>Inconsistente</td><td>Ponderaciones suman 95 %</td><td>Ajustar Etapa 5</td></tr>'
+    . '<tr><td>Equivalencia de niveles</td><td>Consistente</td><td>—</td><td>—</td></tr>'
+    . '</tbody></table>';
+local_chatbot_verificar(diseno::inconsistencies($consistencia5) === [
+    'Registro de instrumentos: Etapa 5 dice 24 pts; Etapa 6 suma 26',
+    'Verificación aritmética: Ponderaciones suman 95 %',
+], 'inconsistencies() también reporta las filas nuevas del bloque 5 con su nombre corto');
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
