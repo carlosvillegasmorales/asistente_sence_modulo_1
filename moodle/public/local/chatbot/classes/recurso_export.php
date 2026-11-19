@@ -1119,6 +1119,7 @@ class recurso_export {
         $limpio = diseno::normalize_product(self::pictogram_captions($html));
         // La casilla ☐ no esta en freesans (salia «?»): ZapfDingbats trae una casilla («o»).
         $limpio = str_replace('☐', '<span style="font-family:zapfdingbats;">o</span>', $limpio);
+        $limpio = diagrama::pdf_flows($limpio);
         $limpio = (string) preg_replace_callback('/\[REVISAR(?:\s*:\s*[^\]]+)?\]/u', static function(array $m): string {
             return '<span style="background-color:#fff3cd;color:#856404;font-weight:bold;">'
                 . htmlspecialchars($m[0], ENT_QUOTES, 'UTF-8') . '</span>';

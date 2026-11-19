@@ -182,7 +182,7 @@ class diagrama {
                     } else if ($d['modo'] === 'flujo' && empty($d['sinpaso']) && !preg_match('/\d/u', $principal)) {
                         $rotulo = 'Paso ' . (int) ($caja['n'] ?? 0);
                     }
-                    $html .= '<td style="width: ' . $ancho . '%; background-color: ' . self::FONDO . '; border: 1px solid '
+                    $html .= '<td data-n="' . (int) ($caja['n'] ?? 0) . '" style="width: ' . $ancho . '%; background-color: ' . self::FONDO . '; border: 1px solid '
                         . self::BORDE . '; border-radius: 10px; padding: 10px 12px; text-align: center; vertical-align: middle;">'
                         . ($rotulo !== '' ? '<span style="font-size: 10px; letter-spacing: 1px; color: ' . self::ROTULO . ';">'
                             . $e(\core_text::strtoupper($rotulo)) . '</span><br>' : '')
@@ -385,6 +385,33 @@ class diagrama {
     }
 
     /**
+     * Diagramas de tarjetas para el PDF (TCPDF): una tarjeta por fila, en el orden de la secuencia, con «▼» entre ellas y
+     * sin partir una tarjeta entre paginas. En el zigzag de la pantalla TCPDF no dibujaba las flechas y dejaba las cajas
+     * altas y vacias (visto en el PDF del M1 del cliente el 19-11-2026). Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function pdf_flows(string $html): string {
+        if (strpos($html, 'm2-diagrama') === false) {
+            return $html;
+        }
+        return (string) preg_replace_callback('#<table\b[^>]*class="m2-diagrama"[^>]*>.*?</table>#isu', static function(array $m): string {
+            if (!preg_match_all('#<td data-n="(\d+)"[^>]*>(.*?)</td>#isu', $m[0], $cajas, PREG_SET_ORDER)) {
+                return $m[0];
+            }
+            usort($cajas, static fn($a, $b) => (int) $a[1] <=> (int) $b[1]);
+            $filas = [];
+            foreach ($cajas as $c) {
+                $filas[] = '<tr nobr="true"><td style="background-color: ' . self::FONDO . '; border: 1px solid ' . self::BORDE
+                    . '; text-align: center;">' . $c[2] . '</td></tr>';
+            }
+            $flecha = '<tr nobr="true"><td style="text-align: center; color: ' . self::BORDE . '; font-size: 12pt;">▼</td></tr>';
+            return '<table class="m2-diagrama">' . implode($flecha, $filas) . '</table>';
+        }, $html);
+    }
+
+    /**
      * Listas que en realidad son un flujo: viñetas con pasos y viñetas que solo traen conectores («│», «▼»), como las
      * que dejo el modelo antes de este arreglo. Se dibujan como diagrama de tarjetas con flechas; las demas listas no se
      * tocan. Sirve tambien para lo ya guardado, porque se aplica al mostrar y al descargar.
@@ -393,6 +420,8 @@ class diagrama {
      * @return string
      */
     public static function list_flows(string $html): string {
+        // Un dibujo ASCII («+----+», «| … |», «v») tambien trae «|» y «v»: se convierte antes como dibujo, no como flujo.
+        $html = self::ascii_lists($html);
         if (stripos($html, '<li') === false) {
             return $html;
         }

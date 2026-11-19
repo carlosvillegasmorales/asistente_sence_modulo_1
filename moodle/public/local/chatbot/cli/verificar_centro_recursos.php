@@ -335,6 +335,19 @@ local_chatbot_verificar(
     'cajas ASCII encadenadas con «v» salen como diagrama de pasos con título, en tipo oración y con su descripción'
 );
 local_chatbot_verificar(
+    strpos(\local_chatbot\diagrama::list_flows($listaM3), 'class="m2-tarjetas"') !== false
+    && strpos(\local_chatbot\diagrama::list_flows($listaM3), '/ ') === false,
+    'list_flows deja que un dibujo ASCII se convierta como dibujo (tarjetas), no como flujo de líneas sueltas'
+);
+$zig = \local_chatbot\diagrama::render_html(\local_chatbot\diagrama::parse("Uno\nDos\nTres\nCuatro\nCinco"));
+$vert = \local_chatbot\diagrama::pdf_flows('<p>x</p>' . $zig);
+local_chatbot_verificar(
+    substr_count($vert, '<tr nobr="true"><td style="background-color: #E8F0F7') === 5 && substr_count($vert, '▼') === 4
+    && strpos($vert, '→') === false && strpos($vert, '←') === false
+    && strpos($vert, 'Uno') < strpos($vert, 'Dos') && strpos($vert, 'Cuatro') < strpos($vert, 'Cinco'),
+    'en el PDF el diagrama va en vertical: cinco tarjetas en orden, «▼» entre ellas y ninguna partida entre páginas'
+);
+local_chatbot_verificar(
     \local_chatbot\diagrama::sentence('ENVEJECIMIENTO NORMAL (FISIOLÓGICO)') === 'Envejecimiento normal (fisiológico)'
     && \local_chatbot\diagrama::sentence('[INDEPENDIENTE]') === '[Independiente]'
     && \local_chatbot\diagrama::sentence('Escala de Barthel') === 'Escala de Barthel',

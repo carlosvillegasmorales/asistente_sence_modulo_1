@@ -1,5 +1,14 @@
 # Changelog
 
+## M1-v1.27.1 (2026-11-19)
+
+Revisión de los PDF del M1 y del M3 descargados del VPS del cliente con la v1.27.0. Sin cambios en la base.
+
+- **PDF:** el diagrama de tarjetas va en vertical (una tarjeta por fila, en orden, con «▼» entre ellas y sin partirse
+  entre páginas): en el zigzag, TCPDF no dibujaba las flechas y dejaba las cajas altas y vacías (`diagrama::pdf_flows()`).
+- **Dibujos ASCII:** al mostrar y descargar, `list_flows()` tomaba antes el dibujo del M3 como un flujo (trae «|» y «v»)
+  y lo mostraba como pasos con «/»; ahora el dibujo se convierte primero como tarjetas.
+
 ## M1-v1.27.0 (2026-11-19)
 
 **Materiales formales, estables y legibles** (pedido del 19-11-2026, con los PDF del M1 y el M3 del cliente). Sin
