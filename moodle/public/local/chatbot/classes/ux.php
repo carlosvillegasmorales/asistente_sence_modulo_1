@@ -88,6 +88,8 @@ class ux {
         'controlcambios' => 1,  // Modulo 2: control de cambios entre etapas, registro de ajustes y verificacion de consistencia antes de consolidar (v1.24.0).
         // Ajuste del Prompt Maestro del Modulo 2 de Interfases (19-11-2026): reglas de consistencia del diseno (bloques 4 a 6).
         'reglasconsistencia' => 1, // Modulo 2: 10 reglas de consistencia del diseno, ampliacion de verificacion en etapa 7 y control de calidad (v1.24.8).
+        // Especificacion funcional del Modulo 2 (19-11-2026): Centro de produccion de recursos de aprendizaje (Etapas 9 a 12).
+        'centrorecursos' => 1,  // Modulo 2: pestana independiente Centro de produccion de recursos (Modos A, B sin Azure y C; v1.25.0).
     ];
 
     /**

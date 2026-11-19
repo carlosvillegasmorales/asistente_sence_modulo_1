@@ -1,0 +1,1936 @@
+<?php
+namespace local_chatbot;
+
+defined('MOODLE_INTERNAL') || die();
+
+/**
+ * Modulo 2, Centro de Produccion de Recursos de Aprendizaje (Etapas 9 a 12).
+ *
+ * Implementa la Especificacion Funcional, la Guia de Uso y el Prompt Complementario de Interfases (19-11-2026):
+ *  - Funciona de manera independiente al proceso de diseno: lista todos los disenos validados (>= 25 pts, etapa 7
+ *    confirmada) de la persona facilitadora, trabajando uno a la vez con su propio plan y repositorio.
+ *  - Etapa 9: Plan de produccion a partir de la Etapa 4 (tambien en disenos anteriores sin modos declarados).
+ *  - Etapa 10: Carga opcional y reutilizable de materiales tecnicos de referencia (PDF, Word, Excel, imagen),
+ *    estructura aprobada (10.2), produccion segun Modo A/B/C (10.3) y ajustes por seccion (10.4).
+ *  - Etapa 11: Entrega en el formato de salida y registro versionado (v1, v2...) con conteo de marcas [REVISAR].
+ *  - Etapa 12: Cierre del centro y repertorio descargable (.zip + indice) exclusivo para la persona facilitadora.
+ *
+ * Todo lo que no consulta BD es funcion pura y lo ejercita cli/verificar_centro_recursos.php.
+ */
+class centro_recursos {
+
+    /** @var string Version del prompt complementario del Centro de Produccion. */
+    const PROMPT_VERSION = 'M2-CR-v1';
+
+    /** @var string Area de archivos en Moodle File API para materiales tecnicos de referencia. */
+    const FILEAREA_REF = 'centro_ref';
+
+    /** @var int Tamano maximo de cada archivo de referencia (10 MB, igual que exante::ADJUNTO_MAX). */
+    const REF_MAX_BYTES = 10485760;
+
+    /** @var int Maximo de archivos de referencia activos por material. */
+    const REF_MAX_ACTIVOS = 5;
+
+    /** @var int Segundos antes de dar por caida una generacion en curso. */
+    const PROCESO_MAX = 360;
+
+    /** Estados del plan. */
+    const PLAN_SIN_INICIAR = 'sin_iniciar';
+    const PLAN_EN_PRODUCCION = 'en_produccion';
+    const PLAN_CERRADO = 'cerrado';
+
+    /** Estados de un material en el repositorio. */
+    const MAT_PENDIENTE = 'pendiente';
+    const MAT_ESTRUCTURA = 'estructura';
+    const MAT_BORRADOR = 'borrador';
+    const MAT_ENTREGADO = 'entregado';
+    const MAT_ENTREGADO_PARCIAL = 'entregado_parcial';
+    const MAT_NO_PRODUCIBLE = 'no_producible';
+    const MAT_INSTRUMENTO = 'instrumento';
+
+    /** Fases de generacion asincrona de un material. */
+    const GEN_ESTRUCTURA = 'estructura';
+    const GEN_CONTENIDO = 'contenido';
+    const GEN_AJUSTE = 'ajuste';
+
+    /** @var string Mensaje textual obligatorio cuando la persona no tiene disenos disponibles (>= 25 pts). */
+    const SIN_DISENOS = 'Aún no tienes diseños disponibles para el centro de producción. Un diseño se habilita cuando '
+        . 'está consolidado y aprobado (25 puntos o más en la evaluación del diseño).';
+
+    /** @var string[] Parrafos textuales de la Bienvenida obligatoria del Centro. */
+    const BIENVENIDA = [
+        'Bienvenido/a al centro de producción de recursos de aprendizaje. Aquí produciremos, uno a la vez, los '
+            . 'materiales instruccionales de tu diseño validado, tal como fueron especificados. Para cada material te '
+            . 'propondré primero su estructura y, cuando la apruebes, el material completo. Tú revisas cada propuesta y '
+            . 'puedes pedir ajustes. Los materiales se entregan listos para copiar y pegar, en código HTML o como archivo '
+            . 'descargable, para usarlos en Moodle, en otra plataforma o en formato impreso con las personas participantes.',
+        'Primero te mostraré tus diseños validados disponibles para que elijas con cuál quieres trabajar.',
+    ];
+
+    /** @var string Respuesta textual obligatoria del Principio 1 ante pedidos que alteran el diseno validado. */
+    const RESPUESTA_NO_MODIFICA = 'Ese ajuste implica modificar el diseño validado, que no se puede cambiar desde el '
+        . 'centro de producción. Puedo ajustar la redacción, los ejemplos o el formato del material dentro de lo '
+        . 'especificado.';
+
+    /** @var string Pie obligatorio de todo material producido. */
+    const PIE_MATERIAL = 'Material producido con apoyo de IA. Revisado por la persona facilitadora antes de su uso.';
+
+    /** @var string Cierres textuales de las etapas 9, 11 y 12. */
+    const CIERRE_ETAPA_9 = 'Este es el plan de producción de tu diseño. ¿Con qué material quieres comenzar?';
+    const CIERRE_ETAPA_11 = 'El material quedó registrado. ¿Quieres producir otro material del plan, trabajar con otro '
+        . 'diseño o cerrar el centro de producción?';
+    const CIERRE_ETAPA_12 = 'Cerramos el centro de producción para este diseño. Puedes volver cuando quieras para '
+        . 'producir los materiales pendientes, una nueva versión de un material o los materiales de otro diseño validado.';
+
+    /** @var string Preguntas textuales del prompt complementario: seleccion del diseno, 10.1 y 10.4. */
+    const PREGUNTA_DISENO = '¿Con qué diseño quieres trabajar?';
+    const PREGUNTA_REFERENCIAS = '¿Quieres cargar materiales técnicos propios de referencia para producir este recurso '
+        . '(por ejemplo, manuales, fichas técnicas, procedimientos o normas)? Puedes cargarlos en PDF, Word, Excel o imagen, '
+        . 'o indicar materiales que ya cargaste para otro recurso de este diseño.';
+    const PREGUNTA_REVISION = 'Revisa el material. ¿Apruebas el material o quieres ajustar alguna sección?';
+
+    /** @var string[] Los 7 principios textuales del Prompt Complementario del Centro de Produccion. */
+    const PRINCIPIOS = [
+        'PRINCIPIOS DEL CENTRO:',
+        '1. NO MODIFICAS EL DISEÑO VALIDADO',
+        '- Produces cada material con los contenidos, la secuencia, la extensión, la estructura y el formato especificados '
+            . 'en el diseño.',
+        '- No puedes cambiar el diseño ni proponer, sugerir o inducir cambios en él: no comentes que un material, una '
+            . 'actividad o un criterio podría mejorarse, ampliarse o reemplazarse.',
+        '- Si la persona facilitadora solicita un ajuste que implica cambiar el diseño (por ejemplo, agregar un criterio, '
+            . 'cambiar una actividad o un tiempo), responde exactamente: "' . self::RESPUESTA_NO_MODIFICA . '"',
+        '2. REVISIÓN POR LA PERSONA FACILITADORA',
+        'La persona facilitadora revisa y aprueba la estructura y el contenido de cada material. No avanzas a la '
+            . 'siguiente etapa ni al siguiente material sin su aprobación.',
+        '3. EXACTITUD TÉCNICA',
+        '- Usa solo valores técnicos, normativos y de seguridad que provengan del diseño, del plan formativo, del perfil '
+            . 'ocupacional o de los materiales de referencia cargados por la persona facilitadora.',
+        '- Si un contenido técnico, normativo o de seguridad no proviene de esas fuentes, márcalo en el lugar exacto con '
+            . 'la marca: [REVISAR: motivo]. Ejemplo: [REVISAR: valor de capacidad de carga no informado en el diseño].',
+        '- Nunca inventes normas, códigos, valores límite, capacidades ni procedimientos de seguridad.',
+        '- Los casos, nombres, empresas y datos que crees son ficticios y deben declararse como tales en el material.',
+        '4. ECONOMÍA DE RECURSOS DE IA',
+        '- Propón la estructura antes de producir el contenido completo.',
+        '- Produce un material por turno.',
+        '- Ajusta solo las secciones observadas: no regeneres el material completo.',
+        '- Reutiliza los contenidos ya producidos en otros materiales del mismo diseño, remitiendo a ellos en lugar de '
+            . 'repetirlos.',
+        '- Genera las versiones impresa y digital de un material desde una sola fuente.',
+        '- Ajusta la extensión al tiempo de uso previsto en el diseño.',
+        '- No agregues explicaciones, introducciones ni contenidos que no estén especificados.',
+        '5. MATERIALES DE REFERENCIA DE LA PERSONA FACILITADORA',
+        '- Úsalos solo para desarrollar los contenidos especificados en el diseño: no amplían ni modifican los '
+            . 'contenidos, la extensión ni el alcance del material.',
+        '- Si un material de referencia contradice el diseño o el plan formativo, sigue el diseño y señala la diferencia '
+            . 'con la marca [REVISAR: diferencia con el material de referencia «nombre»].',
+        '- Si un material de referencia no se relaciona con el material que se está produciendo, indícalo y no lo uses.',
+        '- No reproduzcas pasajes extensos en forma textual: sintetiza y adapta al grupo, e indica la fuente al final '
+            . 'del material.',
+        '- Si contienen datos personales o información confidencial de una empresa, no los traslades al material: usa '
+            . 'datos ficticios equivalentes.',
+        '- Si un material de referencia es extenso, pide a la persona facilitadora que indique las secciones o páginas '
+            . 'pertinentes, para usar solo esa parte.',
+        '- Los materiales cargados quedan disponibles en el repositorio del diseño y la persona facilitadora puede decidir '
+            . 'reutilizarlos en otros materiales del mismo diseño.',
+        '6. LENGUAJE',
+        '- Usa lenguaje inclusivo con perspectiva de género.',
+        '- Usa terminología de formación de personas adultas y formación laboral; nunca uses los conceptos «pedagógico» '
+            . 'o «pedagogía».',
+        '- Usa «experiencia de aprendizaje», nunca «sesión», para referirte a la experiencia diseñada.',
+        '- Adecua el nivel de lectura a las características del grupo registradas en la ficha de diagnóstico.',
+        '7. SIN CONEXIÓN CON EL LMS DEL ORGANISMO EJECUTOR',
+        'No cargas ni publicas recursos en ninguna plataforma. Entregas cada material listo para copiar y pegar, en código '
+            . 'HTML o como archivo descargable, para que la persona facilitadora lo configure en el Moodle del organismo '
+            . 'ejecutor, en otra plataforma o lo use en formato impreso o digital con las personas participantes.',
+    ];
+
+    /** @var string[] Control de calidad interno del Centro. */
+    const CONTROL_CALIDAD = [
+        'CONTROL DE CALIDAD INTERNO:',
+        'Antes de entregar cada material, verifica:',
+        '- Que corresponde a la especificación del diseño y a la estructura aprobada.',
+        '- Que no propone ni induce cambios en el diseño.',
+        '- Que los contenidos técnicos, normativos y de seguridad provienen de las fuentes autorizadas o llevan la marca [REVISAR].',
+        '- Que los materiales de referencia se usaron solo para los contenidos especificados, sin reproducir pasajes extensos ni datos personales o confidenciales, y que sus fuentes están indicadas.',
+        '- Que los casos y datos ficticios están declarados como tales.',
+        '- Que el formato de salida es válido (sintaxis GIFT, HTML compatible con Moodle, script ejecutable, archivo editable).',
+        '- En Modo C, que los enlaces están verificados y cumplen los criterios de selección.',
+        '- Que se respetan las reglas de lenguaje.',
+        'Si detectas un error, corrígelo antes de entregar el material.',
+    ];
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Funciones puras (sin BD).
+    // ------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Catalogo de capacidades reales habilitadas en la plataforma (sin servicios externos de Azure).
+     *
+     * @param bool $conbusqueda Si la busqueda web esta disponible para Modo C.
+     * @return string
+     */
+    public static function catalog_text(bool $conbusqueda = true): string {
+        $l = [
+            'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN DE LA PLATAFORMA:',
+            '- Modo A (Producción completa con IA): texto estructurado para copiar y pegar, guías, casos, fichas técnicas, '
+                . 'glosarios, guiones, diagramas en bloques «diagrama» y código HTML limpio compatible con el editor de Moodle.',
+            '- Modo B (Producción con IA y conversión local en la plataforma):',
+            '  · Documentos Word editables (.docx) con formato institucional.',
+            '  · Planillas y plantillas Excel editables (.xlsx) con varias hojas y fórmulas básicas.',
+            '  · Presentaciones editables (.pptx) con plantilla institucional y notas para la persona facilitadora.',
+            '  · Documentos PDF imprimibles (.pdf) en tamaño Carta, A4, A4 horizontal, A3, A2 o tarjetas 9 × 6 cm, con '
+                . 'pictogramas vectoriales simples ([Pictograma: descripción]); no produce ilustraciones artísticas ni fotografías.',
+            '  · Cuestionarios desde una sola fuente: archivo GIFT (.txt UTF-8) para Moodle, script de Google Apps Script '
+                . '(.gs) para Google Forms y versión imprimible en Word (.docx) con pauta de respuestas por separado.',
+            $conbusqueda
+                ? '- Modo C (Curaduría de recursos existentes): búsqueda en internet habilitada (Google Search grounding) '
+                    . 'con verificación HTTP automática de enlaces en la plataforma (hasta 5 opciones de libre acceso).'
+                : '- Modo C (Curaduría de recursos existentes): búsqueda en internet deshabilitada en este servidor; '
+                    . 'clasifica materiales que exijan búsqueda web como «No producible por el centro».',
+            '- Exclusiones: recursos físicos (equipos, herramientas, insumos, EPP, espacios) no entran al plan; '
+                . 'instrumentos de evaluación del diseño (Etapa 6) se marcan «Instrumento de evaluación del diseño» y se excluyen.',
+        ];
+        return implode("\n", $l);
+    }
+
+    /**
+     * Si un diseno cumple la condicion de activacion del Centro: consolidado (Etapa 7) y evaluado con >= 25 puntos.
+     *
+     * @param array $estadoRuta Resultado de ruta_m2::state_for().
+     * @return bool
+     */
+    public static function eligible_design(array $estadoRuta): bool {
+        $eval = $estadoRuta['evaluacion'] ?? null;
+        return !empty($estadoRuta['evaluado']) && is_array($eval)
+            && (int) ($eval['total'] ?? 0) >= diseno::APROBADO_DESDE
+            && in_array(diseno::CONSOLIDACION, (array) ($estadoRuta['aceptadas'] ?? []), true);
+    }
+
+    /**
+     * Tipo de archivo de referencia admitido por su contenido real.
+     *
+     * @param string $mime
+     * @param string $nombre
+     * @return string|null 'pdf', 'docx', 'xlsx', 'imagen' o null si no se admite.
+     */
+    public static function reference_kind(string $mime, string $nombre): ?string {
+        $ext = mb_strtolower(pathinfo($nombre, PATHINFO_EXTENSION), 'UTF-8');
+        if ($ext === 'pdf' && $mime === 'application/pdf') {
+            return 'pdf';
+        }
+        if ($ext === 'docx' && in_array($mime, ['application/zip', 'application/octet-stream',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], true)) {
+            return 'docx';
+        }
+        if (in_array($ext, ['xlsx', 'xls'], true) && in_array($mime, ['application/zip', 'application/octet-stream',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-excel'], true)) {
+            return 'xlsx';
+        }
+        if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp'], true)
+                && in_array($mime, ['image/png', 'image/jpeg', 'image/webp'], true)) {
+            return 'imagen';
+        }
+        return null;
+    }
+
+    /**
+     * Extrae todas las marcas [REVISAR] o [REVISAR: motivo] de un texto o HTML.
+     *
+     * @param string $texto
+     * @return string[]
+     */
+    public static function extract_review_marks(string $texto): array {
+        $plano = html_entity_decode(strip_tags($texto), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        preg_match_all('/\[REVISAR(?:\s*:\s*[^\]]+)?\]/u', $plano, $m);
+        return $m[0] ?? [];
+    }
+
+    /**
+     * Numero exacto de marcas [REVISAR] en un texto o HTML.
+     *
+     * @param string $texto
+     * @return int
+     */
+    public static function count_review_marks(string $texto): int {
+        return count(self::extract_review_marks($texto));
+    }
+
+    /**
+     * Resalta visualmente las marcas [REVISAR: ...] y renderiza pictogramas SVG en el HTML de pantalla.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function highlight_review_marks(string $html): string {
+        $html = recurso_export::render_pictograms($html, 22);
+        return (string) preg_replace_callback('/\[REVISAR(?:\s*:\s*[^\]]+)?\]/u', static function(array $m): string {
+            return '<span class="badge bg-warning text-dark cr-revisar">'
+                . htmlspecialchars($m[0], ENT_QUOTES, 'UTF-8') . '</span>';
+        }, $html);
+    }
+
+    /**
+     * Detecta si un material corresponde a un cuestionario por su nombre o formato.
+     *
+     * @param string $nombre
+     * @param string $formato
+     * @return bool
+     */
+    public static function is_quiz_material(string $nombre, string $formato): bool {
+        $t = mb_strtolower($nombre . ' ' . $formato, 'UTF-8');
+        return preg_match('/cuestionario|quiz|\bgift\b|google\s*forms|preguntas\s+formativas/u', $t) === 1;
+    }
+
+    /**
+     * Determina los formatos de descarga disponibles para un material segun su modo y especificacion.
+     *
+     * @param string $modo 'A', 'B', 'C' o combinacion ('B/C').
+     * @param string $formato Texto del formato de salida.
+     * @param string $nombre Nombre del material.
+     * @param string $plataformaQuiz '', 'moodle', 'google', 'impreso' o 'todas'.
+     * @return string[] Claves de formato: 'html', 'docx', 'xlsx', 'pptx', 'pdf', 'gift', 'gs', 'quiz_docx', 'curaduria'.
+     */
+    public static function detect_formats(string $modo, string $formato, string $nombre = '',
+            string $plataformaQuiz = ''): array {
+        $m = strtoupper(trim($modo));
+        $f = mb_strtolower($formato . ' ' . $nombre, 'UTF-8');
+        $out = [];
+        if ($m === 'C') {
+            return ['curaduria', 'docx'];
+        }
+        if (self::is_quiz_material($nombre, $formato)) {
+            $pq = mb_strtolower(trim($plataformaQuiz), 'UTF-8');
+            if ($pq === 'moodle') {
+                return ['gift', 'quiz_docx'];
+            }
+            if ($pq === 'google') {
+                return ['gs', 'quiz_docx'];
+            }
+            if ($pq === 'impreso') {
+                return ['quiz_docx', 'pdf'];
+            }
+            return ['gift', 'gs', 'quiz_docx'];
+        }
+        if (strpos($m, 'A') !== false || preg_match('/html|moodle|texto|guion|glosario|caso/u', $f)) {
+            $out[] = 'html';
+        }
+        if (preg_match('/excel|xlsx|planilla|hoja de c[aá]lculo/u', $f)) {
+            $out[] = 'xlsx';
+        }
+        if (preg_match('/presentaci[oó]n|pptx|powerpoint|diapositiva/u', $f)) {
+            $out[] = 'pptx';
+        }
+        if (preg_match('/\bpdf\b|afiche|tarjeta|tablero|mapa|infograf|plastific|imprimir|bit[aá]cora/u', $f)) {
+            $out[] = 'pdf';
+        }
+        if (preg_match('/word|docx|manual|dossier|gu[ií]a|ficha|pauta|documento/u', $f) || $m === 'B' || !$out) {
+            $out[] = 'docx';
+        }
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * Etiqueta legible del estado del centro para un diseno (tabla de Seleccion del diseno).
+     *
+     * @param object|null $plan
+     * @param array $recursos Filas de local_chatbot_recurso.
+     * @return string
+     */
+    public static function design_status_label(?object $plan, array $recursos): string {
+        if (!$plan || $plan->estado === self::PLAN_SIN_INICIAR) {
+            return 'Sin iniciar';
+        }
+        if ($plan->estado === self::PLAN_CERRADO) {
+            return 'Cerrado';
+        }
+        $producibles = 0;
+        $entregados = 0;
+        foreach ($recursos as $r) {
+            $est = (string) ($r->estado ?? '');
+            if (in_array($est, [self::MAT_NO_PRODUCIBLE, self::MAT_INSTRUMENTO], true)) {
+                continue;
+            }
+            $producibles++;
+            if (in_array($est, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)) {
+                $entregados++;
+            }
+        }
+        return "En producción: {$entregados} de {$producibles}";
+    }
+
+    /**
+     * Verifica que una URL sea http(s) publica (bloquea esquemas peligrosos y rangos privados/localhost contra SSRF).
+     *
+     * @param string $url
+     * @return bool
+     */
+    public static function is_safe_public_url(string $url): bool {
+        $url = trim($url);
+        if (!preg_match('#^https?://#i', $url)) {
+            return false;
+        }
+        $parts = parse_url($url);
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if ($host === '' || $host === 'localhost' || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
+            return false;
+        }
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+        }
+        return strpos($host, '.') !== false;
+    }
+
+    /**
+     * Verifica por HTTP que un enlace exista y sea accesible (Modo C: «Solo se recomiendan recursos con enlace verificado»).
+     * Resuelve redirecciones y rechaza direcciones privadas o codigos >= 400.
+     *
+     * @param string $url
+     * @param int $timeout Segundos.
+     * @return array ['ok' => bool, 'url' => string, 'code' => int].
+     */
+    public static function verify_url(string $url, int $timeout = 8): array {
+        $url = trim($url);
+        if (!self::is_safe_public_url($url) || !function_exists('curl_init')) {
+            return ['ok' => false, 'url' => $url, 'code' => 0];
+        }
+        // Comprobacion DNS para evitar SSRF via dominio que resuelve a IP privada.
+        $host = (string) parse_url($url, PHP_URL_HOST);
+        $ip = gethostbyname($host);
+        if ($ip !== $host && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+            return ['ok' => false, 'url' => $url, 'code' => 0];
+        }
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_NOBODY, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 4);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; SENCE-CentroRecursos/1.0)');
+        curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $final = (string) curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+        curl_close($ch);
+
+        // Algunos servidores (como YouTube o sitios institucionales) rechazan HEAD con 403/405: reintentar con GET corto.
+        if (in_array($code, [403, 405], true) || $code === 0) {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_RANGE, '0-2048');
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 4);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; SENCE-CentroRecursos/1.0)');
+            curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $final = (string) curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+            curl_close($ch);
+        }
+        $finalOk = $final !== '' && self::is_safe_public_url($final) ? $final : $url;
+        return ['ok' => $code >= 200 && $code < 400 && self::is_safe_public_url($finalOk), 'url' => $finalOk, 'code' => $code];
+    }
+
+    /**
+     * Filtra la ficha de curaduria (Modo C) dejando unicamente opciones cuyo enlace fue verificado. Funcion pura.
+     *
+     * @param array $opciones Lista de opciones de parse_curaduria_json().
+     * @param callable $verificador fn(string $url): array ['ok' => bool, 'url' => string, 'code' => int].
+     * @return array ['verificadas' => array, 'descartadas' => int].
+     */
+    public static function filter_verified_links(array $opciones, callable $verificador): array {
+        $verificadas = [];
+        $descartadas = 0;
+        foreach ($opciones as $op) {
+            $enlace = trim((string) ($op['enlace'] ?? ''));
+            if ($enlace === '' || !self::is_safe_public_url($enlace)) {
+                $descartadas++;
+                continue;
+            }
+            $res = $verificador($enlace);
+            if (!empty($res['ok'])) {
+                $op['enlace'] = (string) ($res['url'] ?? $enlace);
+                $verificadas[] = $op;
+            } else {
+                $descartadas++;
+            }
+            if (count($verificadas) >= 5) {
+                break;
+            }
+        }
+        return ['verificadas' => $verificadas, 'descartadas' => $descartadas];
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Parsers de salidas estructuradas del modelo (Etapa 9, Modo C y Modo B).
+    // ------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Decodifica el JSON del Plan de produccion (Etapa 9). Funcion pura.
+     *
+     * @param string|null $texto Respuesta del modelo.
+     * @return array|null ['materiales' => [...], 'excluidos_fisicos' => string[]].
+     */
+    public static function parse_plan_json(?string $texto): ?array {
+        $json = exante::decode_json($texto);
+        if (!$json || !isset($json['materiales']) || !is_array($json['materiales'])) {
+            return null;
+        }
+        $lista = [];
+        $idx = 0;
+        foreach ($json['materiales'] as $m) {
+            if (!is_array($m)) {
+                continue;
+            }
+            $nombre = trim((string) ($m['nombre'] ?? ''));
+            if ($nombre === '') {
+                continue;
+            }
+            $idx++;
+            $codigo = trim((string) ($m['codigo'] ?? ('M' . $idx)));
+            $modoRaw = strtoupper(trim((string) ($m['modo'] ?? 'B')));
+            $modo = in_array($modoRaw, ['A', 'B', 'C', 'A/B', 'B/C', 'A/C'], true) ? $modoRaw : 'B';
+            $estadoRaw = mb_strtolower(trim((string) ($m['estado'] ?? 'pendiente')), 'UTF-8');
+            if (strpos($estadoRaw, 'instrumento') !== false) {
+                $estado = self::MAT_INSTRUMENTO;
+            } else if (strpos($estadoRaw, 'no producible') !== false || $estadoRaw === 'no_producible') {
+                $estado = self::MAT_NO_PRODUCIBLE;
+            } else {
+                $estado = self::MAT_PENDIENTE;
+            }
+            $especRaw = mb_strtolower(trim((string) ($m['especificacion'] ?? 'completa')), 'UTF-8');
+            $espec = strpos($especRaw, 'incomplet') !== false ? 'incompleta' : 'completa';
+            $lista[] = [
+                'orden' => $idx,
+                'codigo' => mb_substr($codigo, 0, 20, 'UTF-8'),
+                'nombre' => mb_substr($nombre, 0, 250, 'UTF-8'),
+                'fase' => mb_substr(trim((string) ($m['fase'] ?? '')), 0, 180, 'UTF-8'),
+                'modo' => $modo,
+                'formato' => mb_substr(trim((string) ($m['formato'] ?? 'Word (.docx)')), 0, 180, 'UTF-8'),
+                'especificacion' => $espec,
+                'espec_detalle' => trim((string) ($m['faltantes'] ?? ($m['espec_detalle'] ?? ''))),
+                'estado' => $estado,
+            ];
+        }
+        if (!$lista) {
+            return null;
+        }
+        $fisicos = [];
+        foreach ((array) ($json['excluidos_fisicos'] ?? []) as $f) {
+            $t = trim((string) $f);
+            if ($t !== '') {
+                $fisicos[] = $t;
+            }
+        }
+        return ['materiales' => $lista, 'excluidos_fisicos' => $fisicos];
+    }
+
+    /**
+     * Decodifica la ficha de curaduria del Modo C (hasta 5 opciones). Funcion pura.
+     *
+     * @param string|null $texto
+     * @return array|null ['criterios_busqueda' => string, 'opciones' => [...]].
+     */
+    public static function parse_curaduria_json(?string $texto): ?array {
+        $json = exante::decode_json($texto);
+        if (!$json || !isset($json['opciones']) || !is_array($json['opciones'])) {
+            return null;
+        }
+        $ops = [];
+        foreach (array_slice($json['opciones'], 0, 8) as $op) {
+            if (!is_array($op) || trim((string) ($op['titulo'] ?? '')) === '') {
+                continue;
+            }
+            $ops[] = [
+                'titulo' => trim((string) $op['titulo']),
+                'fuente' => trim((string) ($op['fuente'] ?? '')),
+                'duracion' => trim((string) ($op['duracion'] ?? 'No informada')),
+                'idioma' => trim((string) ($op['idioma'] ?? 'Español')),
+                'enlace' => trim((string) ($op['enlace'] ?? '')),
+                'momento' => trim((string) ($op['momento'] ?? '')),
+                'justificacion' => trim((string) ($op['justificacion'] ?? '')),
+                'advertencias' => trim((string) ($op['advertencias'] ?? 'Ninguna.')),
+            ];
+        }
+        return [
+            'criterios_busqueda' => trim((string) ($json['criterios_busqueda'] ?? '')),
+            'opciones' => $ops,
+        ];
+    }
+
+    /**
+     * Arma HTML limpio de la ficha de recomendacion (Modo C) a partir de las opciones verificadas.
+     *
+     * @param array $opciones
+     * @param string $fechaVerif Fecha de verificacion (ej. 19-11-2026).
+     * @param string $codigo Codigo del material.
+     * @param array $seleccionados Indices (0-based) elegidos por la persona facilitadora.
+     * @return string HTML.
+     */
+    public static function curaduria_html(array $opciones, string $fechaVerif, string $codigo,
+            array $seleccionados = []): string {
+        $e = static fn(string $t) => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+        if (!$opciones) {
+            return '<p>No se encontraron recursos abiertos con enlace verificado que cumplan todos los criterios de '
+                . 'búsqueda del diseño. Puedes ajustar los criterios o intentarlo nuevamente.</p>';
+        }
+        $html = '<p><strong>Ficha de recomendación (Modo C).</strong> Enlaces verificados el ' . $e($fechaVerif) . '.</p>'
+            . '<table class="table table-sm"><thead><tr><th>N.º</th><th>Título · fuente</th><th>Duración / Idioma</th>'
+            . '<th>Momento de uso</th><th>Justificación</th><th>Advertencias</th><th>Enlace verificado</th></tr></thead><tbody>';
+        foreach (array_values($opciones) as $i => $op) {
+            $marca = in_array($i, $seleccionados, true) ? ' <strong>(Seleccionado)</strong>' : '';
+            $url = $e((string) ($op['enlace'] ?? ''));
+            $html .= '<tr><td>' . ($i + 1) . $marca . '</td>'
+                . '<td><strong>' . $e((string) $op['titulo']) . '</strong><br><small>' . $e((string) $op['fuente']) . '</small></td>'
+                . '<td>' . $e((string) $op['duracion']) . '<br><small>' . $e((string) $op['idioma']) . '</small></td>'
+                . '<td>' . $e((string) $op['momento']) . '</td>'
+                . '<td>' . $e((string) $op['justificacion']) . '</td>'
+                . '<td>' . $e((string) $op['advertencias']) . '</td>'
+                . '<td><a href="' . $url . '" target="_blank" rel="noopener">Abrir recurso</a></td></tr>';
+        }
+        $html .= '</tbody></table>'
+            . '<p><em>Revisa cada recurso completo antes de usarlo. Comparte el enlace; no descargues ni redistribuyas el recurso.</em></p>'
+            . '<p><em>' . $e($codigo) . ' · ' . self::PIE_MATERIAL . '</em></p>';
+        return $html;
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Constructores de prompts (Etapas 9, 10.2, 10.3 y 10.4). Funciones puras.
+    // ------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Encabezados HTML (h1 a h6) como lineas Markdown («<h2>Parte 1</h2>» → «<p>## Parte 1</p>»), para que el material
+     * actual llegue al ajuste con sus titulos y el asistente pueda devolver solo las secciones. Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function headings_as_markdown(string $html): string {
+        return (string) preg_replace_callback('/<h([1-6])[^>]*>(.*?)<\/h\1>/isu', static function(array $m): string {
+            return '<p>' . str_repeat('#', (int) $m[1]) . ' ' . trim(strip_tags($m[2])) . '</p>';
+        }, $html);
+    }
+
+    /**
+     * Secciones de un HTML por sus encabezados: [['nivel' => n, 'clave' => titulo normalizado, 'html' => encabezado y
+     * cuerpo hasta el siguiente encabezado del mismo nivel o superior]]; lo anterior al primer encabezado va con nivel 0.
+     * Funcion pura.
+     *
+     * @param string $html
+     * @return array[]
+     */
+    public static function html_sections(string $html): array {
+        $partes = preg_split('/(<h[1-6][^>]*>.*?<\/h[1-6]>)/isu', $html, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        $secciones = [['nivel' => 0, 'clave' => '', 'html' => '']];
+        foreach ($partes as $p) {
+            if (preg_match('/^<h([1-6])[^>]*>(.*?)<\/h\1>$/isu', $p, $m)) {
+                $secciones[] = ['nivel' => (int) $m[1], 'clave' => self::heading_key($m[2]), 'html' => $p];
+            } else {
+                $secciones[count($secciones) - 1]['html'] .= $p;
+            }
+        }
+        return $secciones;
+    }
+
+    /**
+     * Titulo normalizado para comparar encabezados (sin etiquetas, numeracion inicial, tildes ni signos). Funcion pura.
+     *
+     * @param string $titulo
+     * @return string
+     */
+    public static function heading_key(string $titulo): string {
+        $t = diseno::plain_lower(html_entity_decode(strip_tags($titulo), ENT_QUOTES, 'UTF-8'));
+        $t = preg_replace('/^[\d.\s·\-–—]+/u', '', $t);
+        return trim(preg_replace('/[^a-z0-9]+/u', ' ', $t));
+    }
+
+    /**
+     * Aplica un ajuste por seccion (10.4): reemplaza en el material actual cada seccion que trae el ajuste, buscada por
+     * su titulo, hasta el siguiente encabezado del mismo nivel o superior, y deja el pie obligatorio una sola vez al
+     * final. Devuelve null si el ajuste no trae encabezados o alguno no existe en el material (no se adivina donde va).
+     * Funcion pura.
+     *
+     * @param string $actual HTML del material actual.
+     * @param string $parcial HTML de las secciones ajustadas.
+     * @param string $pie Linea de cierre «codigo · pie».
+     * @return string|null
+     */
+    public static function merge_sections(string $actual, string $parcial, string $pie): ?string {
+        $sinpie = static fn(string $h): string => (string) preg_replace(
+            '/<p>(?:(?!<\/p>).)*' . preg_quote(self::PIE_MATERIAL, '/') . '(?:(?!<\/p>).)*<\/p>/isu', '', $h);
+        // Secciones del ajuste agrupadas: cada encabezado de primer nivel del ajuste con sus subsecciones como cuerpo.
+        $nuevas = [];
+        foreach (self::html_sections($sinpie($parcial)) as $s) {
+            if ($s['nivel'] === 0) {
+                continue;
+            }
+            $ultima = count($nuevas) - 1;
+            if ($ultima >= 0 && $s['nivel'] > $nuevas[$ultima]['nivel']) {
+                $nuevas[$ultima]['cuerpo'] .= $s['html'];
+            } else {
+                $nuevas[] = ['nivel' => $s['nivel'], 'clave' => $s['clave'], 'html' => $s['html'], 'cuerpo' => ''];
+            }
+        }
+        if (!$nuevas) {
+            return null;
+        }
+        $secciones = self::html_sections($sinpie($actual));
+        foreach ($nuevas as $nueva) {
+            $i = null;
+            foreach ($secciones as $k => $s) {
+                if ($s['nivel'] > 0 && $s['clave'] === $nueva['clave'] && $s['clave'] !== '') {
+                    $i = $k;
+                    break;
+                }
+            }
+            if ($i === null) {
+                return null;
+            }
+            // La seccion abarca sus subsecciones: hasta el siguiente encabezado del mismo nivel o superior.
+            $fin = $i + 1;
+            while ($fin < count($secciones) && $secciones[$fin]['nivel'] > $secciones[$i]['nivel']) {
+                $fin++;
+            }
+            array_splice($secciones, $i, $fin - $i, [['nivel' => $nueva['nivel'], 'clave' => $nueva['clave'],
+                'html' => $nueva['html'] . $nueva['cuerpo']]]);
+        }
+        $html = rtrim(implode('', array_map(static fn($s) => $s['html'], $secciones)));
+        // La linea de fuentes utilizadas se conserva aunque el ajuste reemplace la ultima seccion sin repetirla.
+        $fuentes = '/<p>(?:(?!<\/p>).)*Fuentes utilizadas(?:(?!<\/p>).)*<\/p>/isu';
+        if (!preg_match($fuentes, $html) && preg_match($fuentes, $actual, $m)) {
+            $html .= $m[0];
+        }
+        return $html . '<p><em>' . htmlspecialchars($pie, ENT_QUOTES, 'UTF-8') . '</em></p>';
+    }
+
+    /**
+     * Prompt de la Etapa 9: Plan de produccion.
+     *
+     * @param string $disenoTexto Diseno consolidado (texto).
+     * @param string $fichaTexto Ficha de diagnostico (texto).
+     * @param bool $conbusqueda Si el Modo C esta habilitado.
+     * @return string
+     */
+    public static function build_plan_prompt(string $disenoTexto, string $fichaTexto, bool $conbusqueda = true): string {
+        return implode("\n", [
+            'Eres el ' . exante::ROL . ' operando en el CENTRO DE PRODUCCIÓN DE RECURSOS DE APRENDIZAJE (Etapa 9: Plan de '
+                . 'producción). No diseñas, no rediseñas y no evalúas el diseño: solo levantas el plan de producción de los '
+                . 'materiales instruccionales ya especificados en la Etapa 4 del diseño validado.',
+            '',
+            implode("\n", self::PRINCIPIOS),
+            '',
+            self::catalog_text($conbusqueda),
+            '',
+            'TAREA — ETAPA 9: PLAN DE PRODUCCIÓN:',
+            '- Recupera la tabla de síntesis de materiales (4.2) y la definición de cada material (4.1) de la Etapa 4 del '
+                . 'diseño consolidado, en el orden de la secuencia instruccional.',
+            '- Si el diseño incluye la lista de producción con tipo y modo (A, B o C) de cada material, úsala tal como está.',
+            '- Si el diseño es anterior y no incluye modos de producción, asigna a cada material el modo que corresponda según '
+                . 'su formato y el catálogo de capacidades, sin cambiar el material.',
+            '- Los recursos físicos (equipos, herramientas, insumos, EPP y espacios de práctica) NO entran al plan: lístalos '
+                . 'solo en «excluidos_fisicos».',
+            '- El centro NO produce instrumentos de evaluación (Etapa 6): si un material de la Etapa 4 corresponde a uno de '
+                . 'esos instrumentos, regístralo con estado «Instrumento de evaluación del diseño».',
+            '- Si un material no puede producirse en ninguno de los tres modos habilitados, regístralo con estado '
+                . '«No producible por el centro», sin proponer alternativas.',
+            '- Para cada material verifica si la especificación incluye destinatarios, propósito y actividad, contenidos y '
+                . 'secuencia, extensión, estructura, formato de salida, modo y (en Modo C) especificación de búsqueda. Si falta '
+                . 'algo, marca especificacion «incompleta» y anota brevemente qué falta en «faltantes» (sin proponer cambios al diseño).',
+            '',
+            guardrails::injection_clause(),
+            '',
+            'FORMATO DE RESPUESTA: únicamente un objeto JSON válido, sin texto antes ni después y sin bloques de código:',
+            '{"materiales": [{"codigo": "M1", "nombre": "...", "fase": "J1 · inicio / actividad...", "modo": "A|B|C|A/B|B/C", '
+                . '"formato": "Word (.docx) / PDF A4 / Excel (.xlsx) / Presentación (.pptx) / Cuestionario GIFT / Ficha de recomendación...", '
+                . '"especificacion": "completa|incompleta", "faltantes": "", '
+                . '"estado": "pendiente|no_producible|instrumento"}], "excluidos_fisicos": ["..."]}',
+            '',
+            'FICHA DE DIAGNÓSTICO VALIDADA:',
+            guardrails::isolate_user_content($fichaTexto),
+            '',
+            'DISEÑO CONSOLIDADO VALIDADO:',
+            guardrails::isolate_user_content($disenoTexto),
+        ]);
+    }
+
+    /**
+     * Prompt de la Etapa 10.2: Propuesta de estructura del material antes de producir el contenido completo.
+     *
+     * @param array $material ['codigo', 'nombre', 'fase', 'modo', 'formato', 'especificacion', 'espec_detalle'].
+     * @param array $datosNoDiseno ['organismo', 'curso', 'facilitador', 'impresion'].
+     * @param string $disenoTexto
+     * @param string $fichaTexto
+     * @param string[] $refsNombres Nombres y secciones de materiales tecnicos cargados.
+     * @param string[] $yaProducidos Codigos y nombres de materiales ya producidos del mismo diseno (reutilizacion).
+     * @param string $ajusteEstructura Ajuste solicitado a la estructura (vacio la primera vez).
+     * @return string
+     */
+    public static function build_structure_prompt(array $material, array $datosNoDiseno, string $disenoTexto,
+            string $fichaTexto, array $refsNombres = [], array $yaProducidos = [], string $ajusteEstructura = ''): string {
+        $l = [
+            'Eres el ' . exante::ROL . ' operando en el CENTRO DE PRODUCCIÓN DE RECURSOS (Etapa 10.2: Estructura del material).',
+            '',
+            implode("\n", self::PRINCIPIOS),
+            '',
+            'TAREA — ETAPA 10.2: PROPONER LA ESTRUCTURA DEL MATERIAL (NO produzcas todavía el material completo):',
+            '- Material elegido: ' . $material['codigo'] . ' · ' . $material['nombre'],
+            '- Fase y actividad: ' . ($material['fase'] ?: 'según diseño'),
+            '- Modo: ' . $material['modo'] . ' | Formato de salida: ' . $material['formato'],
+            '- Especificación en el diseño: ' . $material['especificacion']
+                . ($material['espec_detalle'] !== '' ? ' (' . $material['espec_detalle'] . ')' : ''),
+            '- Datos para cabecera (no de diseño): Organismo: ' . ($datosNoDiseno['organismo'] ?? '(sin indicar)')
+                . '; Curso: ' . ($datosNoDiseno['curso'] ?? '(sin indicar)')
+                . '; Persona facilitadora: ' . ($datosNoDiseno['facilitador'] ?? '(sin indicar)')
+                . '; Formato de impresión: ' . ($datosNoDiseno['impresion'] ?? 'Carta') . '.',
+            '',
+            'Presenta en Markdown claro y breve:',
+            '1. Nombre, código, modo y formato de salida.',
+            '2. Partes o secciones del material, con su contenido en una línea cada una.',
+            '3. Extensión estimada (acorde al tiempo de uso previsto en el diseño).',
+            '4. Contenidos técnicos, normativos o de seguridad que llevarán la marca [REVISAR: motivo] (o indicar «Ninguno previsto»).',
+            '5. Materiales de referencia propios que se usarán y para qué contenidos (si se cargaron; si alguno no se relaciona, indícalo).',
+            $yaProducidos ? '6. Reutilización: materiales ya producidos en este diseño a los que remitirás sin repetir: '
+                . implode('; ', $yaProducidos) . '.' : '',
+            'Cierra con la pregunta exacta: «¿Apruebas esta estructura para producir el material completo?»',
+            '',
+            $refsNombres ? 'MATERIALES TÉCNICOS DE REFERENCIA CARGADOS PARA ESTE RECURSO: ' . implode(' | ', $refsNombres) : '',
+            $ajusteEstructura !== '' ? "AJUSTE SOLICITADO A LA ESTRUCTURA (si implica cambiar el diseño validado, aplica el principio 1):\n"
+                . guardrails::isolate_user_content($ajusteEstructura) : '',
+            '',
+            guardrails::injection_clause(),
+            '',
+            'FICHA DE DIAGNÓSTICO VALIDADA:',
+            guardrails::isolate_user_content($fichaTexto),
+            '',
+            'DISEÑO CONSOLIDADO VALIDADO:',
+            guardrails::isolate_user_content($disenoTexto),
+        ];
+        return implode("\n", array_filter($l, static fn($x) => $x !== null));
+    }
+
+    /**
+     * Prompt de la Etapa 10.3: Produccion del contenido completo segun el modo (A, B, Cuestionarios o C).
+     *
+     * @param array $material
+     * @param string $estructura Estructura aprobada por la persona facilitadora.
+     * @param array $datosNoDiseno
+     * @param string $disenoTexto
+     * @param string $fichaTexto
+     * @param string $plataformaQuiz 'moodle', 'google', 'impreso' o ''.
+     * @param string[] $yaProducidos
+     * @return string
+     */
+    public static function build_content_prompt(array $material, string $estructura, array $datosNoDiseno,
+            string $disenoTexto, string $fichaTexto, string $plataformaQuiz = '', array $yaProducidos = []): string {
+        $modo = strtoupper(trim((string) ($material['modo'] ?? 'A')));
+        $esQuiz = self::is_quiz_material((string) $material['nombre'], (string) $material['formato']);
+        $formatos = self::detect_formats($modo, (string) $material['formato'], (string) $material['nombre'], $plataformaQuiz);
+
+        $l = [
+            'Eres el ' . exante::ROL . ' operando en el CENTRO DE PRODUCCIÓN DE RECURSOS (Etapa 10.3: Producción del contenido).',
+            '',
+            implode("\n", self::PRINCIPIOS),
+            '',
+            implode("\n", self::CONTROL_CALIDAD),
+            '',
+            'MATERIAL A PRODUCIR:',
+            '- Código y nombre: ' . $material['codigo'] . ' · ' . $material['nombre'],
+            '- Fase y actividad: ' . ($material['fase'] ?: 'según diseño'),
+            '- Modo: ' . $modo . ' | Formato de salida: ' . $material['formato'],
+            '- Datos de cabecera: Organismo: ' . ($datosNoDiseno['organismo'] ?? '')
+                . ' | Curso: ' . ($datosNoDiseno['curso'] ?? '')
+                . ' | Persona facilitadora: ' . ($datosNoDiseno['facilitador'] ?? '')
+                . ' | Impresión: ' . ($datosNoDiseno['impresion'] ?? 'Carta'),
+            $yaProducidos ? '- Materiales ya producidos en este diseño (remite a ellos en lugar de repetir): '
+                . implode('; ', $yaProducidos) : '',
+            '',
+            'ESTRUCTURA APROBADA POR LA PERSONA FACILITADORA (respétala íntegramente):',
+            guardrails::isolate_user_content($estructura),
+            '',
+        ];
+
+        if ($modo === 'C') {
+            $l[] = 'INSTRUCCIONES MODO C (CURADURÍA DE RECURSOS EXISTENTES):';
+            $l[] = '- Busca en internet recursos abiertos y gratuitos que cumplan exactamente la especificación del diseño '
+                . '(tipo de recurso, hasta 5 opciones, criterio/actividad, idioma, duración máxima y criterios de selección).';
+            $l[] = '- Verifica que cada enlace esté disponible y sea de acceso libre (la plataforma vuelve a comprobar cada '
+                . 'enlace y registra la fecha de verificación).';
+            $l[] = '- Excluye recursos con procedimientos incorrectos o inseguros, información desactualizada o contenido '
+                . 'publicitario predominante. No completes 5 opciones si menos cumplen los criterios.';
+            $l[] = '- En las advertencias indica, por ejemplo, tramos que no corresponden o diferencias con la normativa nacional.';
+            $l[] = '- No descargues ni reproduzcas los recursos: solo se enlazan. La persona facilitadora selecciona los '
+                . 'recursos que usará.';
+            $l[] = '- Devuelve ÚNICAMENTE un objeto JSON válido, sin texto antes ni después y sin bloques de código:';
+            $l[] = '{"criterios_busqueda": "...", "opciones": [{"titulo": "...", "fuente": "...", "duracion": "7 min", '
+                . '"idioma": "Español", "enlace": "https://...", "momento": "...", "justificacion": "...", "advertencias": "..."}]}';
+        } else if ($esQuiz) {
+            $l[] = 'INSTRUCCIONES PARA CUESTIONARIO (UNA SOLA FUENTE PARA MOODLE GIFT, GOOGLE FORMS E IMPRESO):';
+            $l[] = '- Genera el cuestionario completo respetando los criterios del diseño y la estructura aprobada.';
+            $l[] = '- Tipos válidos por pregunta: "multiple" (opción múltiple con 4 alternativas), "vf" (verdadero/falso) o "corta".';
+            $l[] = '- En "correcta" indica el índice 0..3 (para "multiple"), "verdadero"/"falso" (para "vf") o la respuesta (para "corta").';
+            $l[] = '- Incluye retroalimentación formativa breve en cada pregunta y marcas [REVISAR: motivo] si algún dato técnico no está en las fuentes.';
+            $l[] = '- Devuelve ÚNICAMENTE un objeto JSON válido, sin texto antes ni después y sin bloques de código:';
+            $l[] = '{"titulo": "...", "descripcion": "...", "preguntas": [{"enunciado": "...", "tipo": "multiple|vf|corta", '
+                . '"opciones": ["...", "...", "...", "..."], "correcta": 0, "puntaje": 1, "retroalimentacion": "..."}], '
+                . '"fuentes": ["..."]}';
+        } else if (in_array('xlsx', $formatos, true)) {
+            $l[] = 'INSTRUCCIONES MODO B — PLANILLA EXCEL (.xlsx):';
+            $l[] = '- Genera la planilla editable completa en JSON estructurado (la plataforma la convertirá a .xlsx real '
+                . 'y a vista previa en tabla). Puedes incluir fórmulas Excel simples empezando con "=".';
+            $l[] = '- Devuelve ÚNICAMENTE un objeto JSON válido, sin texto antes ni después y sin bloques de código:';
+            $l[] = '{"titulo": "...", "introduccion": "...", "hojas": [{"nombre": "Hoja 1", "encabezados": ["Col 1", "Col 2"], '
+                . '"filas": [["...", "..."]]}], "fuentes": ["..."]}';
+        } else if (in_array('pptx', $formatos, true) && !in_array('docx', $formatos, true) && !in_array('pdf', $formatos, true)) {
+            $l[] = 'INSTRUCCIONES MODO B — PRESENTACIÓN (.pptx):';
+            $l[] = '- Genera la presentación completa diapositiva por diapositiva en JSON estructurado (la plataforma armará '
+                . 'el archivo .pptx editable con portada institucional y notas para la persona facilitadora).';
+            $l[] = '- Cada diapositiva debe ser concisa (máx. 5–6 puntos breves en pantalla; el detalle oral va en "notas").';
+            $l[] = '- Devuelve ÚNICAMENTE un objeto JSON válido, sin texto antes ni después y sin bloques de código:';
+            $l[] = '{"titulo": "...", "subtitulo": "...", "diapositivas": [{"titulo": "...", "puntos": ["..."], "notas": "..."}], '
+                . '"fuentes": ["..."]}';
+        } else {
+            $l[] = 'INSTRUCCIONES DE PRODUCCIÓN (Markdown estructurado para pantalla, HTML Moodle, Word y/o PDF):';
+            $l[] = '- Entrega el material completo, redactado en español de Chile y listo para usar.';
+            $l[] = '- Usa títulos ## y ###, listas y tablas Markdown. Para pictogramas o íconos visuales en afiches, tarjetas '
+                . 'o tableros, escribe exactamente [Pictograma: descripción breve] (la plataforma los convierte en pictogramas SVG).';
+            $l[] = '- Para diagramas de pasos o ciclos, usa bloques ```diagrama (nunca arte ASCII).';
+            $l[] = diseno::REGLA_FORMULAS;
+            $l[] = '- Incluye [REVISAR: motivo] en el lugar exacto cuando un dato técnico/normativo no provenga de las fuentes autorizadas.';
+            $l[] = '- Si usaste materiales de referencia cargados, agrega «Fuentes utilizadas: ...» al final.';
+            $l[] = '- Cierra siempre con la línea exacta: «' . $material['codigo'] . ' · ' . self::PIE_MATERIAL . '»';
+            $l[] = '- No agregues saludos ni preguntas al final: la plataforma ya muestra los controles de revisión y aprobación.';
+        }
+
+        $l[] = '';
+        $l[] = guardrails::injection_clause();
+        $l[] = '';
+        $l[] = 'FICHA DE DIAGNÓSTICO VALIDADA:';
+        $l[] = guardrails::isolate_user_content($fichaTexto);
+        $l[] = '';
+        $l[] = 'DISEÑO CONSOLIDADO VALIDADO:';
+        $l[] = guardrails::isolate_user_content($disenoTexto);
+        return implode("\n", $l);
+    }
+
+    /**
+     * Prompt de la Etapa 10.4: Ajuste focalizado por seccion del material (respetando Principio 1).
+     *
+     * @param array $material
+     * @param string $contenidoActual Texto o JSON actual del material.
+     * @param string $ajustePedido Solicitud de ajuste de la persona facilitadora.
+     * @param bool $esJson Si el formato de salida debe seguir siendo JSON estructurado.
+     * @return string
+     */
+    public static function build_adjust_prompt(array $material, string $contenidoActual, string $ajustePedido,
+            bool $esJson = false): string {
+        return implode("\n", [
+            'Eres el ' . exante::ROL . ' operando en el CENTRO DE PRODUCCIÓN DE RECURSOS (Etapa 10.4: Revisión y ajustes).',
+            '',
+            implode("\n", self::PRINCIPIOS),
+            '',
+            implode("\n", self::CONTROL_CALIDAD),
+            '',
+            'REGLA DE AJUSTE:',
+            '- Primero verifica si el pedido implica modificar el diseño validado (agregar o quitar contenidos, criterios, '
+                . 'actividades, tiempos, fases u organización del grupo). Si lo implica, NO cambies el material y responde '
+                . ($esJson ? 'un JSON {"rechazado": true, "mensaje": "' . self::RESPUESTA_NO_MODIFICA . '"}'
+                    : 'exactamente: "' . self::RESPUESTA_NO_MODIFICA . '"'),
+            '- Si el ajuste corresponde a redacción, tono, ejemplos dentro de los contenidos especificados, nivel de lectura '
+                . 'o formato, modifica ÚNICAMENTE las secciones indicadas conservando intacto el resto del material.',
+            $esJson ? '- Entrega el JSON completo actualizado con exactamente la misma estructura.'
+                : '- Entrega solo las secciones modificadas, en Markdown, cada una precedida por su título exacto, con el '
+                    . 'mismo nivel de encabezado (## o ###) con que aparece en el material actual: la plataforma las reemplaza '
+                    . 'en el material. No incluyas las secciones sin cambios ni la línea de cierre. Si la persona facilitadora '
+                    . 'pide expresamente el material completo, entrégalo completo y termina con la línea de cierre «'
+                    . $material['codigo'] . ' · ' . self::PIE_MATERIAL . '».',
+            '',
+            guardrails::injection_clause(),
+            '',
+            'MATERIAL ACTUAL (' . $material['codigo'] . ' · ' . $material['nombre'] . '):',
+            guardrails::isolate_user_content($contenidoActual),
+            '',
+            'AJUSTE SOLICITADO POR LA PERSONA FACILITADORA:',
+            guardrails::isolate_user_content($ajustePedido),
+        ]);
+    }
+
+    /**
+     * Construye el HTML del Repertorio de recursos del diseno (Etapa 12: cierre del centro). Funcion pura.
+     *
+     * @param array $meta ['experiencia', 'plan', 'modulo', 'organismo', 'curso', 'facilitador', 'puntaje'].
+     * @param array $recursos Filas de local_chatbot_recurso.
+     * @param array $refs Filas de local_chatbot_recurso_ref.
+     * @return string HTML.
+     */
+    public static function repertory_html(array $meta, array $recursos, array $refs): string {
+        $e = static fn(string $t) => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+        $estados = [
+            self::MAT_PENDIENTE => 'Pendiente',
+            self::MAT_ESTRUCTURA => 'Pendiente (estructura)',
+            self::MAT_BORRADOR => 'Pendiente (borrador)',
+            self::MAT_ENTREGADO => 'Entregado',
+            self::MAT_ENTREGADO_PARCIAL => 'Entregado parcialmente',
+            self::MAT_NO_PRODUCIBLE => 'No producible por el centro',
+            self::MAT_INSTRUMENTO => 'Instrumento de evaluación del diseño',
+        ];
+        $html = '<h2>Repertorio de recursos del diseño</h2>'
+            . '<p><strong>Experiencia de aprendizaje:</strong> ' . $e((string) ($meta['experiencia'] ?? ''))
+            . '<br><strong>Plan formativo / Módulo:</strong> ' . $e((string) ($meta['plan'] ?? ''))
+            . (!empty($meta['modulo']) ? ' · ' . $e((string) $meta['modulo']) : '')
+            . (!empty($meta['organismo']) ? '<br><strong>Organismo ejecutor:</strong> ' . $e((string) $meta['organismo']) : '')
+            . '</p>';
+
+        $html .= '<h3>1. Estado de los materiales del plan de producción</h3>'
+            . '<table class="table table-sm"><thead><tr><th>Código</th><th>Material</th><th>Modo</th>'
+            . '<th>Formatos entregados</th><th>Versión</th><th>Estado</th><th>Marcas [REVISAR]</th></tr></thead><tbody>';
+        $totalRevisar = 0;
+        $modoC = [];
+        foreach ($recursos as $r) {
+            $est = (string) ($r->estado ?? self::MAT_PENDIENTE);
+            $rev = (int) ($r->revisar_count ?? 0);
+            if (in_array($est, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)) {
+                $totalRevisar += $rev;
+            }
+            $ver = ((int) ($r->version ?? 0)) > 0 ? ('v' . (int) $r->version) : '—';
+            $fmts = in_array($est, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)
+                ? (string) ($r->formato ?? '—') : '—';
+            $html .= '<tr><td>' . $e((string) $r->codigo) . '</td><td>' . $e((string) $r->nombre) . '</td>'
+                . '<td>' . $e((string) $r->modo) . '</td><td>' . $e($fmts) . '</td><td>' . $e($ver) . '</td>'
+                . '<td>' . $e($estados[$est] ?? $est) . '</td><td>'
+                . (in_array($est, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true) ? $rev : '—') . '</td></tr>';
+
+            if (strtoupper((string) $r->modo) === 'C' && !empty($r->estructurado)) {
+                $cur = json_decode((string) $r->estructurado, true);
+                $sel = json_decode((string) ($r->seleccionados ?? '[]'), true) ?: [];
+                $fechaV = !empty($r->fecha_verificacion) ? (string) $r->fecha_verificacion : '';
+                foreach ($sel as $si) {
+                    if (isset($cur['opciones'][$si])) {
+                        $modoC[] = ['codigo' => (string) $r->codigo, 'op' => $cur['opciones'][$si], 'fecha' => $fechaV];
+                    }
+                }
+            }
+        }
+        $html .= '</tbody></table>';
+
+        $html .= '<h3>2. Recursos seleccionados en Modo C (curaduría)</h3>';
+        if ($modoC) {
+            $html .= '<ul>';
+            foreach ($modoC as $item) {
+                $op = $item['op'];
+                $html .= '<li><strong>' . $e($item['codigo']) . ' — ' . $e((string) ($op['titulo'] ?? '')) . '</strong> ('
+                    . $e((string) ($op['fuente'] ?? '')) . ', ' . $e((string) ($op['duracion'] ?? '')) . '): '
+                    . '<a href="' . $e((string) ($op['enlace'] ?? '')) . '" target="_blank" rel="noopener">'
+                    . $e((string) ($op['enlace'] ?? '')) . '</a>'
+                    . ($item['fecha'] !== '' ? ' · verificado el ' . $e($item['fecha']) : '') . '</li>';
+            }
+            $html .= '</ul>';
+        } else {
+            $html .= '<p>No hay recursos de curaduría seleccionados en este diseño.</p>';
+        }
+
+        $html .= '<h3>3. Materiales técnicos de referencia cargados</h3>';
+        if ($refs) {
+            $html .= '<ul>';
+            foreach ($refs as $rf) {
+                $html .= '<li>' . $e((string) $rf->filename)
+                    . (!empty($rf->secciones) ? ' (' . $e((string) $rf->secciones) . ')' : '') . '</li>';
+            }
+            $html .= '</ul>';
+        } else {
+            $html .= '<p>No se cargaron materiales técnicos de referencia adicionales.</p>';
+        }
+
+        if ($totalRevisar > 0) {
+            $html .= '<p><strong>Recordatorio importante:</strong> existen ' . $totalRevisar
+                . ' marca(s) <code>[REVISAR]</code> en los materiales entregados. Verifica y elimina cada marca antes de '
+                . 'usar los recursos con las personas participantes, en especial si se refieren a seguridad.</p>';
+        } else {
+            $html .= '<p><strong>Recordatorio:</strong> revisa siempre los materiales antes de usarlos con las personas participantes.</p>';
+        }
+        $html .= '<p><em>Repertorio de uso exclusivo de la persona facilitadora para la implementación. '
+            . 'No se comparte con el organismo ejecutor ni lo utiliza el Módulo 3.</em></p>';
+        return $html;
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Base de datos, File API y ejecucion asincrona.
+    // ------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Lista todos los disenos validados disponibles (>= 25 puntos, consolidacion vigente) de la persona en el curso.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @return array[] Cada elemento trae ficha, experiencia, plan, modulo, aprendizaje, fecha, puntaje, plan_cr, estado_cr.
+     */
+    public static function list_eligible_designs(int $userid, int $courseid): array {
+        global $DB;
+        $fichas = $DB->get_records('local_chatbot_exante', ['userid' => $userid, 'courseid' => $courseid], 'timemodified DESC');
+        $lista = [];
+        foreach ($fichas as $ficha) {
+            $ficha->data = exante::clean((array) json_decode((string) $ficha->data, true));
+            $estado = ruta_m2::state_for($ficha);
+            if (!self::eligible_design($estado)) {
+                continue;
+            }
+            $plan = self::get_plan((int) $ficha->id);
+            $recursos = $plan ? self::get_resources((int) $ficha->id) : [];
+            $lista[] = [
+                'fichaid' => (int) $ficha->id,
+                'ficha' => $ficha,
+                'experiencia' => $estado['experiencia'] ?: exante::design_label($ficha->data),
+                'plan' => (string) ($ficha->data['plan'] ?? ''),
+                'modulo' => (string) ($ficha->data['modulo'] ?? ''),
+                'aprendizaje' => (string) ($ficha->data['aprendizaje'] ?? ''),
+                'fecha' => (int) ($estado['evaluacion']['fecha'] ?? $ficha->timemodified),
+                'puntaje' => (int) ($estado['evaluacion']['total'] ?? 0),
+                'banda' => (string) ($estado['evaluacion']['banda']['texto'] ?? ''),
+                'plan_cr' => $plan,
+                'estado_cr' => self::design_status_label($plan, $recursos),
+            ];
+        }
+        return $lista;
+    }
+
+    /**
+     * @param int $fichaid
+     * @return \stdClass|null
+     */
+    public static function get_plan(int $fichaid): ?\stdClass {
+        global $DB;
+        $plan = $DB->get_record('local_chatbot_recurso_plan', ['fichaid' => $fichaid]);
+        if (!$plan) {
+            return null;
+        }
+        if ($plan->generacion === exante::PROCESANDO && $plan->timemodified < time() - self::PROCESO_MAX) {
+            $plan->generacion = exante::ERROR;
+            $plan->error = 'tiempo';
+            $DB->update_record('local_chatbot_recurso_plan', (object) [
+                'id' => $plan->id, 'generacion' => exante::ERROR, 'error' => 'tiempo', 'timemodified' => time(),
+            ]);
+        }
+        $plan->datos_arr = (array) json_decode((string) ($plan->datos ?? '{}'), true);
+        return $plan;
+    }
+
+    /**
+     * Crea o recupera la fila del plan de produccion de un diseno.
+     *
+     * @param int $fichaid
+     * @param int $userid
+     * @param int $courseid
+     * @param array $fichaData Datos de la ficha para precargar organismo/facilitador.
+     * @return \stdClass
+     */
+    public static function ensure_plan(int $fichaid, int $userid, int $courseid, array $fichaData = []): \stdClass {
+        global $DB;
+        $plan = self::get_plan($fichaid);
+        if ($plan) {
+            return $plan;
+        }
+        $now = time();
+        $datos = [
+            'organismo' => (string) ($fichaData['organismo'] ?? ''),
+            'curso' => (string) ($fichaData['plan'] ?? ''),
+            'facilitador' => (string) ($fichaData['facilitador'] ?? ''),
+            'impresion' => 'Carta',
+        ];
+        $rec = (object) [
+            'fichaid' => $fichaid,
+            'userid' => $userid,
+            'courseid' => $courseid,
+            'huella' => '',
+            'datos' => json_encode($datos, JSON_UNESCAPED_UNICODE),
+            'estado' => self::PLAN_SIN_INICIAR,
+            'generacion' => '',
+            'error' => null,
+            'modelo' => '',
+            'promptversion' => self::PROMPT_VERSION,
+            'timeclosed' => 0,
+            'timecreated' => $now,
+            'timemodified' => $now,
+        ];
+        $rec->id = $DB->insert_record('local_chatbot_recurso_plan', $rec);
+        $rec->datos_arr = $datos;
+        return $rec;
+    }
+
+    /**
+     * Guarda los datos que no son de diseno (organismo, curso, facilitador/a, formato de impresion).
+     */
+    public static function save_plan_meta(int $fichaid, int $userid, array $datos): void {
+        global $DB;
+        $plan = $DB->get_record('local_chatbot_recurso_plan', ['fichaid' => $fichaid, 'userid' => $userid]);
+        if (!$plan) {
+            return;
+        }
+        $limpio = [
+            'organismo' => trim(mb_substr((string) ($datos['organismo'] ?? ''), 0, 200, 'UTF-8')),
+            'curso' => trim(mb_substr((string) ($datos['curso'] ?? ''), 0, 200, 'UTF-8')),
+            'facilitador' => trim(mb_substr((string) ($datos['facilitador'] ?? ''), 0, 200, 'UTF-8')),
+            'impresion' => trim(mb_substr((string) ($datos['impresion'] ?? 'Carta'), 0, 60, 'UTF-8')) ?: 'Carta',
+        ];
+        $DB->update_record('local_chatbot_recurso_plan', (object) [
+            'id' => $plan->id,
+            'datos' => json_encode($limpio, JSON_UNESCAPED_UNICODE),
+            'timemodified' => time(),
+        ]);
+    }
+
+    /**
+     * Deja pendiente la generacion del Plan de produccion (Etapa 9).
+     */
+    public static function request_plan(int $fichaid, int $userid, int $courseid, array $fichaData = []): int {
+        global $DB;
+        $plan = self::ensure_plan($fichaid, $userid, $courseid, $fichaData);
+        if (in_array($plan->generacion, [exante::PENDIENTE, exante::PROCESANDO], true)) {
+            return (int) $plan->id;
+        }
+        $DB->update_record('local_chatbot_recurso_plan', (object) [
+            'id' => $plan->id, 'generacion' => exante::PENDIENTE, 'error' => null, 'timemodified' => time(),
+        ]);
+        return (int) $plan->id;
+    }
+
+    /**
+     * Ejecuta la generacion del Plan de produccion (Etapa 9) con candado exclusivo.
+     */
+    public static function run_plan(int $planid, int $userid): string {
+        global $DB;
+        $candado = \core\lock\lock_config::get_lock_factory('local_chatbot_centro')->get_lock('plan' . $planid, 0);
+        if (!$candado) {
+            return exante::PROCESANDO;
+        }
+        try {
+            $plan = $DB->get_record('local_chatbot_recurso_plan', ['id' => $planid, 'userid' => $userid]);
+            if (!$plan || $plan->generacion !== exante::PENDIENTE) {
+                return $plan ? (string) $plan->generacion : exante::ERROR;
+            }
+            $DB->update_record('local_chatbot_recurso_plan', (object) [
+                'id' => $planid, 'generacion' => exante::PROCESANDO, 'timemodified' => time(),
+            ]);
+
+            if (!ai\provider_factory::is_configured()) {
+                $DB->update_record('local_chatbot_recurso_plan', (object) [
+                    'id' => $planid, 'generacion' => exante::ERROR, 'error' => 'sinclave', 'timemodified' => time(),
+                ]);
+                return exante::ERROR;
+            }
+
+            $ficha = $DB->get_record('local_chatbot_exante', ['id' => $plan->fichaid, 'userid' => $userid]);
+            $filas = $ficha ? diseno::get_by_ficha((int) $ficha->id) : [];
+            $cons = $filas[diseno::CONSOLIDACION] ?? null;
+            if (!$ficha || !$cons || !$cons->contenido) {
+                $DB->update_record('local_chatbot_recurso_plan', (object) [
+                    'id' => $planid, 'generacion' => exante::ERROR, 'error' => 'sindiseno', 'timemodified' => time(),
+                ]);
+                return exante::ERROR;
+            }
+
+            $fichaData = exante::clean((array) json_decode((string) $ficha->data, true));
+            $fichaTexto = pseudonymizer::scrub(exante::to_text($fichaData));
+            $disenoTexto = html_to_text((string) $cons->contenido, 0, false);
+            $buscar = exante::web_search_available();
+            $prompt = self::build_plan_prompt($disenoTexto, $fichaTexto, $buscar);
+            [$adjuntos] = exante::attachment_parts((int) $ficha->id);
+            $contenido = [['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $adjuntos)]];
+
+            $modelo = ai\provider_factory::get_configured_model();
+            $parsed = null;
+            for ($i = 0; $i < 2 && $parsed === null; $i++) {
+                $res = exante::generate_steady($contenido, 180, $modelo, false);
+                if (isset($res['error'])) {
+                    $DB->update_record('local_chatbot_recurso_plan', (object) [
+                        'id' => $planid, 'generacion' => exante::ERROR, 'error' => 'servicio', 'timemodified' => time(),
+                    ]);
+                    return exante::ERROR;
+                }
+                $parsed = self::parse_plan_json(gemini_client::extract_text($res));
+            }
+            if ($parsed === null) {
+                $DB->update_record('local_chatbot_recurso_plan', (object) [
+                    'id' => $planid, 'generacion' => exante::ERROR, 'error' => 'ilegible', 'timemodified' => time(),
+                ]);
+                return exante::ERROR;
+            }
+
+            // Conservar materiales ya producidos si se regenera el plan; agregar los nuevos por codigo.
+            $existentes = [];
+            foreach (self::get_resources((int) $ficha->id) as $r) {
+                $existentes[strtoupper(trim((string) $r->codigo))] = $r;
+            }
+            $now = time();
+            foreach ($parsed['materiales'] as $m) {
+                $key = strtoupper($m['codigo']);
+                if (isset($existentes[$key])) {
+                    continue;
+                }
+                $DB->insert_record('local_chatbot_recurso', (object) [
+                    'planid' => $planid,
+                    'fichaid' => (int) $ficha->id,
+                    'userid' => $userid,
+                    'courseid' => (int) $plan->courseid,
+                    'orden' => $m['orden'],
+                    'codigo' => $m['codigo'],
+                    'nombre' => $m['nombre'],
+                    'fase' => $m['fase'],
+                    'modo' => $m['modo'],
+                    'formato' => $m['formato'],
+                    'especificacion' => $m['especificacion'],
+                    'espec_detalle' => $m['espec_detalle'],
+                    'estado' => $m['estado'],
+                    'version' => 0,
+                    'revisar_count' => 0,
+                    'timecreated' => $now,
+                    'timemodified' => $now,
+                ]);
+            }
+
+            $datos = (array) json_decode((string) ($plan->datos ?? '{}'), true);
+            $datos['excluidos_fisicos'] = $parsed['excluidos_fisicos'];
+            $DB->update_record('local_chatbot_recurso_plan', (object) [
+                'id' => $planid,
+                'huella' => (string) ($cons->huella ?? ''),
+                'datos' => json_encode($datos, JSON_UNESCAPED_UNICODE),
+                'estado' => self::PLAN_EN_PRODUCCION,
+                'generacion' => exante::LISTO,
+                'modelo' => (string) $modelo,
+                'promptversion' => self::PROMPT_VERSION,
+                'error' => null,
+                'timemodified' => $now,
+            ]);
+            return exante::LISTO;
+        } finally {
+            $candado->release();
+        }
+    }
+
+    /**
+     * @param int $fichaid
+     * @return \stdClass[]
+     */
+    public static function get_resources(int $fichaid): array {
+        global $DB;
+        $filas = $DB->get_records('local_chatbot_recurso', ['fichaid' => $fichaid], 'orden ASC, id ASC');
+        foreach ($filas as $r) {
+            if ($r->generacion === exante::PROCESANDO && $r->timemodified < time() - self::PROCESO_MAX) {
+                $r->generacion = exante::ERROR;
+                $r->error = 'tiempo';
+                $DB->update_record('local_chatbot_recurso', (object) [
+                    'id' => $r->id, 'generacion' => exante::ERROR, 'error' => 'tiempo', 'timemodified' => time(),
+                ]);
+            }
+        }
+        return array_values($filas);
+    }
+
+    /**
+     * @param int $id
+     * @param int $userid
+     * @return \stdClass|null
+     */
+    public static function get_resource(int $id, int $userid): ?\stdClass {
+        global $DB;
+        $r = $DB->get_record('local_chatbot_recurso', ['id' => $id, 'userid' => $userid]);
+        if ($r && $r->generacion === exante::PROCESANDO && $r->timemodified < time() - self::PROCESO_MAX) {
+            $r->generacion = exante::ERROR;
+            $r->error = 'tiempo';
+            $DB->update_record('local_chatbot_recurso', (object) [
+                'id' => $r->id, 'generacion' => exante::ERROR, 'error' => 'tiempo', 'timemodified' => time(),
+            ]);
+        }
+        return $r ?: null;
+    }
+
+    /**
+     * Solicita la generacion asincrona de estructura (10.2), contenido (10.3) o ajuste (10.4) de un material.
+     */
+    public static function request_resource(int $id, int $userid, string $faseGen, string $ajustes = '',
+            array $refIds = [], string $plataformaQuiz = ''): bool {
+        global $DB;
+        $r = self::get_resource($id, $userid);
+        if (!$r || in_array($r->generacion, [exante::PENDIENTE, exante::PROCESANDO], true)) {
+            return false;
+        }
+        $campos = [
+            'id' => $r->id,
+            'generacion' => exante::PENDIENTE,
+            'fase_gen' => $faseGen,
+            'ajustes' => mb_substr(trim($ajustes), 0, 4000, 'UTF-8'),
+            'error' => null,
+            'timemodified' => time(),
+        ];
+        if ($refIds || $faseGen === self::GEN_ESTRUCTURA) {
+            $campos['refs_usadas'] = json_encode(array_values(array_slice(array_map('intval', $refIds), 0, self::REF_MAX_ACTIVOS)));
+        }
+        if ($plataformaQuiz !== '') {
+            $campos['plataforma_quiz'] = $plataformaQuiz;
+        }
+        $DB->update_record('local_chatbot_recurso', (object) $campos);
+        return true;
+    }
+
+    /**
+     * Ejecuta la generacion pendiente de un material (estructura 10.2, contenido 10.3 o ajuste 10.4).
+     */
+    public static function run_resource(int $id, int $userid): string {
+        global $DB;
+        $candado = \core\lock\lock_config::get_lock_factory('local_chatbot_centro')->get_lock('rec' . $id, 0);
+        if (!$candado) {
+            return exante::PROCESANDO;
+        }
+        try {
+            $r = $DB->get_record('local_chatbot_recurso', ['id' => $id, 'userid' => $userid]);
+            if (!$r || $r->generacion !== exante::PENDIENTE) {
+                return $r ? (string) $r->generacion : exante::ERROR;
+            }
+            $DB->update_record('local_chatbot_recurso', (object) [
+                'id' => $id, 'generacion' => exante::PROCESANDO, 'timemodified' => time(),
+            ]);
+
+            if (!ai\provider_factory::is_configured()) {
+                $DB->update_record('local_chatbot_recurso', (object) [
+                    'id' => $id, 'generacion' => exante::ERROR, 'error' => 'sinclave', 'timemodified' => time(),
+                ]);
+                return exante::ERROR;
+            }
+
+            $ficha = $DB->get_record('local_chatbot_exante', ['id' => $r->fichaid, 'userid' => $userid]);
+            $plan = self::get_plan((int) $r->fichaid);
+            $filas = $ficha ? diseno::get_by_ficha((int) $ficha->id) : [];
+            $cons = $filas[diseno::CONSOLIDACION] ?? null;
+            if (!$ficha || !$plan || !$cons || !$cons->contenido) {
+                $DB->update_record('local_chatbot_recurso', (object) [
+                    'id' => $id, 'generacion' => exante::ERROR, 'error' => 'sindiseno', 'timemodified' => time(),
+                ]);
+                return exante::ERROR;
+            }
+
+            $fichaData = exante::clean((array) json_decode((string) $ficha->data, true));
+            $fichaTexto = pseudonymizer::scrub(exante::to_text($fichaData));
+            $disenoTexto = html_to_text((string) $cons->contenido, 0, false);
+            [$adjuntos] = exante::attachment_parts((int) $ficha->id);
+
+            $refIds = (array) json_decode((string) ($r->refs_usadas ?? '[]'), true);
+            [$refParts, $refNombres] = self::reference_parts((int) $ficha->id, $refIds);
+
+            $yaProducidos = [];
+            foreach (self::get_resources((int) $ficha->id) as $otro) {
+                if ((int) $otro->id !== (int) $r->id && in_array($otro->estado, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)) {
+                    $yaProducidos[] = $otro->codigo . ': ' . $otro->nombre;
+                }
+            }
+            $matArr = [
+                'codigo' => (string) $r->codigo,
+                'nombre' => (string) $r->nombre,
+                'fase' => (string) $r->fase,
+                'modo' => (string) $r->modo,
+                'formato' => (string) $r->formato,
+                'especificacion' => (string) $r->especificacion,
+                'espec_detalle' => (string) $r->espec_detalle,
+            ];
+            $modelo = ai\provider_factory::get_configured_model();
+            $faseGen = (string) ($r->fase_gen ?: self::GEN_ESTRUCTURA);
+            $modo = strtoupper(trim((string) $r->modo));
+            $esQuiz = self::is_quiz_material((string) $r->nombre, (string) $r->formato);
+            $formatos = self::detect_formats($modo, (string) $r->formato, (string) $r->nombre, (string) ($r->plataforma_quiz ?? ''));
+            $esJsonModoB = $esQuiz || in_array('xlsx', $formatos, true)
+                || (in_array('pptx', $formatos, true) && !in_array('docx', $formatos, true) && !in_array('pdf', $formatos, true));
+            // Modo C: la ficha de recomendacion se ajusta sobre su JSON (opciones), que se vuelve a verificar.
+            $esModoC = $modo === 'C';
+
+            if ($faseGen === self::GEN_ESTRUCTURA) {
+                $prompt = self::build_structure_prompt($matArr, $plan->datos_arr, $disenoTexto, $fichaTexto,
+                    $refNombres, $yaProducidos, (string) ($r->ajustes ?? ''));
+                $parts = array_merge([['text' => $prompt]], $adjuntos, $refParts);
+                $res = exante::generate_steady([['role' => 'user', 'parts' => $parts]], 180, $modelo, false);
+                if (isset($res['error'])) {
+                    return self::fail_resource($id, 'servicio');
+                }
+                $md = diseno::clean_markdown(gemini_client::extract_text($res));
+                if ($md === '') {
+                    return self::fail_resource($id, 'ilegible');
+                }
+                $DB->update_record('local_chatbot_recurso', (object) [
+                    'id' => $id,
+                    'estructura' => diseno::product_html($md),
+                    'estado' => self::MAT_ESTRUCTURA,
+                    'generacion' => exante::LISTO,
+                    'modelo' => (string) $modelo,
+                    'promptversion' => self::PROMPT_VERSION,
+                    'error' => null,
+                    'timemodified' => time(),
+                ]);
+                return exante::LISTO;
+            }
+
+            if ($faseGen === self::GEN_AJUSTE) {
+                $enJson = ($esJsonModoB || $esModoC) && !empty($r->estructurado);
+                $actual = $enJson
+                    ? (string) $r->estructurado
+                    : html_to_text(self::headings_as_markdown((string) ($r->contenido ?? '')), 0, false);
+                $prompt = self::build_adjust_prompt($matArr, $actual, (string) ($r->ajustes ?? ''), $enJson);
+                $parts = array_merge([['text' => $prompt]], $refParts);
+                $res = exante::generate_steady([['role' => 'user', 'parts' => $parts]], 240, $modelo, false);
+                if (isset($res['error'])) {
+                    return self::fail_resource($id, 'servicio');
+                }
+                $raw = (string) gemini_client::extract_text($res);
+                if (trim($raw) === '') {
+                    return self::fail_resource($id, 'ilegible');
+                }
+                if (stripos($raw, 'Ese ajuste implica modificar el diseño validado') !== false) {
+                    $DB->update_record('local_chatbot_recurso', (object) [
+                        'id' => $id,
+                        'generacion' => exante::LISTO,
+                        'error' => 'no_modifica',
+                        'timemodified' => time(),
+                    ]);
+                    return exante::LISTO;
+                }
+                if ($enJson) {
+                    return self::store_produced_material($r, $raw, $esJsonModoB && !$esModoC, $esQuiz, $formatos,
+                        (string) $modelo, $esModoC);
+                }
+                // Ajuste por seccion (10.4): solo las secciones indicadas; si el asistente entrego el material completo
+                // (la persona lo pidio), se toma completo.
+                $md = diseno::clean_markdown($raw);
+                $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
+                $fusion = strpos($md, self::PIE_MATERIAL) === false
+                    ? self::merge_sections((string) $r->contenido, diseno::product_html($md), $pie) : null;
+                if ($fusion === null && strpos($md, self::PIE_MATERIAL) === false) {
+                    return self::fail_resource($id, 'seccion');
+                }
+                return self::store_produced_material($r, $raw, false, $esQuiz, $formatos, (string) $modelo, false,
+                    (string) $fusion);
+            }
+
+            // GEN_CONTENIDO (Etapa 10.3).
+            $estructuraTxt = html_to_text((string) ($r->estructura ?? ''), 0, false);
+            $prompt = self::build_content_prompt($matArr, $estructuraTxt, $plan->datos_arr, $disenoTexto, $fichaTexto,
+                (string) ($r->plataforma_quiz ?? ''), $yaProducidos);
+            $parts = array_merge([['text' => $prompt]], $adjuntos, $refParts);
+            $usarWeb = ($modo === 'C') && exante::web_search_available();
+            $res = exante::generate_steady([['role' => 'user', 'parts' => $parts]], 240, $modelo, $usarWeb);
+            if (isset($res['error'])) {
+                return self::fail_resource($id, 'servicio');
+            }
+            $raw = (string) gemini_client::extract_text($res);
+            if (trim($raw) === '') {
+                return self::fail_resource($id, 'ilegible');
+            }
+            return self::store_produced_material($r, $raw, $esJsonModoB, $esQuiz, $formatos, (string) $modelo, $modo === 'C');
+        } finally {
+            $candado->release();
+        }
+    }
+
+    /**
+     * Guarda el resultado producido (Modo A, B, Cuestionario o Modo C con verificacion real de enlaces).
+     */
+    private static function store_produced_material(\stdClass $r, string $raw, bool $esJsonModoB, bool $esQuiz,
+            array $formatos, string $modelo, bool $esModoC, string $htmlListo = ''): string {
+        global $DB;
+        $estructurado = null;
+        $fechaVerif = '';
+        if ($esModoC) {
+            $parsed = self::parse_curaduria_json($raw);
+            if ($parsed === null) {
+                return self::fail_resource((int) $r->id, 'ilegible');
+            }
+            $filtrado = self::filter_verified_links($parsed['opciones'], [self::class, 'verify_url']);
+            $parsed['opciones'] = $filtrado['verificadas'];
+            $parsed['descartadas'] = $filtrado['descartadas'];
+            $fechaVerif = userdate(time(), '%d-%m-%Y');
+            $estructurado = json_encode($parsed, JSON_UNESCAPED_UNICODE);
+            $html = self::curaduria_html($parsed['opciones'], $fechaVerif, (string) $r->codigo);
+        } else if ($esJsonModoB) {
+            $json = exante::decode_json($raw);
+            if (!is_array($json)) {
+                return self::fail_resource((int) $r->id, 'ilegible');
+            }
+            $estructurado = json_encode($json, JSON_UNESCAPED_UNICODE);
+            $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
+            if ($esQuiz) {
+                $html = recurso_export::to_printable_quiz_html($json, (string) $r->nombre, $pie);
+            } else if (in_array('xlsx', $formatos, true)) {
+                $html = self::sheets_preview_html($json, $pie);
+            } else {
+                $html = self::slides_preview_html($json, $pie);
+            }
+        } else if ($htmlListo !== '') {
+            $html = $htmlListo;
+        } else {
+            $md = diseno::clean_markdown($raw);
+            if (strpos($md, self::PIE_MATERIAL) === false) {
+                $md .= "\n\n*" . $r->codigo . ' · ' . self::PIE_MATERIAL . '*';
+            }
+            $html = diseno::product_html($md);
+        }
+
+        $revisar = self::count_review_marks($html . ($estructurado ?? ''));
+        $htmlMoodle = recurso_export::to_moodle_html($html, (string) $r->nombre, (string) $r->codigo);
+        $DB->update_record('local_chatbot_recurso', (object) [
+            'id' => $r->id,
+            'contenido' => $html,
+            'estructurado' => $estructurado,
+            'html_moodle' => $htmlMoodle,
+            'revisar_count' => $revisar,
+            'fecha_verificacion' => $fechaVerif,
+            'estado' => self::MAT_BORRADOR,
+            'generacion' => exante::LISTO,
+            'modelo' => $modelo,
+            'promptversion' => self::PROMPT_VERSION,
+            'error' => null,
+            'timemodified' => time(),
+        ]);
+        return exante::LISTO;
+    }
+
+    /**
+     * Vista previa HTML de una planilla Excel estructurada.
+     */
+    private static function sheets_preview_html(array $json, string $pie): string {
+        $e = static fn(string $t) => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+        $html = '';
+        if (!empty($json['introduccion'])) {
+            $html .= '<p>' . $e((string) $json['introduccion']) . '</p>';
+        }
+        foreach ((array) ($json['hojas'] ?? []) as $h) {
+            $html .= '<h3>' . $e((string) ($h['nombre'] ?? 'Hoja')) . '</h3><table class="table table-sm">';
+            if (!empty($h['encabezados'])) {
+                $html .= '<thead><tr>';
+                foreach ((array) $h['encabezados'] as $c) {
+                    $html .= '<th>' . $e((string) $c) . '</th>';
+                }
+                $html .= '</tr></thead>';
+            }
+            $html .= '<tbody>';
+            foreach ((array) ($h['filas'] ?? []) as $f) {
+                $html .= '<tr>';
+                foreach ((array) $f as $v) {
+                    $html .= '<td>' . $e(is_scalar($v) ? (string) $v : '') . '</td>';
+                }
+                $html .= '</tr>';
+            }
+            $html .= '</tbody></table>';
+        }
+        if (!empty($json['fuentes'])) {
+            $html .= '<p><strong>Fuentes utilizadas:</strong> ' . $e(implode('; ', array_map('strval', (array) $json['fuentes']))) . '</p>';
+        }
+        return $html . '<p><em>' . $e($pie) . '</em></p>';
+    }
+
+    /**
+     * Vista previa HTML de una presentacion estructurada.
+     */
+    private static function slides_preview_html(array $json, string $pie): string {
+        $e = static fn(string $t) => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+        $html = '<h2>' . $e((string) ($json['titulo'] ?? '')) . '</h2>';
+        if (!empty($json['subtitulo'])) {
+            $html .= '<p><em>' . $e((string) $json['subtitulo']) . '</em></p>';
+        }
+        foreach (array_values((array) ($json['diapositivas'] ?? [])) as $i => $d) {
+            $html .= '<h3>Diapositiva ' . ($i + 1) . ': ' . $e((string) ($d['titulo'] ?? '')) . '</h3><ul>';
+            foreach ((array) ($d['puntos'] ?? []) as $pt) {
+                $html .= '<li>' . $e((string) $pt) . '</li>';
+            }
+            $html .= '</ul>';
+            if (!empty($d['notas'])) {
+                $html .= '<p><small><strong>Notas para la persona facilitadora:</strong> ' . $e((string) $d['notas']) . '</small></p>';
+            }
+        }
+        if (!empty($json['fuentes'])) {
+            $html .= '<p><strong>Fuentes utilizadas:</strong> ' . $e(implode('; ', array_map('strval', (array) $json['fuentes']))) . '</p>';
+        }
+        return $html . '<p><em>' . $e($pie) . '</em></p>';
+    }
+
+    private static function fail_resource(int $id, string $motivo): string {
+        global $DB;
+        $DB->update_record('local_chatbot_recurso', (object) [
+            'id' => $id, 'generacion' => exante::ERROR, 'error' => $motivo, 'timemodified' => time(),
+        ]);
+        return exante::ERROR;
+    }
+
+    /**
+     * Guarda edicion manual del material en pantalla y recalcula marcas [REVISAR] y HTML Moodle.
+     */
+    public static function save_manual_edit(int $id, int $userid, string $html): void {
+        global $DB;
+        $r = self::get_resource($id, $userid);
+        if (!$r) {
+            return;
+        }
+        $limpio = clean_text($html, FORMAT_HTML);
+        $DB->update_record('local_chatbot_recurso', (object) [
+            'id' => $r->id,
+            'contenido' => $limpio,
+            'html_moodle' => recurso_export::to_moodle_html($limpio, (string) $r->nombre, (string) $r->codigo),
+            'revisar_count' => self::count_review_marks($limpio),
+            'timemodified' => time(),
+        ]);
+    }
+
+    /**
+     * Registra la seleccion de recursos curados (Modo C) elegidos por la persona facilitadora.
+     */
+    public static function select_curated(int $id, int $userid, array $indices): void {
+        global $DB;
+        $r = self::get_resource($id, $userid);
+        if (!$r || empty($r->estructurado)) {
+            return;
+        }
+        $cur = json_decode((string) $r->estructurado, true);
+        $sel = array_values(array_unique(array_map('intval', $indices)));
+        $html = self::curaduria_html((array) ($cur['opciones'] ?? []), (string) ($r->fecha_verificacion ?? ''),
+            (string) $r->codigo, $sel);
+        $DB->update_record('local_chatbot_recurso', (object) [
+            'id' => $r->id,
+            'seleccionados' => json_encode($sel),
+            'contenido' => $html,
+            'html_moodle' => recurso_export::to_moodle_html($html, (string) $r->nombre, (string) $r->codigo),
+            'timemodified' => time(),
+        ]);
+    }
+
+    /**
+     * Etapa 11: aprueba y registra el material entregado en el repositorio (incrementando version v1, v2...).
+     */
+    public static function approve_material(int $id, int $userid, bool $parcial = false): void {
+        global $DB;
+        $r = self::get_resource($id, $userid);
+        if (!$r || trim((string) $r->contenido) === '') {
+            return;
+        }
+        $now = time();
+        $DB->update_record('local_chatbot_recurso', (object) [
+            'id' => $r->id,
+            'estado' => $parcial ? self::MAT_ENTREGADO_PARCIAL : self::MAT_ENTREGADO,
+            'version' => ((int) $r->version) + 1,
+            'revisar_count' => self::count_review_marks((string) $r->contenido),
+            'timemodified' => $now,
+        ]);
+        $DB->set_field('local_chatbot_recurso_plan', 'estado', self::PLAN_EN_PRODUCCION, ['id' => $r->planid]);
+    }
+
+    /**
+     * Etapa 12: cierra el centro para el diseno seleccionado.
+     */
+    public static function close_center(int $fichaid, int $userid): void {
+        global $DB;
+        $plan = $DB->get_record('local_chatbot_recurso_plan', ['fichaid' => $fichaid, 'userid' => $userid]);
+        if ($plan) {
+            $now = time();
+            $DB->update_record('local_chatbot_recurso_plan', (object) [
+                'id' => $plan->id, 'estado' => self::PLAN_CERRADO, 'timeclosed' => $now, 'timemodified' => $now,
+            ]);
+        }
+    }
+
+    /**
+     * Reabre un centro cerrado para producir materiales pendientes o nuevas versiones.
+     */
+    public static function reopen_center(int $fichaid, int $userid): void {
+        global $DB;
+        $plan = $DB->get_record('local_chatbot_recurso_plan', ['fichaid' => $fichaid, 'userid' => $userid]);
+        if ($plan) {
+            $DB->update_record('local_chatbot_recurso_plan', (object) [
+                'id' => $plan->id, 'estado' => self::PLAN_EN_PRODUCCION, 'timemodified' => time(),
+            ]);
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Materiales tecnicos propios de referencia (Moodle File API).
+    // ------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Lista los materiales de referencia cargados para un diseno.
+     */
+    public static function list_references(int $fichaid): array {
+        global $DB;
+        return array_values($DB->get_records('local_chatbot_recurso_ref', ['fichaid' => $fichaid], 'timecreated ASC'));
+    }
+
+    /**
+     * Guarda un archivo tecnico de referencia (PDF, DOCX, XLSX o imagen) en el repositorio del diseno.
+     */
+    public static function add_reference(int $fichaid, int $userid, int $courseid, string $tmpPath, string $nombre,
+            string $mime, string $secciones = ''): ?int {
+        global $DB;
+        if (!is_file($tmpPath) || filesize($tmpPath) > self::REF_MAX_BYTES || self::reference_kind($mime, $nombre) === null) {
+            return null;
+        }
+        $rec = (object) [
+            'fichaid' => $fichaid,
+            'userid' => $userid,
+            'courseid' => $courseid,
+            'filename' => clean_param($nombre, PARAM_FILE) ?: 'referencia',
+            'mimetype' => $mime,
+            'sizebytes' => (int) filesize($tmpPath),
+            'secciones' => mb_substr(trim($secciones), 0, 255, 'UTF-8'),
+            'timecreated' => time(),
+        ];
+        $id = (int) $DB->insert_record('local_chatbot_recurso_ref', $rec);
+        $fs = get_file_storage();
+        $fs->create_file_from_pathname([
+            'contextid' => \context_system::instance()->id,
+            'component' => 'local_chatbot',
+            'filearea' => self::FILEAREA_REF,
+            'itemid' => $id,
+            'filepath' => '/',
+            'filename' => $rec->filename,
+        ], $tmpPath);
+        return $id;
+    }
+
+    /**
+     * Elimina un archivo de referencia del repositorio del diseno.
+     */
+    public static function delete_reference(int $refid, int $userid): void {
+        global $DB;
+        if (!$DB->record_exists('local_chatbot_recurso_ref', ['id' => $refid, 'userid' => $userid])) {
+            return;
+        }
+        $fs = get_file_storage();
+        $fs->delete_area_files(\context_system::instance()->id, 'local_chatbot', self::FILEAREA_REF, $refid);
+        $DB->delete_records('local_chatbot_recurso_ref', ['id' => $refid]);
+    }
+
+    /**
+     * Arma las partes del pedido al modelo para los materiales tecnicos de referencia seleccionados.
+     *
+     * @param int $fichaid
+     * @param int[] $refIds
+     * @return array [partes, nombres_con_secciones].
+     */
+    public static function reference_parts(int $fichaid, array $refIds): array {
+        global $DB;
+        if (!$refIds) {
+            return [[], []];
+        }
+        $fs = get_file_storage();
+        $ctxid = \context_system::instance()->id;
+        $partes = [];
+        $nombres = [];
+        foreach (array_slice(array_unique(array_map('intval', $refIds)), 0, self::REF_MAX_ACTIVOS) as $rid) {
+            $ref = $DB->get_record('local_chatbot_recurso_ref', ['id' => $rid, 'fichaid' => $fichaid]);
+            if (!$ref) {
+                continue;
+            }
+            $files = $fs->get_area_files($ctxid, 'local_chatbot', self::FILEAREA_REF, $rid, 'id', false);
+            if (!$files) {
+                continue;
+            }
+            $archivo = reset($files);
+            $tipo = self::reference_kind((string) $ref->mimetype, (string) $ref->filename);
+            $secNota = trim((string) ($ref->secciones ?? '')) !== '' ? ' (secciones indicadas: ' . $ref->secciones . ')' : '';
+            $nombres[] = $ref->filename . $secNota;
+            $aviso = guardrails::attachment_notice() . "\nMaterial técnico de referencia de la persona facilitadora: "
+                . $ref->filename . $secNota . '.';
+            if ($tipo === 'pdf' || $tipo === 'imagen') {
+                $partes[] = ['text' => $aviso];
+                $partes[] = ['inlineData' => [
+                    'mimeType' => (string) $ref->mimetype,
+                    'data' => base64_encode($archivo->get_content()),
+                ]];
+                continue;
+            }
+            $tmp = $archivo->copy_content_to_temp();
+            $txt = null;
+            if ($tmp) {
+                $txt = $tipo === 'xlsx' ? recurso_export::xlsx_text($tmp) : exante::docx_text($tmp);
+                @unlink($tmp);
+            }
+            if ($txt !== null && trim($txt) !== '') {
+                $partes[] = ['text' => $aviso . "\n" . guardrails::isolate_user_content(
+                    mb_substr(pseudonymizer::scrub($txt), 0, 45000, 'UTF-8'))];
+            }
+        }
+        return [$partes, $nombres];
+    }
+
+    /**
+     * Genera en disco un archivo descargable concreto de un material y devuelve [ruta, nombreArchivo, mimetype].
+     *
+     * @param \stdClass $r Fila de local_chatbot_recurso.
+     * @param string $tipo 'docx'|'xlsx'|'pptx'|'pdf'|'gift'|'gs'|'html'|'quiz_docx'.
+     * @param string $dir Directorio temporal de trabajo.
+     * @param string $impresion Formato preferido ('Carta' o 'A4').
+     * @param string $logo Ruta a logo Interfases.
+     * @return array|null [ruta, filename, mimetype].
+     */
+    public static function export_material_file(\stdClass $r, string $tipo, string $dir, string $impresion = 'Carta',
+            string $logo = ''): ?array {
+        $base = preg_replace('/[^A-Za-z0-9_-]+/', '_', modulo2_setup::ascii_filename($r->codigo . '_' . $r->nombre));
+        $base = trim(mb_substr((string) $base, 0, 60, 'UTF-8'), '_') ?: 'material';
+        $ver = ((int) $r->version) > 0 ? ('_v' . (int) $r->version) : '';
+        $json = !empty($r->estructurado) ? json_decode((string) $r->estructurado, true) : null;
+        $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
+
+        switch ($tipo) {
+            case 'html':
+                $ruta = $dir . '/' . $base . $ver . '.html';
+                $html = (string) ($r->html_moodle ?: recurso_export::to_moodle_html((string) $r->contenido, (string) $r->nombre, (string) $r->codigo));
+                file_put_contents($ruta, $html);
+                return [$ruta, $base . $ver . '.html', 'text/html; charset=utf-8'];
+
+            case 'gift':
+                if (!is_array($json)) {
+                    return null;
+                }
+                $ruta = $dir . '/' . $base . $ver . '_moodle_GIFT.txt';
+                file_put_contents($ruta, recurso_export::to_gift($json));
+                return [$ruta, $base . $ver . '_moodle_GIFT.txt', 'text/plain; charset=utf-8'];
+
+            case 'gs':
+                if (!is_array($json)) {
+                    return null;
+                }
+                $ruta = $dir . '/' . $base . $ver . '_GoogleForms.gs.txt';
+                file_put_contents($ruta, recurso_export::to_google_apps_script($json, (string) $r->nombre));
+                return [$ruta, $base . $ver . '_GoogleForms.gs.txt', 'text/plain; charset=utf-8'];
+
+            case 'xlsx':
+                $ruta = $dir . '/' . $base . $ver . '.xlsx';
+                $hojas = (is_array($json) && !empty($json['hojas']))
+                    ? $json['hojas']
+                    : recurso_export::html_to_sheets((string) $r->contenido, (string) $r->nombre);
+                return recurso_export::build_xlsx($ruta, $hojas, (string) $r->nombre)
+                    ? [$ruta, $base . $ver . '.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+                    : null;
+
+            case 'pptx':
+                $ruta = $dir . '/' . $base . $ver . '.pptx';
+                $slides = (is_array($json) && !empty($json['diapositivas']))
+                    ? $json['diapositivas']
+                    : recurso_export::html_to_slides((string) $r->contenido, (string) $r->nombre);
+                $sub = is_array($json) ? (string) ($json['subtitulo'] ?? '') : '';
+                return recurso_export::build_pptx($ruta, (string) $r->nombre, $sub, $slides, $pie)
+                    ? [$ruta, $base . $ver . '.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation']
+                    : null;
+
+            case 'pdf':
+                $ruta = $dir . '/' . $base . $ver . '.pdf';
+                return recurso_export::build_pdf($ruta, (string) $r->codigo . ' · ' . $r->nombre, '',
+                    (string) $r->contenido, (string) $r->formato, $impresion)
+                    ? [$ruta, $base . $ver . '.pdf', 'application/pdf']
+                    : null;
+
+            case 'quiz_docx':
+            case 'docx':
+            default:
+                $ruta = $dir . '/' . $base . $ver . '.docx';
+                $html = ($tipo === 'quiz_docx' && is_array($json))
+                    ? recurso_export::to_printable_quiz_html($json, (string) $r->nombre, $pie)
+                    : (string) $r->contenido;
+                return recurso_export::build_docx($ruta, (string) $r->codigo . ' · ' . $r->nombre, '', $html, $logo)
+                    ? [$ruta, $base . $ver . '.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+                    : null;
+        }
+    }
+}
+

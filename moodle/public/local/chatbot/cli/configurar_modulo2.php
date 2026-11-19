@@ -161,6 +161,8 @@ foreach ($modinfo->get_section_info_all() as $info) {
 // El boton va al final de la pestana Fase 2: en su ultima subseccion, no en la seccion de la pestana.
 $fase2 = modulo2_setup::tab_last_section($secciones, 2);
 $fase3 = modulo2_setup::tab_last_section($secciones, 3);
+$centro = modulo2_setup::center_last_section($secciones);
+$centrourl = (new moodle_url('/local/chatbot/centro_recursos.php', ['courseid' => $cursoid]))->out(false);
 $validacionurl = (new moodle_url('/local/chatbot/diseno.php', ['courseid' => $cursoid, 'etapa' => 7]))->out(false);
 // Al final de la bienvenida, el boton que lleva al comienzo de la pestana «Fase 1».
 $bienvenida = modulo2_setup::welcome_last_section($secciones);
@@ -185,6 +187,11 @@ foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') 
             isset($recursos['rubrica']) ? $url($recursos['rubrica']) : '', $validacionurl);
         // El recuadro del tablero que iba debajo se quita (pedido del cliente del 02-11-2026).
         $despues = modulo2_setup::remove_dashboard_block($despues);
+    }
+    if ($centro !== null && (int) $seccion->section === $centro) {
+        $despues = trim(strip_tags($despues)) === ''
+            ? modulo2_setup::center_tab_html($centrourl)
+            : modulo2_setup::add_center_button($despues, $centrourl);
     }
     if (strpos($antes, '<!-- MATERIAL 1 -->') !== false) {
         $despues = modulo2_setup::link_materials($despues, [1 => $url($recursos['material1']),

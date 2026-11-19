@@ -918,5 +918,90 @@ function xmldb_local_chatbot_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026110900, 'local', 'chatbot');
     }
 
+    if ($oldversion < 2026111902) {
+        // Modulo 2: Centro de produccion de recursos de aprendizaje (Etapas 9 a 12, v1.25.0).
+        $table = new xmldb_table('local_chatbot_recurso_plan');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('fichaid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('huella', XMLDB_TYPE_CHAR, '40');
+        $table->add_field('datos', XMLDB_TYPE_TEXT);
+        $table->add_field('estado', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'sin_iniciar');
+        $table->add_field('generacion', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('error', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('modelo', XMLDB_TYPE_CHAR, '100');
+        $table->add_field('promptversion', XMLDB_TYPE_CHAR, '40');
+        $table->add_field('timeclosed', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('fichaid', XMLDB_INDEX_UNIQUE, ['fichaid']);
+        $table->add_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        $table = new xmldb_table('local_chatbot_recurso');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('planid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('fichaid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('orden', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('codigo', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL);
+        $table->add_field('nombre', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL);
+        $table->add_field('fase', XMLDB_TYPE_CHAR, '200');
+        $table->add_field('modo', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, 'B');
+        $table->add_field('formato', XMLDB_TYPE_CHAR, '200');
+        $table->add_field('especificacion', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'completa');
+        $table->add_field('espec_detalle', XMLDB_TYPE_TEXT);
+        $table->add_field('estado', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'pendiente');
+        $table->add_field('version', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('estructura', XMLDB_TYPE_TEXT);
+        $table->add_field('contenido', XMLDB_TYPE_TEXT);
+        $table->add_field('estructurado', XMLDB_TYPE_TEXT);
+        $table->add_field('html_moodle', XMLDB_TYPE_TEXT);
+        $table->add_field('seleccionados', XMLDB_TYPE_TEXT);
+        $table->add_field('refs_usadas', XMLDB_TYPE_TEXT);
+        $table->add_field('revisar_count', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('plataforma_quiz', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('generacion', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('fase_gen', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('ajustes', XMLDB_TYPE_TEXT);
+        $table->add_field('modelo', XMLDB_TYPE_CHAR, '100');
+        $table->add_field('promptversion', XMLDB_TYPE_CHAR, '40');
+        $table->add_field('error', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('fecha_verificacion', XMLDB_TYPE_CHAR, '20');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('planid', XMLDB_INDEX_NOTUNIQUE, ['planid']);
+        $table->add_index('fichaid', XMLDB_INDEX_NOTUNIQUE, ['fichaid']);
+        $table->add_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        $table = new xmldb_table('local_chatbot_recurso_ref');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('fichaid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('filename', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL);
+        $table->add_field('mimetype', XMLDB_TYPE_CHAR, '100', null, XMLDB_NOTNULL);
+        $table->add_field('sizebytes', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('secciones', XMLDB_TYPE_CHAR, '255');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('fichaid', XMLDB_INDEX_NOTUNIQUE, ['fichaid']);
+        $table->add_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026111902, 'local', 'chatbot');
+    }
+
     return true;
 }

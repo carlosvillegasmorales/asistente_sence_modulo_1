@@ -39,6 +39,9 @@ class modulo2_setup {
     /** @var string Texto del boton a las etapas 7 y 8 del asistente. */
     const BOTON_VALIDACION = 'Ir a la consolidación y evaluación del diseño · Fase 3';
 
+    /** @var string Texto del boton al Centro de produccion de recursos de aprendizaje (Etapas 9 a 12). */
+    const BOTON_CENTRO = 'Ir al Centro de producción de recursos';
+
     /** @var string Boton al tablero del Modulo 2, debajo del de la Fase 3. */
     const BOTON_TABLERO = 'Ver mi tablero del Módulo 2';
 
@@ -527,6 +530,73 @@ class modulo2_setup {
             $ultima = (int) $num;
         }
         return $ultima;
+    }
+
+    /**
+     * Ultima seccion de la pestana del Centro de produccion de recursos (si existe en el curso).
+     *
+     * @param array $secciones numero => ['name' => string, 'level' => int].
+     * @return int|null
+     */
+    public static function center_last_section(array $secciones): ?int {
+        ksort($secciones);
+        $inicio = null;
+        foreach ($secciones as $num => $s) {
+            $n = \core_text::strtolower((string) ($s['name'] ?? ''));
+            if (preg_match('/centro de producci[oó]n|producci[oó]n de recursos/u', $n)) {
+                $inicio = (int) $num;
+                break;
+            }
+        }
+        if ($inicio === null) {
+            return null;
+        }
+        $ultima = $inicio;
+        $nivel = (int) $secciones[$inicio]['level'];
+        foreach ($secciones as $num => $s) {
+            if ($num <= $inicio) {
+                continue;
+            }
+            if ((int) $s['level'] <= $nivel) {
+                break;
+            }
+            $ultima = (int) $num;
+        }
+        return $ultima;
+    }
+
+    /**
+     * Enlaza o agrega el boton del Centro de produccion de recursos al final de su pestana. Idempotente.
+     *
+     * @param string $html
+     * @param string $url
+     * @return string
+     */
+    public static function add_center_button(string $html, string $url): string {
+        return self::add_button($html, $url, self::BOTON_CENTRO, 'CENTRO PRODUCCION RECURSOS', true);
+    }
+
+    /**
+     * Contenido HTML institucional listo para la nueva pestana del Centro de produccion de recursos en el curso.
+     *
+     * @param string $url Enlace a centro_recursos.php?courseid=ID.
+     * @return string
+     */
+    public static function center_tab_html(string $url): string {
+        $html = '<div style="background:#f5f9fc;border:1px solid #d5e4ef;border-radius:12px;padding:24px;">'
+            . '<h3 style="color:#173f5f;margin:0 0 10px 0;">Centro de producción de recursos de aprendizaje</h3>'
+            . '<p style="line-height:1.7;text-align:justify;">Produce con apoyo de inteligencia artificial los materiales '
+            . 'instruccionales especificados en tus diseños validados (25 puntos o más en la Etapa 8). Funciona de manera '
+            . 'independiente y es opcional: no es condición para avanzar al Módulo 3.</p>'
+            . '<ul style="line-height:1.7;">'
+            . '<li><strong>Modo A · Producción completa con IA:</strong> texto listo para copiar y pegar y código HTML compatible con Moodle.</li>'
+            . '<li><strong>Modo B · Archivos editables descargables:</strong> Word (.docx), Excel (.xlsx), Presentaciones (.pptx), '
+            . 'PDF imprimible (Carta, A4, A3, A2 o tarjetas 9 × 6 cm) y cuestionarios desde una sola fuente (GIFT para Moodle, '
+            . 'script para Google Forms y versión impresa con pauta).</li>'
+            . '<li><strong>Modo C · Curaduría de recursos abiertos:</strong> hasta 5 opciones con enlaces verificados para que tú elijas.</li>'
+            . '</ul>'
+            . '</div>';
+        return self::add_center_button($html, $url);
     }
 
     /**

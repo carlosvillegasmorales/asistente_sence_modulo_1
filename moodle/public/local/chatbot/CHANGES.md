@@ -1,5 +1,41 @@
 # Changelog
 
+## M1-v1.25.0 (2026-11-19)
+
+**Módulo 2: Centro de producción de recursos de aprendizaje (Etapas 9 a 12)** (documentos de Interfases: Especificación
+funcional v2, Guía de uso, Prompt complementario y Ejemplo de uso). Interruptor `centrorecursos` (encendido). Prompt
+`M2-CR-v1`. **Migración de BD `2026111902`** (tres tablas nuevas: `local_chatbot_recurso_plan`, `local_chatbot_recurso`,
+`local_chatbot_recurso_ref`).
+
+- **Pestaña y página independiente** (`centro_recursos.php`, `classes/centro_recursos.php`, enlace opcional desde Fase 3
+  cuando el diseño alcanza 25+ puntos y soporte en `modulo2_setup` / `cli/configurar_modulo2.php`): despliega todos los
+  diseños validados (`>= 25` puntos y consolidación vigente) de la persona facilitadora, conserva plan y repositorio por
+  separado para cada diseño y no modifica el diseño validado ni bloquea el Módulo 3.
+- **Flujo completo de Etapas 9 a 12:** Plan de producción desde la Etapa 4 (retrocompatible con diseños previos sin modos
+  declarados; excluye recursos físicos e instrumentos de la Etapa 6), carga y reutilización de materiales técnicos propios
+  de referencia (PDF, Word, Excel e imagen, máx. 10 MB, en Moodle File API), aprobación previa de estructura (10.2),
+  producción según Modo A/B/C (10.3), ajustes focalizados por sección y edición manual con conteo/resalte de marcas
+  `[REVISAR: motivo]` (10.4), registro versionado `v1, v2…` (Etapa 11) y cierre con repertorio consolidado descargable
+  en `.zip` (Etapa 12).
+- **Modo B en PHP puro, sin servicios externos de Azure** (`classes/recurso_export.php`): Word editable (`.docx`), Excel
+  editable (`.xlsx` con PhpSpreadsheet / OOXML), Presentaciones editables (`.pptx` con plantilla Interfases y notas del
+  facilitador), PDF imprimible (`Carta`, `A4`, `A4 horizontal`, `A3`, `A2` y tarjetas `9 × 6 cm` con TCPDF `freesans` y
+  pictogramas vectoriales SVG), HTML limpio compatible con Moodle y Cuestionarios desde una sola fuente JSON (Moodle GIFT
+  `.txt` UTF-8 validado, script Google Apps Script `.gs` y versión impresa con pauta separada).
+- **Modo C con verificación real de enlaces:** búsqueda web con Gemini + verificación HTTP en PHP con protección SSRF
+  (`is_safe_public_url()`, `verify_url()`, `filter_verified_links()`), descartando enlaces rotos o privados.
+- **Revisión contra los documentos del cliente:** preguntas textuales de la selección del diseño, la 10.1 y la 10.4
+  (`PREGUNTA_DISENO`, `PREGUNTA_REFERENCIAS`, `PREGUNTA_REVISION`); principio 5 y control de calidad interno completos y
+  textuales (el control también en los ajustes); Modo C con «No descargues ni reproduzcas los recursos: solo se
+  enlazan»; «persona facilitadora» en lugar de «facilitador/a»; textos de la página en `lang/es` y `lang/en`.
+- **Ajuste por sección (10.4):** el asistente entrega solo las secciones modificadas y el código las reemplaza en el
+  material por su título (`merge_sections()`, `html_sections()`, `heading_key()`, `headings_as_markdown()`, puras); si
+  la sección no existe, se avisa en vez de adivinar. Si la persona pide el material completo, se toma completo.
+- **Corrección:** ajustar una ficha del Modo C borraba sus opciones (se guardaba como texto); ahora se ajusta sobre su
+  JSON y los enlaces se vuelven a verificar.
+- **Verificación:** nuevo script `cli/verificar_centro_recursos.php` (36 casos, incluyendo generación y validación real
+  en disco de `.docx`, `.xlsx`, `.pptx`, `.pdf`, `.gift`, `.gs`, `.html` y `.zip`).
+
 ## M1-v1.24.9 (2026-11-19)
 
 **Módulo 3, Fase 1: ajustes del formulario en línea de la ficha de implementación** (documento de Interfases «Ajustes

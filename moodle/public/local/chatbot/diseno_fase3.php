@@ -165,8 +165,15 @@ foreach (diseno::etapas() as $n => $e) {
         <?php // Con esto cierra el proceso del modulo: el documento final queda disponible. ?>
         <div class="alert alert-success">
             <strong><?php echo get_string('diseno_approved', 'local_chatbot'); ?></strong>
-            <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
-                <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('diseno_final_download', 'local_chatbot'); ?></a></div>
+            <div class="mt-2 d-flex flex-wrap gap-2">
+                <a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
+                    <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('diseno_final_download', 'local_chatbot'); ?></a>
+                <?php if (\local_chatbot\ux::on('centrorecursos')): ?>
+                    <a class="chatbot-gatebtn" href="<?php echo (new moodle_url('/local/chatbot/centro_recursos.php',
+                        ['courseid' => $courseid, 'fichaid' => (int) (exante::get_ficha($USER->id, $courseid)->id ?? 0)]))->out(false); ?>">
+                        <i class="fa fa-cubes me-1"></i> <?php echo get_string('centro_link_fase3', 'local_chatbot'); ?></a>
+                <?php endif; ?>
+            </div>
         </div>
         <?php // El modulo se usa una y otra vez: se puede volver a las etapas y empezar otra experiencia. ?>
         <div class="card border-0 bg-light mb-4">
