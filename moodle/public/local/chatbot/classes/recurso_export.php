@@ -102,18 +102,50 @@ class recurso_export {
     }
 
     /**
-     * Reemplaza marcadores [Pictograma: ...] o [Pictograma ...] por pictogramas SVG vectoriales limpios.
+     * Pictogramas guardados antes del 19-11-2026 (solo el icono, con la descripcion en «title»): vuelven a ser marcadores
+     * [Pictograma: ...] para que se muestren con su nota. Funcion pura.
      *
      * @param string $html
-     * @param int $size Tamano en px.
+     * @return string
+     */
+    public static function legacy_pictograms(string $html): string {
+        if (strpos($html, 'class="cr-picto" title="') === false) {
+            return $html;
+        }
+        return (string) preg_replace_callback('#<span class="cr-picto" title="([^"]*)">\s*<svg\b.*?</svg>\s*</span>#isu',
+            static fn(array $m): string => '[Pictograma: ' . html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8') . ']', $html);
+    }
+
+    /**
+     * Marcadores [Pictograma: ...] como nota «Ilustración sugerida: ...» (Word y PDF, que no dibujan el SVG). Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function pictogram_captions(string $html): string {
+        $html = self::legacy_pictograms($html);
+        return (string) preg_replace_callback('/\[(?:pictograma|[ií]cono)(?:\s*:\s*|\s+)([^\]]+)\]/iu',
+            static fn(array $m): string => '<em style="color: #4A6A8A;">Ilustración sugerida: '
+                . htmlspecialchars(trim($m[1]), ENT_QUOTES, 'UTF-8') . '</em>', $html);
+    }
+
+    /**
+     * Marcadores de pictograma como pictograma SVG con su nota visible (pantalla y HTML para Moodle).
+     *
+     * @param string $html
+     * @param int $size
      * @return string
      */
     public static function render_pictograms(string $html, int $size = 24): string {
+        $html = self::legacy_pictograms($html);
         return (string) preg_replace_callback('/\[(?:pictograma|[ií]cono)(?:\s*:\s*|\s+)([^\]]+)\]/iu',
             static function(array $m) use ($size): string {
                 $etiqueta = trim($m[1]);
-                return '<span class="cr-picto" title="' . htmlspecialchars($etiqueta, ENT_QUOTES, 'UTF-8') . '">'
-                    . self::svg_pictogram($etiqueta, $size) . '</span>';
+                // Icono y nota visible: el icono solo no decia nada (pedido del 19-11-2026: material formal y entendible).
+                return '<span class="cr-picto" style="display: inline-block; background: #F4F8FC; border: 1px solid #D5E4EF; '
+                    . 'border-radius: 6px; padding: 2px 8px; margin: 2px 0; color: #36506B; font-size: 13px;">'
+                    . self::svg_pictogram($etiqueta, $size) . '<em>Ilustración sugerida: '
+                    . htmlspecialchars($etiqueta, ENT_QUOTES, 'UTF-8') . '</em></span>';
             }, $html);
     }
 
@@ -138,8 +170,11 @@ class recurso_export {
                 . 'border-radius:4px;font-weight:bold;">' . htmlspecialchars($m[0], ENT_QUOTES, 'UTF-8') . '</span>';
         }, $limpio);
         // Dar estilo en linea minimo a tablas para que se vean ordenadas en cualquier tema Moodle.
-        $limpio = (string) preg_replace('/<table\b[^>]*>/i',
-            '<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;">', $limpio);
+        // El diagrama de tarjetas conserva su estilo (sin cuadricula); las demas tablas, el estilo minimo.
+        $limpio = (string) preg_replace_callback('/<table\b[^>]*>/i', static fn(array $m): string =>
+            preg_match('/m2-(diagrama|tarjetas)/', $m[0], $clase)
+                ? '<table class="m2-' . $clase[1] . '" style="width:100%;border-collapse:separate;border-spacing:6px;margin:12px 0;font-size:14px;">'
+                : '<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;">', $limpio);
         $limpio = (string) preg_replace('/<th\b([^>]*)>/i',
             '<th$1 style="background:#0b2447;color:#ffffff;padding:8px 10px;border:1px solid #c3cedd;text-align:left;">', $limpio);
         $limpio = (string) preg_replace('/<td\b([^>]*)>/i',
@@ -497,7 +532,7 @@ class recurso_export {
      * @return bool
      */
     public static function build_docx(string $ruta, string $titulo, string $subtitulo, string $html, string $logo = ''): bool {
-        $html = diseno::normalize_product($html);
+        $html = diseno::normalize_product(self::pictogram_captions($html));
         if (class_exists('\local_chatbot\documento_final')) {
             $ok = documento_final::build($ruta, [
                 'portada' => false,
@@ -1081,17 +1116,18 @@ class recurso_export {
         $pdf->AddPage();
 
         // TCPDF no renderiza SVG inline dentro de writeHTML: reemplazamos marcadores por etiqueta limpia destacada.
-        $limpio = (string) preg_replace_callback('/\[(?:pictograma|[ií]cono)(?:\s*:\s*|\s+)([^\]]+)\]/iu',
-            static function(array $m): string {
-                return '<span style="background-color:#e8f0f7;color:#0b2447;font-weight:bold;"> ['
-                    . htmlspecialchars(trim($m[1]), ENT_QUOTES, 'UTF-8') . '] </span>';
-            }, diseno::normalize_product($html));
+        $limpio = diseno::normalize_product(self::pictogram_captions($html));
+        // La casilla ☐ no esta en freesans (salia «?»): ZapfDingbats trae una casilla («o»).
+        $limpio = str_replace('☐', '<span style="font-family:zapfdingbats;">o</span>', $limpio);
         $limpio = (string) preg_replace_callback('/\[REVISAR(?:\s*:\s*[^\]]+)?\]/u', static function(array $m): string {
             return '<span style="background-color:#fff3cd;color:#856404;font-weight:bold;">'
                 . htmlspecialchars($m[0], ENT_QUOTES, 'UTF-8') . '</span>';
         }, $limpio);
-        $limpio = (string) preg_replace('/<table\b[^>]*>/i',
-            '<table border="1" cellpadding="5" cellspacing="0" style="border-color:#c3cedd;">', $limpio);
+        $limpio = (string) preg_replace_callback('/<table\b[^>]*>/i', static fn(array $m): string =>
+            stripos($m[0], 'm2-diagrama') !== false
+                ? '<table class="m2-diagrama" border="0" cellpadding="8" cellspacing="6">'
+                : (stripos($m[0], 'm2-tarjetas') !== false ? '<table class="m2-tarjetas" border="0" cellpadding="8" cellspacing="6">'
+                : '<table border="1" cellpadding="5" cellspacing="0" style="border-color:#c3cedd;">'), $limpio);
         $limpio = (string) preg_replace('/<th\b([^>]*)>/i',
             '<th$1 style="background-color:#0b2447;color:#ffffff;font-weight:bold;">', $limpio);
 

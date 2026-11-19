@@ -1106,9 +1106,17 @@ class centro_recursos {
         } else {
             $l[] = 'INSTRUCCIONES DE PRODUCCIÓN (Markdown estructurado para pantalla, HTML Moodle, Word y/o PDF):';
             $l[] = '- Entrega el material completo, redactado en español de Chile y listo para usar.';
-            $l[] = '- Usa títulos ## y ###, listas y tablas Markdown. Para pictogramas o íconos visuales en afiches, tarjetas '
-                . 'o tableros, escribe exactamente [Pictograma: descripción breve] (la plataforma los convierte en pictogramas SVG).';
-            $l[] = '- Para diagramas de pasos o ciclos, usa bloques ```diagrama (nunca arte ASCII).';
+            $l[] = '- Redacción formal, clara y estable: frases completas y directas, cada término técnico explicado la primera '
+                . 'vez que aparece, sin jerga, exageraciones ni adjetivos de relleno. Títulos en tipo oración (no en MAYÚSCULAS '
+                . 'sostenidas). Los datos de identificación (organismo, curso, persona facilitadora, código) van una sola vez, '
+                . 'al inicio y en forma breve.';
+            $l[] = '- Usa títulos ## y ###, listas y tablas Markdown. Para comparar dos o más elementos, usa una tabla Markdown. '
+                . 'Nunca dibujes cajas, líneas o flechas con caracteres (+---+, |, │, ▼, v, ->).';
+            $l[] = '- Pictogramas: escribe [Pictograma: descripción breve] solo donde una imagen ayude a comprender (como '
+                . 'máximo uno por sección), nunca como relleno; la plataforma lo muestra como «Ilustración sugerida».';
+            $l[] = '- Para diagramas de pasos o ciclos, usa bloques ```diagrama (nunca arte ASCII): una línea por caja, '
+                . '«Título / detalle», sin líneas de flechas ni conectores entre ellas (│, ▼, ↓); la plataforma las dibuja '
+                . 'como tarjetas con flechas.';
             $l[] = diseno::REGLA_FORMULAS;
             $l[] = '- Incluye [REVISAR: motivo] en el lugar exacto cuando un dato técnico/normativo no provenga de las fuentes autorizadas.';
             $l[] = '- Si usaste materiales de referencia cargados, agrega «Fuentes utilizadas: ...» al final.';
@@ -2115,6 +2123,10 @@ class centro_recursos {
      */
     public static function export_material_file(\stdClass $r, string $tipo, string $dir, string $impresion = 'Carta',
             string $logo = ''): ?array {
+        // Lo guardado antes del arreglo de diagramas: las listas con conectores salen como tarjetas con flechas.
+        $r = clone $r;
+        $r->contenido = diagrama::list_flows((string) $r->contenido);
+        $r->html_moodle = !empty($r->html_moodle) ? diagrama::list_flows((string) $r->html_moodle) : '';
         $base = preg_replace('/[^A-Za-z0-9_-]+/', '_', modulo2_setup::ascii_filename($r->codigo . '_' . $r->nombre));
         $base = trim(mb_substr((string) $base, 0, 60, 'UTF-8'), '_') ?: 'material';
         $ver = ((int) $r->version) > 0 ? ('_v' . (int) $r->version) : '';

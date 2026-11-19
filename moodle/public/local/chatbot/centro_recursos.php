@@ -555,9 +555,9 @@ $estadoEtiqueta = [
                         <?php endif; ?>
 
                         <div id="cr-material-vista" class="border rounded p-3 mb-3 bg-white">
-                            <?php echo centro_recursos::highlight_review_marks((string) $recActual->contenido); ?>
+                            <?php echo centro_recursos::highlight_review_marks(\local_chatbot\diagrama::list_flows((string) $recActual->contenido)); ?>
                         </div>
-                        <textarea id="cr-html-fuente" class="d-none"><?php echo s((string) ($recActual->html_moodle ?: $recActual->contenido)); ?></textarea>
+                        <textarea id="cr-html-fuente" class="d-none"><?php echo s(\local_chatbot\diagrama::list_flows((string) ($recActual->html_moodle ?: $recActual->contenido))); ?></textarea>
 
                         <?php if ($esModoC && !empty($recActual->estructurado)): ?>
                             <?php

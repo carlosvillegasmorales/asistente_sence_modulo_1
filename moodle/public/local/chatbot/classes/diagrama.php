@@ -32,6 +32,13 @@ class diagrama {
     const FONDO = '#E8F0F7';
     const BORDE = '#20639B';
 
+    /** @var string Color del texto principal y del rotulo de las tarjetas. */
+    const TEXTO = '#1F4E79';
+    const ROTULO = '#4A6A8A';
+
+    /** @var string Palabras con que empieza el rotulo de una caja («Momento 1», «Estación A», «Paso 3»). */
+    const ROTULOS = '(?:paso|momento|fase|etapa|estaci[oó]n|actividad|m[oó]dulo|nivel|parte|tarjeta)';
+
     /** @var string Caracteres con que se dibujan cajas y lineas. */
     const ARTE = '│─┌┐└┘├┤┬┴┼▼▲►◄┃━┏┓┗┛╔╗╚╝║═';
 
@@ -59,10 +66,23 @@ class diagrama {
                 $titulo = trim($m[1]);
                 continue;
             }
+            // Una linea que solo dibuja la union entre cajas (│, ▼, ↓, |) no es una caja: las flechas las pone la tabla.
+            // Visto en el centro de produccion el 19-11-2026: 5 cajas y 8 lineas de conectores pasaban de 12 «cajas»
+            // y el diagrama salia como lista de viñetas con «│» y «▼».
+            if (self::is_connector($linea)) {
+                continue;
+            }
             foreach (explode('|', $linea) as $trozo) {
                 // Marcas de lista o de flecha al comienzo de la caja.
                 $trozo = trim(preg_replace('/^(?:[-*•]|-+>|[→⇒►]|\d+[.)])\s*/u', '', trim($trozo)));
-                if ($trozo === '') {
+                // Corchetes que envuelven la caja: «[Momento 1: Higiene previa de manos]».
+                $trozo = trim(preg_replace('/^\[(.+)\]$/u', '$1', $trozo));
+                if ($trozo === '' || self::is_connector($trozo)) {
+                    continue;
+                }
+                if (strpos($trozo, ' / ') === false
+                        && preg_match('/^(' . self::ROTULOS . '\s+[^\s:]{1,4})\s*[:.\x{2013}\x{2014}-]\s+(.+)$/iu', $trozo, $r)) {
+                    $cajas[] = ['titulo' => trim($r[1]), 'detalle' => trim($r[2])];
                     continue;
                 }
                 $partes = explode(' / ', $trozo, 2);
@@ -142,16 +162,32 @@ class diagrama {
         };
         $per = self::per_row($d['modo'], count($d['cajas']));
         $ancho = (int) floor(100 / $per) - 4;
+        foreach ($d['cajas'] as $i => $c) {
+            $d['cajas'][$i]['n'] = $i + 1;
+        }
         $html = ($d['titulo'] !== '' ? '<p><strong>' . $e($d['titulo']) . '</strong></p>' : '')
             . '<table class="m2-diagrama" style="width: 100%; border-collapse: separate; border-spacing: 0;"><tbody>';
         foreach (self::grid($d) as $fila) {
             $html .= '<tr>';
             foreach ($fila as $celda) {
                 if ($celda['t'] === 'caja') {
+                    // Tarjeta: rotulo pequeño en mayusculas («MOMENTO 1», o «PASO n» en una secuencia sin numeros), texto
+                    // principal destacado y el detalle debajo.
                     $caja = $celda['c'];
+                    $rotulo = '';
+                    $principal = $caja['titulo'];
+                    $detalle = $caja['detalle'];
+                    if ($detalle !== '' && preg_match('/^' . self::ROTULOS . '\s+\S{1,4}$/iu', $principal)) {
+                        [$rotulo, $principal, $detalle] = [$principal, $detalle, ''];
+                    } else if ($d['modo'] === 'flujo' && empty($d['sinpaso']) && !preg_match('/\d/u', $principal)) {
+                        $rotulo = 'Paso ' . (int) ($caja['n'] ?? 0);
+                    }
                     $html .= '<td style="width: ' . $ancho . '%; background-color: ' . self::FONDO . '; border: 1px solid '
-                        . self::BORDE . '; padding: 8px; text-align: center; vertical-align: middle;"><strong>'
-                        . $e($caja['titulo']) . '</strong>' . ($caja['detalle'] !== '' ? '<br>' . $e($caja['detalle']) : '')
+                        . self::BORDE . '; border-radius: 10px; padding: 10px 12px; text-align: center; vertical-align: middle;">'
+                        . ($rotulo !== '' ? '<span style="font-size: 10px; letter-spacing: 1px; color: ' . self::ROTULO . ';">'
+                            . $e(\core_text::strtoupper($rotulo)) . '</span><br>' : '')
+                        . '<strong style="color: ' . self::TEXTO . ';">' . $e($principal) . '</strong>'
+                        . ($detalle !== '' ? '<br><span style="font-size: 12px;">' . $e($detalle) . '</span>' : '')
                         . '</td>';
                 } else if ($celda['t'] === 'flecha') {
                     $html .= '<td style="width: 4%; text-align: center; vertical-align: middle; font-size: 20px; color: '
@@ -163,6 +199,227 @@ class diagrama {
             $html .= '</tr>';
         }
         return $html . '</tbody></table>';
+    }
+
+    /**
+     * Texto en mayusculas sostenidas a tipo oracion («ENVEJECIMIENTO NORMAL (FISIOLÓGICO)» → «Envejecimiento normal
+     * (fisiológico)»); un texto con minusculas no se toca. Funcion pura.
+     *
+     * @param string $t
+     * @return string
+     */
+    public static function sentence(string $t): string {
+        $t = trim($t);
+        if ($t === '' || \core_text::strtoupper($t) !== $t || !preg_match('/\p{Lu}{4}/u', $t)) {
+            return $t;
+        }
+        $t = \core_text::strtolower($t);
+        return (string) preg_replace_callback('/^([^\p{L}]*)(\p{L})/u', static fn($m) => $m[1] . \core_text::strtoupper($m[2]), $t);
+    }
+
+    /**
+     * Cajas de un dibujo ASCII («+-----+», «| texto |», «v»): grupos de lineas con texto separados por bordes, y en cada
+     * grupo una columna por caja lado a lado. Cada caja trae su titulo, su descripcion y sus viñetas («•», «-»). Funcion pura.
+     *
+     * @param string[] $lineas
+     * @return array[] Grupos; cada grupo es una lista de cajas ['titulo' => string, 'detalle' => string, 'items' => string[]].
+     */
+    public static function ascii_groups(array $lineas): array {
+        $lineas = array_values(array_filter(array_map('rtrim', $lineas), static fn($l) => trim($l) !== ''));
+        $grupos = [];
+        $actual = [];
+        $n = count($lineas);
+        for ($i = 0; $i < $n; $i++) {
+            $l = $lineas[$i];
+            // Bordes y conectores («+----+», «|», «v   v», «+ v») no son texto de una caja.
+            if (!preg_match('/[\p{L}\d]/u', $l) || preg_match('/^[\s|+\-=vV^↓▼]*$/u', $l)) {
+                // Una fila vacia dentro de una caja («|        |     |        |») no la corta.
+                $siguiente = $lineas[$i + 1] ?? '';
+                if ($actual && preg_match('/^\s*\|[\s|]*\|\s*$/u', $l) && substr_count($l, '|') === substr_count($actual[count($actual) - 1], '|')
+                        && preg_match('/[\p{L}\d]/u', $siguiente) && strpos(ltrim($siguiente), '|') === 0) {
+                    continue;
+                }
+                if ($actual) {
+                    $grupos[] = $actual;
+                    $actual = [];
+                }
+                continue;
+            }
+            $actual[] = $l;
+        }
+        if ($actual) {
+            $grupos[] = $actual;
+        }
+        $salida = [];
+        foreach ($grupos as $g) {
+            $columnas = [];
+            foreach ($g as $l) {
+                $celdas = preg_match_all('/\|([^|]*)\|/u', $l, $m) ? $m[1] : [trim($l, " \t|")];
+                foreach ($celdas as $c => $texto) {
+                    $columnas[$c][] = trim($texto);
+                }
+            }
+            $cajas = [];
+            foreach ($columnas as $textos) {
+                $titulo = [];
+                $items = [];
+                foreach ($textos as $t) {
+                    if ($t === '') {
+                        continue;
+                    }
+                    if (preg_match('/^[•·*\-–]\s*(.+)$/u', $t, $m)) {
+                        $items[] = trim($m[1]);
+                    } else if ($items) {
+                        $items[count($items) - 1] .= ' ' . $t;
+                    } else {
+                        $titulo[] = $t;
+                    }
+                }
+                if (!$titulo && !$items) {
+                    continue;
+                }
+                // Titulo en corchetes o en mayusculas y luego una descripcion: la primera linea es el titulo.
+                $detalle = '';
+                if (count($titulo) > 1 && (preg_match('/^\[.+\]$/u', $titulo[0]) || \core_text::strtoupper($titulo[0]) === $titulo[0])
+                        && \core_text::strtoupper($titulo[1]) !== $titulo[1]) {
+                    $detalle = implode(' ', array_slice($titulo, 1));
+                    $titulo = [$titulo[0]];
+                }
+                $cajas[] = ['titulo' => self::sentence(trim(implode(' ', $titulo), '[] ')), 'detalle' => $detalle, 'items' => $items];
+            }
+            if ($cajas) {
+                $salida[] = $cajas;
+            }
+        }
+        return $salida;
+    }
+
+    /**
+     * HTML de un dibujo ASCII: cajas encadenadas de a una → diagrama de pasos; cajas lado a lado → tarjetas en columnas;
+     * una caja sola sin contenido → rotulo. null si no se reconocen cajas. Funcion pura.
+     *
+     * @param string[] $lineas
+     * @return string|null
+     */
+    public static function ascii_html(array $lineas): ?string {
+        $grupos = self::ascii_groups($lineas);
+        if (!$grupos) {
+            return null;
+        }
+        $e = static fn(string $t): string => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+        // Todas las cajas de a una, con contenido: es una secuencia.
+        $solas = array_filter($grupos, static fn($g) => count($g) === 1);
+        if (count($solas) === count($grupos) && count($grupos) >= self::MIN_CAJAS && count($grupos) <= self::MAX_CAJAS) {
+            $inicio = 0;
+            $titulo = '';
+            $primera = $grupos[0][0];
+            if (!$primera['items'] && $primera['detalle'] === '' && count($grupos) > self::MIN_CAJAS) {
+                $titulo = $primera['titulo'];
+                $inicio = 1;
+            }
+            $cajas = [];
+            foreach (array_slice($grupos, $inicio) as $g) {
+                $c = $g[0];
+                $cajas[] = ['titulo' => $c['titulo'], 'detalle' => trim($c['detalle'] . ($c['items'] ? ' ' . implode('; ', $c['items']) : ''))];
+            }
+            return self::render_html(['modo' => 'flujo', 'titulo' => $titulo, 'cajas' => $cajas, 'sinpaso' => true]);
+        }
+        $html = '';
+        foreach ($grupos as $g) {
+            if (count($g) === 1 && !$g[0]['items'] && $g[0]['detalle'] === '') {
+                $html .= '<p style="margin: 12px 0 4px 0; color: ' . self::TEXTO . ';"><strong>' . $e($g[0]['titulo']) . '</strong></p>';
+                continue;
+            }
+            $ancho = (int) floor(100 / count($g));
+            $html .= '<table class="m2-tarjetas" style="width: 100%; border-collapse: separate; border-spacing: 8px;"><tbody><tr>';
+            foreach ($g as $c) {
+                $html .= '<td style="width: ' . $ancho . '%; background-color: #F4F8FC; border: 1px solid ' . self::BORDE
+                    . '; border-radius: 10px; padding: 10px 12px; vertical-align: top;">'
+                    . '<strong style="color: ' . self::TEXTO . ';">' . $e($c['titulo']) . '</strong>'
+                    . ($c['detalle'] !== '' ? '<br>' . $e($c['detalle']) : '')
+                    . ($c['items'] ? '<ul>' . implode('', array_map(static fn($i) => '<li>' . $e($i) . '</li>', $c['items'])) . '</ul>' : '')
+                    . '</td>';
+            }
+            $html .= '</tr></tbody></table>';
+        }
+        return $html;
+    }
+
+    /**
+     * Listas que son un dibujo ASCII guardado linea por linea («+-----+», «| ENVEJECIMIENTO NORMAL |», «v»), como las que
+     * dejo el modelo en el centro de produccion (visto en el M3 del cliente el 19-11-2026, que el PDF mostraba como una
+     * tabla rota): se dibujan como tarjetas o pasos. Las demas listas no se tocan. Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function ascii_lists(string $html): string {
+        if (stripos($html, '<li') === false || strpos($html, '+-') === false) {
+            return $html;
+        }
+        return (string) preg_replace_callback('#<(ul|ol)\b[^>]*>((?:(?!</?(?:ul|ol)\b).)*)</\1>#isu',
+            static function(array $m): string {
+                if (!preg_match_all('#<li\b[^>]*>(.*?)</li>#isu', $m[2], $li)) {
+                    return $m[0];
+                }
+                $lineas = array_map(static fn($t) => html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8'), $li[1]);
+                $bordes = count(preg_grep('/^\s*\+[-=+]{3,}/u', $lineas));
+                $dibujo = count(array_filter($lineas, static fn($l) => preg_match('/^\s*[+|]|^[\s|vV^]+$/u', $l) === 1));
+                if (count($lineas) < 4 || $bordes < 2 || $dibujo < 0.6 * count($lineas)) {
+                    return $m[0];
+                }
+                return self::ascii_html($lineas) ?? $m[0];
+            }, $html);
+    }
+
+    /**
+     * Si un texto solo dibuja la union entre cajas: lineas y flechas (│ | ▼ ↓ → ─ -->) sin palabras.
+     *
+     * @param string $texto
+     * @return bool
+     */
+    public static function is_connector(string $texto): bool {
+        $texto = trim($texto);
+        return $texto !== '' && preg_match('/^[\s' . preg_quote(self::ARTE, '/')
+            . '|\/\\\\\-=_<>+\x{2013}\x{2014}→←↑↓⇒⇐⇑⇓⬇⬆➜➔➝⟶⟵]+$/u', $texto) === 1;
+    }
+
+    /**
+     * Listas que en realidad son un flujo: viñetas con pasos y viñetas que solo traen conectores («│», «▼»), como las
+     * que dejo el modelo antes de este arreglo. Se dibujan como diagrama de tarjetas con flechas; las demas listas no se
+     * tocan. Sirve tambien para lo ya guardado, porque se aplica al mostrar y al descargar.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function list_flows(string $html): string {
+        if (stripos($html, '<li') === false) {
+            return $html;
+        }
+        return (string) preg_replace_callback('#<(ul|ol)\b[^>]*>((?:(?!</?(?:ul|ol)\b).)*)</\1>#isu',
+            static function(array $m): string {
+                if (!preg_match_all('#<li\b[^>]*>(.*?)</li>#isu', $m[2], $li)) {
+                    return $m[0];
+                }
+                $cajas = [];
+                $conectores = 0;
+                foreach ($li[1] as $item) {
+                    $t = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($item), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+                    if ($t === '') {
+                        continue;
+                    }
+                    if (self::is_connector($t)) {
+                        $conectores++;
+                    } else {
+                        $cajas[] = str_replace('|', '/', $t);
+                    }
+                }
+                if ($conectores === 0) {
+                    return $m[0];
+                }
+                $d = self::parse(implode("\n", $cajas));
+                return $d === null ? $m[0] : self::render_html($d);
+            }, $html);
     }
 
     /**
@@ -562,8 +819,9 @@ class diagrama {
      * @return string
      */
     private static function as_list(array $lineas): string {
+        $lineas = array_values(array_filter($lineas, static fn($l) => !self::is_connector((string) $l)));
         return $lineas ? implode("\n", array_map(static function($l) {
             return '- ' . $l;
-        }, array_values($lineas))) : '';
+        }, $lineas)) : '';
     }
 }

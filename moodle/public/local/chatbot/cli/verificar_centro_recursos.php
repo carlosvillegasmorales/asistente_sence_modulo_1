@@ -305,6 +305,58 @@ local_chatbot_verificar(
     'el prompt del Modo C prohíbe inventar enlaces y recuerda la regla de «experiencia de aprendizaje»'
 );
 
+// --- Material formal: dibujos ASCII como tarjetas o pasos, pictogramas como nota y casillas en el PDF ---
+$artM3 = ['+-------------------------------------------------------+', '|              PROCESOS DE ENVEJECIMIENTO              |',
+    '+-------------------------------------------------------+', '|', '+--------------+--------------+', '|                             |',
+    'v                             v', '+-----------------------+     +-----------------------+',
+    '| ENVEJECIMIENTO NORMAL |     | ENVEJECIMIENTO        |', '| (FISIOLÓGICO)         |     | PATOLÓGICO            |',
+    '|                       |     |                       |', '| • Cambios esperables  |     | • Presencia de        |',
+    '| • Adaptación funcional|     |   enfermedades        |', '| • Mantención de la    |     | • Pérdida acelerada   |',
+    '|   autonomía           |     |   de funcionalidad    |', '+-----------------------+     +-----------------------+'];
+$listaM3 = '<ul>' . implode('', array_map(static fn($l) => '<li>' . htmlspecialchars($l) . '</li>', $artM3)) . '</ul>';
+$convM3 = \local_chatbot\diagrama::ascii_lists('<p>Antes</p>' . $listaM3 . '<ul><li>Uno</li><li>Dos</li></ul>');
+local_chatbot_verificar(
+    strpos($convM3, 'class="m2-tarjetas"') !== false && strpos($convM3, '+---') === false
+    && strpos($convM3, '<strong>Procesos de envejecimiento</strong>') !== false
+    && strpos($convM3, '>Envejecimiento normal (fisiológico)</strong>') !== false
+    && strpos($convM3, '<li>Presencia de enfermedades</li>') !== false && strpos($convM3, '<li>Mantención de la autonomía</li>') !== false
+    && strpos($convM3, '<ul><li>Uno</li><li>Dos</li></ul>') !== false,
+    'un dibujo ASCII guardado como lista sale como rótulo y tarjetas lado a lado con sus viñetas; una lista normal no se toca'
+);
+$artNiveles = ['+----------------------+', '|   NIVELES DE DEPENDENCIA   |', '+----------------------+', '+----------------------+',
+    '| [INDEPENDIENTE]      |', '| La persona realiza el 100% de las actividades sin ayuda. |', '+----------------------+', 'v',
+    '+----------------------+', '| [DEPENDENCIA LEVE]   |', '| Requiere apoyo puntual. |', '+----------------------+', 'v',
+    '+----------------------+', '| [DEPENDENCIA SEVERA] |', '| Requiere apoyo continuo. |', '+----------------------+'];
+$convNiveles = (string) \local_chatbot\diagrama::ascii_html($artNiveles);
+local_chatbot_verificar(
+    strpos($convNiveles, 'class="m2-diagrama"') !== false && strpos($convNiveles, '<p><strong>Niveles de dependencia</strong></p>') === 0
+    && substr_count($convNiveles, 'background-color: #E8F0F7') === 3 && strpos($convNiveles, '>Independiente</strong>') !== false
+    && strpos($convNiveles, 'La persona realiza el 100% de las actividades sin ayuda.') !== false,
+    'cajas ASCII encadenadas con «v» salen como diagrama de pasos con título, en tipo oración y con su descripción'
+);
+local_chatbot_verificar(
+    \local_chatbot\diagrama::sentence('ENVEJECIMIENTO NORMAL (FISIOLÓGICO)') === 'Envejecimiento normal (fisiológico)'
+    && \local_chatbot\diagrama::sentence('[INDEPENDIENTE]') === '[Independiente]'
+    && \local_chatbot\diagrama::sentence('Escala de Barthel') === 'Escala de Barthel',
+    'sentence pasa a tipo oración solo el texto en mayúsculas sostenidas'
+);
+local_chatbot_verificar(
+    recurso_export::pictogram_captions('<p>[Pictograma: manos lavándose]</p>') === '<p><em style="color: #4A6A8A;">Ilustración sugerida: manos lavándose</em></p>'
+    && strpos(recurso_export::render_pictograms('[Pictograma: guantes]'), 'Ilustración sugerida: guantes') !== false,
+    'el pictograma se ve como «Ilustración sugerida» en Word y PDF, y con su nota también en pantalla'
+);
+local_chatbot_verificar(
+    recurso_export::legacy_pictograms('<p><span class="cr-picto" title="Mano extendida"><svg viewBox="0 0 24 24"><path d="M1"></path></svg></span></p>')
+        === '<p>[Pictograma: Mano extendida]</p>'
+    && strpos(recurso_export::render_pictograms('<span class="cr-picto" title="Biombo"><svg></svg></span>'), 'Ilustración sugerida: Biombo') !== false,
+    'los pictogramas ya guardados (solo icono) vuelven a mostrarse con su nota'
+);
+local_chatbot_verificar(
+    strpos($p103, 'Redacción formal, clara y estable') !== false && strpos($p103, 'Nunca dibujes cajas, líneas o flechas con caracteres') !== false
+    && strpos($p103, 'como máximo uno por sección') !== false,
+    'el prompt de producción pide redacción formal, prohíbe dibujos con caracteres y limita los pictogramas'
+);
+
 // --- Materiales mixtos: cada parte en su modo y «Entregado parcialmente» hasta entregar todas ---
 $mixto = centro_recursos::parse_plan_json(json_encode(['materiales' => [
     ['codigo' => 'M2', 'nombre' => 'Cápsula audiovisual y tarjetas de debate', 'fase' => 'Fase 1', 'modo' => 'B/C',

@@ -1,5 +1,27 @@
 # Changelog
 
+## M1-v1.27.0 (2026-11-19)
+
+**Materiales formales, estables y legibles** (pedido del 19-11-2026, con los PDF del M1 y el M3 del cliente). Sin
+cambios en la base. Afecta al centro de producción y también a los productos del Módulo 2 (mismos diagramas).
+
+- **Diagramas de pasos:** las líneas que solo dibujan la unión entre cajas (`│`, `▼`, `|`) ya no cuentan como cajas
+  (con ellas el M1 pasaba de 12 «cajas» y salía como viñetas); «[Momento 1: texto]» se lee como rótulo y texto. Las cajas
+  son tarjetas con rótulo pequeño en mayúsculas («MOMENTO 1», o «PASO n» en una secuencia sin números), texto
+  destacado y esquinas redondeadas (`diagrama::parse()`, `render_html()`, `is_connector()`).
+- **Lo ya guardado se corrige al mostrar y descargar:** una lista de pasos con conectores pasa a diagrama
+  (`list_flows()`) y un dibujo ASCII guardado línea por línea (`+----+`, `| … |`, `v`) pasa a tarjetas lado a lado o a
+  pasos, con los títulos en tipo oración (`ascii_lists()`, `ascii_html()`, `ascii_groups()`, `sentence()`). El PDF del M3
+  lo mostraba como una tabla rota.
+- **PDF y HTML para Moodle:** el diagrama y las tarjetas no llevan la cuadrícula de las tablas; la casilla «☐» se dibuja
+  con ZapfDingbats (freesans no la tiene y salía «?»).
+- **Pictogramas:** se muestran como «Ilustración sugerida: …» (con su icono en pantalla y en Moodle), también los ya
+  guardados (`pictogram_captions()`, `legacy_pictograms()`); antes salían como texto entre corchetes o como un icono
+  sin explicación.
+- **Prompt del centro:** redacción formal y clara, títulos en tipo oración, datos de identificación una sola vez, tablas
+  para comparar, nunca dibujos con caracteres y como máximo un pictograma por sección. El prompt del Módulo 2 pide los
+  diagramas sin líneas de conectores.
+
 ## M1-v1.26.1 (2026-11-19)
 
 **Centro de producción, Modo C: videos verificados de verdad.** Al probar en el VPS del cliente, el asistente entregó

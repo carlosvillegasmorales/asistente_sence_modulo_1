@@ -495,8 +495,29 @@ local_chatbot_verificar($texto(diagrama::grid(diagrama::parse("modo: ciclo\nA\nB
     'ciclo de 3: sin flecha de cierre cuando la última fila queda incompleta');
 $html = diagrama::render_html($d4);
 local_chatbot_verificar(strpos($html, 'class="m2-diagrama"') !== false && substr_count($html, 'background-color: #E8F0F7') === 4
-    && strpos($html, '<strong>Estación A</strong><br>Aseo (1.5, 1.6)') !== false && strpos($html, '<p><strong>Rotación por estaciones</strong></p>') === 0,
-    'la tabla lleva su título, cuatro cajas con color de fondo y el detalle bajo el título');
+    && strpos($html, 'ESTACIÓN A</span><br><strong style="color: #1F4E79;">Aseo (1.5, 1.6)</strong>') !== false
+    && strpos($html, 'border-radius: 10px') !== false && strpos($html, '<p><strong>Rotación por estaciones</strong></p>') === 0,
+    'la tabla lleva su título y cuatro tarjetas con color de fondo, rótulo en mayúsculas y texto destacado');
+// Conectores dibujados entre cajas (visto en el centro de producción el 19-11-2026: salían como viñetas «│» y «▼»).
+$dflujo = diagrama::parse("[Momento 1: Higiene previa de manos]\n  │\n  ▼\n[Momento 2: Colocación de guantes]\n|\n↓\n"
+    . "[Momento 3: Asistencia]\n │\n ▼\n[Momento 4: Retiro de guantes]\n │\n ▼\n[Momento 5: Higiene final y registro]");
+local_chatbot_verificar($dflujo !== null && count($dflujo['cajas']) === 5
+    && $dflujo['cajas'][0] === ['titulo' => 'Momento 1', 'detalle' => 'Higiene previa de manos'],
+    'las líneas de conectores no son cajas y «[Momento 1: texto]» se lee como rótulo y texto');
+$hflujo = diagrama::render_html($dflujo);
+local_chatbot_verificar(strpos($hflujo, 'MOMENTO 1</span><br><strong style="color: #1F4E79;">Higiene previa de manos</strong>') !== false
+    && strpos($hflujo, '│') === false && strpos($hflujo, '▼') === false
+    && strpos(diagrama::render_html(diagrama::parse("Lavar\nSecar")), 'PASO 2</span>') !== false,
+    'las tarjetas muestran el rótulo («MOMENTO 1», o «PASO n» en una secuencia sin números) y no dibujan conectores');
+$lista = '<h3>Flujo</h3><ul><li>[Momento 1: Higiene previa]</li><li>│</li><li>▼</li><li>[Momento 2: Guantes]</li>'
+    . '<li>│</li><li>▼</li><li>[Momento 3: Registro]</li></ul><ul><li>Uno</li><li>Dos</li></ul>';
+$conv = diagrama::list_flows($lista);
+local_chatbot_verificar(strpos($conv, 'class="m2-diagrama"') !== false && strpos($conv, '<li>│</li>') === false
+    && substr_count($conv, 'background-color: #E8F0F7') === 3 && strpos($conv, '<ul><li>Uno</li><li>Dos</li></ul>') !== false,
+    'una lista de pasos con conectores (lo ya guardado) se dibuja como diagrama; una lista normal no se toca');
+local_chatbot_verificar(diagrama::is_connector('│') && diagrama::is_connector(' ▼ ') && diagrama::is_connector('|')
+    && diagrama::is_connector('-->') && !diagrama::is_connector('Paso 1') && !diagrama::is_connector('—Nota'),
+    'is_connector distingue líneas de unión de texto');
 local_chatbot_verificar(strpos(diagrama::render_html(diagrama::parse("A <b>x</b> / d\nB")), '<b>') === false,
     'el texto de las cajas se escapa');
 

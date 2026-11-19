@@ -1089,7 +1089,8 @@ class diseno {
             . 'rotación de subgrupos), entrégalo en un bloque de código con la etiqueta «diagrama»: una línea por caja, '
             . 'con «Título / detalle» (el detalle es opcional); puedes agregar una línea «titulo: ...» y la línea '
             . '«modo: ciclo» si los pasos se repiten en círculo (por ejemplo, la rotación de subgrupos); sin ella es una '
-            . 'secuencia. Entre 2 y 12 cajas. La plataforma lo dibuja como cajas con flechas. Ejemplo:';
+            . 'secuencia. Entre 2 y 12 cajas, sin líneas de flechas ni conectores entre ellas (│, ▼, ↓). La plataforma lo '
+            . 'dibuja como tarjetas con flechas. Ejemplo:';
         $l[] = '```diagrama';
         $l[] = 'modo: ciclo';
         $l[] = 'titulo: Rotación de subgrupos por estaciones';
@@ -1273,7 +1274,7 @@ class diseno {
      */
     public static function product_html(string $markdown): string {
         [$sin, $tablas] = diagrama::extract($markdown);
-        return clean_text(self::structure_pre(diagrama::insert(markdown_to_html($sin), $tablas)), FORMAT_HTML);
+        return clean_text(diagrama::list_flows(diagrama::ascii_lists(self::structure_pre(diagrama::insert(markdown_to_html($sin), $tablas)))), FORMAT_HTML);
     }
 
     /**
@@ -1717,7 +1718,7 @@ class diseno {
      * @return string
      */
     public static function normalize_product(string $html): string {
-        $html = self::repair_art_lists(self::structure_pre(self::plain_math($html)));
+        $html = diagrama::list_flows(self::repair_art_lists(diagrama::ascii_lists(self::structure_pre(self::plain_math($html)))));
         // Lo guardado antes de las reglas de hoy: sin marcas de cita «[1]» y con las casillas «[ ]» como ☐ (no en un enlace).
         return preg_replace('/\[\s{0,2}\](?!\()/u', '☐', self::strip_citations($html));
     }
