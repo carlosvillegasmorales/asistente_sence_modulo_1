@@ -269,6 +269,11 @@ local_chatbot_verificar(
     centro_recursos::headings_as_markdown('<h2 id="a">Parte <b>1</b></h2><h3>Pasos</h3>') === '<p>## Parte 1</p><p>### Pasos</p>',
     'headings_as_markdown entrega el material actual al ajuste con sus títulos en Markdown'
 );
+local_chatbot_verificar(
+    centro_recursos::headings_as_markdown('<p><strong>Tiempo total:</strong> 48 min, <em>por subgrupo</em> <b>x</b></p>')
+        === '<p>**Tiempo total:** 48 min, *por subgrupo* **x**</p>',
+    'headings_as_markdown deja negritas y cursivas en Markdown (html_to_text las pondría en MAYÚSCULAS)'
+);
 
 // --- Cuestionarios desde una sola fuente: GIFT + Google Apps Script + HTML imprimible con pauta ---
 $quiz = [

@@ -66,6 +66,26 @@ foreach (['en' => $en, 'es' => $es] as $idioma => $claves) {
     }
 }
 
+// Claves que el codigo pide y no existen: Moodle las muestra como [[clave]] (visto en el centro de produccion,
+// v1.25.0, con «backtocourse»). Se revisan las llamadas literales get_string('<clave>', 'local_chatbot').
+$raiz = dirname(__DIR__);
+$archivos = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($raiz, FilesystemIterator::SKIP_DOTS));
+foreach ($archivos as $archivo) {
+    $ruta = str_replace(DIRECTORY_SEPARATOR, '/', (string) $archivo);
+    if (substr($ruta, -4) !== '.php' || strpos($ruta, '/lang/') !== false) {
+        continue;
+    }
+    if (preg_match_all("/get_string\(\s*'([a-z0-9_]+)'\s*,\s*'local_chatbot'/", file_get_contents($ruta), $m)) {
+        foreach (array_unique($m[1]) as $clave) {
+            if (!in_array($clave, $es, true)) {
+                echo "  FALLA  '{$clave}' se usa en " . substr($ruta, strlen(str_replace(DIRECTORY_SEPARATOR, '/', $raiz)) + 1)
+                    . " pero no existe en lang/es: se mostraría como [[{$clave}]]\n";
+                $fallidos++;
+            }
+        }
+    }
+}
+
 printf("Claves verificadas: %d en inglés, %d en español | Fallidos: %d\n",
     count($en), count($es), $fallidos);
 

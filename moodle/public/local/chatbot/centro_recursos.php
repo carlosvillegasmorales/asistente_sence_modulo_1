@@ -270,7 +270,7 @@ $estadoEtiqueta = [
                 </a>
             <?php endif; ?>
             <a class="chatbot-backbtn" href="<?php echo $courseurl->out(false); ?>">
-                &larr; <?php echo get_string('backtocourse', 'local_chatbot'); ?>
+                &larr; <?php echo get_string('back_to_course_clear', 'local_chatbot'); ?>
             </a>
         </div>
     </div>

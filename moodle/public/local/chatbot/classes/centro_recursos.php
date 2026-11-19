@@ -601,15 +601,19 @@ class centro_recursos {
 
     /**
      * Encabezados HTML (h1 a h6) como lineas Markdown («<h2>Parte 1</h2>» → «<p>## Parte 1</p>»), para que el material
-     * actual llegue al ajuste con sus titulos y el asistente pueda devolver solo las secciones. Funcion pura.
+     * actual llegue al ajuste con sus titulos y el asistente pueda devolver solo las secciones. Las negritas y cursivas
+     * tambien pasan a Markdown: html_to_text() de Moodle pone las negritas en MAYUSCULAS y el asistente las copiaba asi
+     * (visto al probar en el VPS del cliente el 19-11-2026). Funcion pura.
      *
      * @param string $html
      * @return string
      */
     public static function headings_as_markdown(string $html): string {
-        return (string) preg_replace_callback('/<h([1-6])[^>]*>(.*?)<\/h\1>/isu', static function(array $m): string {
+        $html = (string) preg_replace_callback('/<h([1-6])[^>]*>(.*?)<\/h\1>/isu', static function(array $m): string {
             return '<p>' . str_repeat('#', (int) $m[1]) . ' ' . trim(strip_tags($m[2])) . '</p>';
         }, $html);
+        $html = (string) preg_replace('/<(strong|b)\b[^>]*>(.*?)<\/\1>/isu', '**$2**', $html);
+        return (string) preg_replace('/<(em|i)\b[^>]*>(.*?)<\/\1>/isu', '*$2*', $html);
     }
 
     /**

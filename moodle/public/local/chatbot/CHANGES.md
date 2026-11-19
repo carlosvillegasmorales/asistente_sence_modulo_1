@@ -1,5 +1,17 @@
 # Changelog
 
+## M1-v1.25.1 (2026-11-19)
+
+Correcciones encontradas al probar el centro de producción en el VPS del cliente con una cuenta de estudiante (lista de
+diseños, plan de 12 materiales, estructura, material en Modo B, ajuste por sección, descargas PDF y Word, entrega, cierre
+con repertorio .zip y reapertura). Sin cambios en la base.
+
+- El botón de volver al curso mostraba `[[backtocourse]]`: usa la cadena existente `back_to_course_clear`.
+- `verificar_idiomas.php` revisa además que toda clave pedida con `get_string('…', 'local_chatbot')` exista en
+  `lang/es`, para que una cadena faltante no llegue a producción.
+- El ajuste por sección recibía las negritas en MAYÚSCULAS (`html_to_text()` de Moodle) y el asistente las copiaba así:
+  `headings_as_markdown()` deja negritas y cursivas en Markdown.
+
 ## M1-v1.25.0 (2026-11-19)
 
 **Módulo 2: Centro de producción de recursos de aprendizaje (Etapas 9 a 12)** (documentos de Interfases: Especificación
