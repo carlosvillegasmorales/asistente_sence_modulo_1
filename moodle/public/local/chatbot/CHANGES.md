@@ -1,5 +1,32 @@
 # Changelog
 
+## M1-v1.24.9 (2026-11-19)
+
+**Módulo 3, Fase 1: ajustes del formulario en línea de la ficha de implementación** (documento de Interfases «Ajustes
+Formulario on-line», 19-11-2026). Sin cambios en la base ni en los prompts.
+
+- **Autocompletado desde el diseño elegido** (`implementacion::auto_values()`, `AUTOCOMPLETADOS`): al elegir el diseño se
+  cargan solos plan formativo, módulo, nombre de la experiencia, nombre de la persona facilitadora (de la ficha de
+  diagnóstico del Módulo 2, que ahora entra en `design_reference()`), tiempo total disponible, tiempo asignado a la
+  experiencia y aprendizaje esperado. Van de solo lectura cuando el diseño los declara; si no, los escribe la persona.
+  Fechas, horario, participantes inscritos y presentes y tiempo efectivamente utilizado siguen siendo manuales, como del
+  apartado 3 en adelante. Al cambiar de diseño sin recargar la página, la ficha se rellena con su JS.
+- **Criterios de evaluación por selección** (`criterion_selected()`): se cargan todos los del diseño validado como casillas
+  y la persona marca con un clic los que efectivamente trabajó. Cada criterio queda en la misma posición que tiene en el
+  diseño (`criterioN`), con su texto; la tabla 4.1 lleva esa posición y admite posiciones no consecutivas. Desaparece el
+  botón «Agregar criterio de evaluación». El tope de criterios pasa de 15 a 20 (`CRITERIOS_MAX`, como en la Fase 4).
+- **El guardado aplica el diseño** (`apply_design()`): los campos automáticos quedan con el valor del diseño y un criterio
+  que no es del diseño se descarta, de modo que la ficha no se aparta del diseño por una transcripción. `prefill()` carga
+  los vacíos al mostrar sin pisar lo escrito. Se quita el recuadro «Datos del diseño seleccionado», que ya no hace falta.
+- **Notas del apartado 2** según el documento: se elimina la nota bajo el subtítulo 2.1; «Aprendizaje esperado» lleva
+  «Transcripción del aprendizaje esperado tal como está formulado en el diseño instruccional validado.»; la nota sobre los
+  criterios pasa a «Seleccione solo los criterios de evaluación que efectivamente se abordaron, tal como figuran en el
+  diseño instruccional validado para este aprendizaje esperado». El 2.2 queda igual y manual.
+- Librería del Módulo 3: `02_ficha_registro.md` y `03_guia_llenado.md` describen el nuevo llenado (hay que recargarla con
+  `cargar_libreria.php --ambito=m3` al desplegar). `verificar_implementacion.php`: 143 casos (14 nuevos).
+- Límite conocido: una ficha guardada antes de este cambio con criterios transcritos a mano que no coinciden (≥ 90 %) con
+  el criterio de su misma posición en el diseño pierde esos criterios al guardar; hay que marcarlos de nuevo.
+
 ## M1-v1.24.8 (2026-11-19)
 
 **Módulo 2: reglas de consistencia del diseño** (documento de Interfases «Ajuste Prompt Maestro M2 - Reglas de

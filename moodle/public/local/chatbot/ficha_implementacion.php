@@ -98,6 +98,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
     // El diseño elegido: solo uno de la propia persona.
     $disenoid = optional_param('disenoid', 0, PARAM_INT);
     $elegido = $disenoid > 0 ? implementacion::get_design($disenoid, $USER->id) : null;
+    // Si no llega uno, rige el que la ficha ya tenia. Sus datos (plan, modulo, experiencia, facilitador, tiempos, aprendizaje
+    // esperado y criterios marcados) se aplican a lo que llega: la ficha no se aparta del diseño por una transcripcion.
+    $previa = implementacion::get_ficha($USER->id, $courseid);
+    $vigente = $elegido ?: (($previa && (int) $previa->disenoid > 0) ? implementacion::get_design((int) $previa->disenoid, $USER->id) : null);
+    if ($vigente && $vigente['disponible']) {
+        $data = implementacion::apply_design($data, $vigente['referencia']);
+    }
     $fichaid = implementacion::save_ficha($USER->id, $courseid, $data, $elegido ? $disenoid : null);
 
     $tipo = \core\output\notification::NOTIFY_SUCCESS;
@@ -142,6 +149,12 @@ $listo = $val && $val->estado === implementacion::LISTO && is_array($val->inform
 $avanza = $listo && $vigente && implementacion::can_advance($val->condicion);
 $disenos = implementacion::list_designs($USER->id);
 $elegido = ($ficha && (int) $ficha->disenoid > 0) ? implementacion::get_design((int) $ficha->disenoid, $USER->id) : null;
+// Lo que el diseño elegido completa solo: los campos vacios se cargan (lo ya escrito se corrige al guardar).
+$ref = ($elegido && $elegido['disponible']) ? $elegido['referencia'] : null;
+$automaticos = $ref ? implementacion::auto_values($ref) : [];
+if ($ref) {
+    $data = implementacion::prefill($data, $ref);
+}
 
 // Las fases del Modulo 3 son secciones del curso que se llaman «Fase 1: ...», «Fase 2: ...».
 $nombres = [];
@@ -163,13 +176,12 @@ $condclase = [implementacion::APROBADO => 'success', implementacion::OBSERVACION
  *
  * @param array $campo
  * @param array $data
- * @param bool $oculto Criterio agregado que aun no se muestra.
+ * @param array $automaticos id => valor de lo que el diseño elegido completa solo (esos campos van de solo lectura).
  * @return void
  */
-function local_chatbot_impl_campo(array $campo, array $data, bool $oculto = false): void {
+function local_chatbot_impl_campo(array $campo, array $data, array $automaticos = []): void {
     $id = $campo['id'];
-    echo '<div class="mb-3 pb-3 border-bottom"' . (!empty($campo['adicional']) ? ' data-criterio-adicional="1"' : '')
-        . (strpos($id, 'criterio') === 0 ? ' data-criterio="' . (int) substr($id, 8) . '"' : '') . ($oculto ? ' hidden' : '') . '>';
+    echo '<div class="mb-3 pb-3 border-bottom">';
     if (!empty($campo['subtitulo'])) {
         echo '<h6 class="fw-bold text-dark mb-2">' . s($campo['subtitulo']) . '</h6>';
     }
@@ -213,17 +225,70 @@ function local_chatbot_impl_campo(array $campo, array $data, bool $oculto = fals
         echo '<p class="small text-muted mb-2">' . s($campo['ayuda']) . '</p>';
     }
     $valor = s($data[$id] ?? '');
+    // Campo que se completa solo con el diseño: de solo lectura cuando el diseño lo declara.
+    $auto = !empty($campo['auto']) ? ' data-auto="' . $id . '"' . (isset($automaticos[$id]) ? ' readonly' : '') : '';
     if ($campo['tipo'] === implementacion::T_PARRAFO) {
         echo '<textarea class="form-control" id="' . $domid . '" name="' . $id . '" rows="3" maxlength="'
-            . implementacion::LARGO_PARRAFO . '">' . $valor . '</textarea>';
+            . implementacion::LARGO_PARRAFO . '"' . $auto . '>' . $valor . '</textarea>';
     } else if ($campo['tipo'] === implementacion::T_NUMERO) {
         echo '<input type="number" min="0" step="1" class="form-control" style="max-width: 200px;" id="' . $domid
-            . '" name="' . $id . '" value="' . $valor . '">';
+            . '" name="' . $id . '" value="' . $valor . '"' . $auto . '>';
     } else {
         echo '<input type="text" class="form-control" id="' . $domid . '" name="' . $id . '" maxlength="'
-            . implementacion::LARGO_TEXTO . '" value="' . $valor . '">';
+            . implementacion::LARGO_TEXTO . '" value="' . $valor . '"' . $auto . '>';
+    }
+    if (!empty($campo['auto'])) {
+        echo '<p class="small text-muted mt-1 mb-0"><i class="fa fa-magic me-1" aria-hidden="true"></i>'
+            . get_string('impl_auto_hint', 'local_chatbot') . '</p>';
     }
     echo '</div>';
+}
+
+/**
+ * Pinta los criterios de evaluacion de 2.1: los del diseño elegido, para marcar los que se trabajaron.
+ *
+ * Cada casilla se llama criterioN (N es la posicion del criterio en el diseño) y su valor es el texto del diseño: lo que se
+ * marca llega al guardado como el criterio ya transcrito, y la tabla 4.1 usa la misma posicion.
+ *
+ * @param array|null $ref Referencia del diseño elegido (null: aun no hay uno disponible).
+ * @param array $data
+ * @return void
+ */
+function local_chatbot_impl_criterios(?array $ref, array $data): void {
+    echo '<div class="mb-3 pb-3 border-bottom">';
+    echo '<p class="small text-muted mb-3">' . s(implementacion::NOTA_CRITERIOS) . '</p>';
+    echo '<div id="impl-criterios">';
+    local_chatbot_impl_criterios_lista($ref, $data);
+    echo '</div></div>';
+}
+
+/**
+ * Las casillas de los criterios (o el aviso de que no hay): el interior de #impl-criterios.
+ *
+ * @param array|null $ref
+ * @param array $data
+ * @return void
+ */
+function local_chatbot_impl_criterios_lista(?array $ref, array $data): void {
+    if ($ref === null) {
+        echo '<p class="small text-muted mb-0" id="impl-criterios-vacio">' . get_string('impl_criteria_choose', 'local_chatbot') . '</p>';
+        return;
+    }
+    if (!$ref['criterios']) {
+        echo '<p class="small text-muted mb-0">' . get_string('impl_criteria_none', 'local_chatbot') . '</p>';
+        return;
+    }
+    foreach (array_slice($ref['criterios'], 0, implementacion::CRITERIOS_MAX) as $k => $texto) {
+        $n = $k + 1;
+        echo '<div class="form-check border rounded p-2 ps-4 mb-2"><input class="form-check-input" type="checkbox" name="criterio' . $n
+            . '" id="f_criterio' . $n . '" value="' . s($texto) . '" data-criterio="' . $n . '"'
+            . (implementacion::criterion_selected($data, $ref, $n) ? ' checked' : '') . '>'
+            . '<label class="form-check-label" for="f_criterio' . $n . '"><span class="fw-medium">'
+            . get_string('impl_table41_criterion', 'local_chatbot', $n) . '</span> ' . s($texto) . '</label></div>';
+    }
+    if (count($ref['criterios']) > implementacion::CRITERIOS_MAX) {
+        echo '<p class="small text-warning-emphasis mb-0">' . get_string('impl_criteria_more', 'local_chatbot', implementacion::CRITERIOS_MAX) . '</p>';
+    }
 }
 
 echo $OUTPUT->header();
@@ -350,27 +415,6 @@ echo $OUTPUT->header();
                             </div>
                         <?php endforeach; ?>
                     </div>
-                    <?php if ($elegido && $elegido['disponible']):
-                        $ref = $elegido['referencia']; ?>
-                        <details class="mt-3" open>
-                            <summary class="fw-medium text-primary" style="cursor: pointer;"><?php
-                                echo get_string('impl_design_reference', 'local_chatbot'); ?></summary>
-                            <p class="small text-muted mt-2 mb-2"><?php echo get_string('impl_design_reference_help', 'local_chatbot'); ?></p>
-                            <table class="table table-sm small mb-2">
-                                <?php foreach ([['impl_ref_plan', $ref['plan']], ['impl_ref_modulo', $ref['modulo']],
-                                        ['impl_ref_experiencia', $ref['experiencia']], ['impl_ref_aprendizaje', $ref['aprendizaje']],
-                                        ['impl_ref_tiempo_total', $ref['tiempo_total'] === null ? '' : $ref['tiempo_total'] . ' min'],
-                                        ['impl_ref_tiempo_asignado', $ref['tiempo_asignado'] === null ? '' : $ref['tiempo_asignado'] . ' min']]
-                                        as [$clave, $valor]): ?>
-                                    <tr><th class="text-nowrap pe-3" style="width: 1%;"><?php echo get_string($clave, 'local_chatbot'); ?></th>
-                                        <td><?php echo $valor !== '' ? s($valor) : '—'; ?></td></tr>
-                                <?php endforeach; ?>
-                                <tr><th class="text-nowrap pe-3"><?php echo get_string('impl_ref_criterios', 'local_chatbot'); ?></th>
-                                    <td><?php if ($ref['criterios']): ?><ol class="mb-0 ps-3"><?php foreach ($ref['criterios'] as $c): ?><li><?php
-                                        echo s($c); ?></li><?php endforeach; ?></ol><?php else: ?>—<?php endif; ?></td></tr>
-                            </table>
-                        </details>
-                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -393,22 +437,13 @@ echo $OUTPUT->header();
                         </details>
                     <?php endif; ?>
                     <?php
-                    // Criterios: los 3 de partida y los agregados hasta el ultimo con texto; el resto, ocultos.
-                    $ultimocriterio = implementacion::CRITERIOS_MIN;
-                    for ($i = implementacion::CRITERIOS_MAX; $i > implementacion::CRITERIOS_MIN; $i--) {
-                        if (trim((string) ($data['criterio' . $i] ?? '')) !== '') {
-                            $ultimocriterio = $i;
-                            break;
-                        }
-                    }
+                    // Los criterios no se escriben: son los del diseño elegido y se marcan los que se trabajaron.
                     foreach ($seccion['campos'] as $campo) {
                         $numcriterio = strpos($campo['id'], 'criterio') === 0 ? (int) substr($campo['id'], 8) : 0;
-                        local_chatbot_impl_campo($campo, $data, $numcriterio > $ultimocriterio);
-                        if ($numcriterio === implementacion::CRITERIOS_MAX) {
-                            echo '<div class="mb-3 pb-3 border-bottom"><button type="button" class="btn btn-outline-primary btn-sm"'
-                                . ' id="impl-agregar-criterio"' . ($ultimocriterio >= implementacion::CRITERIOS_MAX ? ' hidden' : '') . '>'
-                                . '<i class="fa fa-plus me-1" aria-hidden="true"></i>'
-                                . get_string('impl_add_criterion', 'local_chatbot') . '</button></div>';
+                        if ($numcriterio === 1) {
+                            local_chatbot_impl_criterios($ref, $data);
+                        } else if ($numcriterio === 0) {
+                            local_chatbot_impl_campo($campo, $data, $automaticos);
                         }
                     } ?>
 
@@ -424,10 +459,10 @@ echo $OUTPUT->header();
                                 <?php endforeach; ?>
                             </ul>
                         </details>
-                        <p class="small text-muted" id="impl-sin-criterios"<?php echo implementacion::criteria_count($data) ? ' hidden' : ''; ?>><?php
+                        <p class="small text-muted" id="impl-sin-criterios"<?php echo ($ref && implementacion::criteria_count($data)) ? ' hidden' : ''; ?>><?php
                             echo get_string('impl_table41_none', 'local_chatbot'); ?></p>
                         <?php for ($i = 1; $i <= implementacion::CRITERIOS_MAX; $i++):
-                            $texto = trim((string) ($data['criterio' . $i] ?? '')); ?>
+                            $texto = ($ref && implementacion::criterion_selected($data, $ref, $i)) ? trim((string) $data['criterio' . $i]) : ''; ?>
                             <div class="border rounded p-3 mb-3" data-fila="<?php echo $i; ?>"<?php echo $texto === '' ? ' hidden' : ''; ?>>
                                 <div class="fw-bold mb-2"><?php echo get_string('impl_table41_criterion', 'local_chatbot', $i); ?>
                                     <span class="fw-normal text-muted" data-criterio-texto="<?php echo $i; ?>"><?php echo s($texto); ?></span></div>
@@ -731,33 +766,14 @@ echo $OUTPUT->header();
     };
     var presentes = form.elements['presentes'];
 
-    // «Agregar criterio de evaluación»: muestra el siguiente criterio oculto, de a uno.
-    var agregar = document.getElementById('impl-agregar-criterio');
-    if (agregar) {
-        agregar.addEventListener('click', function() {
-            var ocultos = document.querySelectorAll('[data-criterio-adicional][hidden]');
-            if (!ocultos.length) {
-                return;
-            }
-            ocultos[0].hidden = false;
-            var texto = ocultos[0].querySelector('textarea');
-            if (texto) {
-                texto.focus();
-            }
-            if (ocultos.length === 1) {
-                agregar.hidden = true;
-            }
-        });
-    }
-
-    // La tabla 4.1 tiene una fila por cada criterio de la sección 2: aparece al escribir el criterio y repite su texto.
+    // La tabla 4.1 tiene una fila por cada criterio marcado en la sección 2: aparece al marcarlo y repite su texto.
     var sincriterios = document.getElementById('impl-sin-criterios');
     var sincronizar = function() {
         var hay = 0;
         form.querySelectorAll('[data-fila]').forEach(function(fila) {
             var i = fila.getAttribute('data-fila');
-            var campo = form.elements['criterio' + i];
-            var texto = campo ? campo.value.trim() : '';
+            var campo = form.querySelector('input[data-criterio="' + i + '"]');
+            var texto = campo && campo.checked ? campo.value.trim() : '';
             fila.hidden = texto === '';
             hay += texto === '' ? 0 : 1;
             var eco = fila.querySelector('[data-criterio-texto]');
@@ -769,9 +785,81 @@ echo $OUTPUT->header();
             sincriterios.hidden = hay > 0;
         }
     };
-    form.querySelectorAll('[data-criterio] textarea').forEach(function(campo) {
-        campo.addEventListener('input', sincronizar);
+    var listacriterios = document.getElementById('impl-criterios');
+    if (listacriterios) {
+        listacriterios.addEventListener('change', sincronizar);
+    }
+
+    // Al elegir otro diseño se cargan sus datos: los campos que se completan solos y sus criterios, sin ninguno marcado.
+    var disenos = <?php
+        $payload = [];
+        foreach ($disenos as $d) {
+            if ($d['disponible']) {
+                $payload[(int) $d['ficha']->id] = ['auto' => implementacion::auto_values($d['referencia']),
+                    'criterios' => array_slice($d['referencia']['criterios'], 0, implementacion::CRITERIOS_MAX)];
+            }
+        }
+        echo json_encode((object) $payload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    var textos = {
+        elegir: <?php echo json_encode(get_string('impl_criteria_choose', 'local_chatbot')); ?>,
+        ninguno: <?php echo json_encode(get_string('impl_criteria_none', 'local_chatbot')); ?>,
+        criterio: <?php echo json_encode(get_string('impl_table41_criterion', 'local_chatbot', '{n}')); ?>
+    };
+    var cargarDiseno = function(id) {
+        var diseno = disenos[id];
+        if (!diseno) {
+            return;
+        }
+        form.querySelectorAll('[data-auto]').forEach(function(campo) {
+            var valor = diseno.auto[campo.getAttribute('data-auto')];
+            campo.readOnly = valor !== undefined;
+            if (valor !== undefined) {
+                campo.value = valor;
+            }
+        });
+        var lista = document.getElementById('impl-criterios');
+        if (lista) {
+            lista.textContent = '';
+            if (!diseno.criterios.length) {
+                var aviso = document.createElement('p');
+                aviso.className = 'small text-muted mb-0';
+                aviso.textContent = textos.ninguno;
+                lista.appendChild(aviso);
+            }
+            diseno.criterios.forEach(function(texto, k) {
+                var n = k + 1;
+                var caja = document.createElement('div');
+                caja.className = 'form-check border rounded p-2 ps-4 mb-2';
+                var casilla = document.createElement('input');
+                casilla.className = 'form-check-input';
+                casilla.type = 'checkbox';
+                casilla.name = 'criterio' + n;
+                casilla.id = 'f_criterio' + n;
+                casilla.value = texto;
+                casilla.setAttribute('data-criterio', n);
+                var rotulo = document.createElement('label');
+                rotulo.className = 'form-check-label';
+                rotulo.htmlFor = casilla.id;
+                var negrita = document.createElement('span');
+                negrita.className = 'fw-medium';
+                negrita.textContent = textos.criterio.replace('{n}', n);
+                rotulo.appendChild(negrita);
+                rotulo.appendChild(document.createTextNode(' ' + texto));
+                caja.appendChild(casilla);
+                caja.appendChild(rotulo);
+                lista.appendChild(caja);
+            });
+        }
+        sincronizar();
+    };
+    form.querySelectorAll('input[name="disenoid"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            if (radio.checked) {
+                cargarDiseno(radio.value);
+            }
+        });
     });
+    sincronizar();
 
     // La suma por nivel debe ser igual a los presentes; el logro se calcula con la fórmula de la ficha.
     var revisar = function(i, escribirlogro) {

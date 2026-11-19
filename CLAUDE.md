@@ -122,7 +122,9 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   implementación, textual de los documentos de Interfases (`Documentacion modulo 3/`), validada por la IA con el checklist de 34
   ítems en 8 secciones (8 CRÍTICO: `implementacion::CRITICOS`). Mismo patrón que `exante`, con dos diferencias. (1) La persona **elige
   uno de sus diseños terminados del Módulo 2** (`list_designs()` / `get_design()`: seis etapas aceptadas y plan formativo adjunto):
-  de ahí salen el diseño, el plan y el perfil, y no se cargan de nuevo. (2) Los ítems aritméticos los resuelve el código, no el
+  de ahí salen el diseño, el plan y el perfil, y no se cargan de nuevo. Desde v1.24.9 el diseño elegido **autocompleta la ficha**
+  (`AUTOCOMPLETADOS`: plan, módulo, experiencia, facilitador, tiempos y aprendizaje, de solo lectura; `apply_design()` los impone al
+  guardar) y los criterios de 2.1 **se marcan, no se escriben**: casillas `criterioN` con N = posición en el diseño (tope 20). (2) Los ítems aritméticos los resuelve el código, no el
   modelo (`POR_CALCULO`: c1_3, c1_4, c4_1, c4_3, c4_4; `system_checks()` y `apply_system_checks()`: presentes por criterio, tiempos
   contra el diseño, suma por nivel, logro %). `decide()` aplica la regla de los CRÍTICO; tiempo restante = total − utilizado. La huella
   de la validación incluye ficha y diseño (`fingerprint()`): cambiar cualquiera la deja «desactualizada» y cierra la Fase 2. No

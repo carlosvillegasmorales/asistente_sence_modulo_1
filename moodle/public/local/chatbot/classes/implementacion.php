@@ -69,9 +69,12 @@ class implementacion {
     const LARGO_TEXTO = 255;
     const LARGO_PARRAFO = 4000;
 
-    /** @var int Casillas de criterio que la ficha muestra de partida y tope (el formulario del cliente trae 15 filas). */
+    /**
+     * @var int Tope de criterios de evaluacion que la ficha guarda (el formulario del cliente trae 15 filas; la fase 4 admite
+     * 20). Los criterios ya no se escriben: se cargan del diseño y la persona marca los que trabajo, en su misma posicion.
+     */
     const CRITERIOS_MIN = 3;
-    const CRITERIOS_MAX = 15;
+    const CRITERIOS_MAX = 20;
 
     /** @var int Filas de la subseccion 4.2 (observaciones sobre participantes o subgrupos). */
     const OBSERVACIONES_FILAS = 5;
@@ -91,6 +94,13 @@ class implementacion {
 
     /** @var string[] Items que resuelve el codigo con los datos de la ficha (system_checks()), no el modelo. */
     const POR_CALCULO = ['c1_3', 'c1_4', 'c4_1', 'c4_3', 'c4_4'];
+
+    /** @var string Nota que precede a los criterios de 2.1 (ajustes del formulario en linea, 19-11-2026). */
+    const NOTA_CRITERIOS = 'Seleccione solo los criterios de evaluación que efectivamente se abordaron, tal como figuran en '
+        . 'el diseño instruccional validado para este aprendizaje esperado';
+
+    /** @var string[] Campos de la ficha que se completan solos con el diseño elegido (los demas los escribe la persona). */
+    const AUTOCOMPLETADOS = ['plan', 'modulo', 'experiencia', 'facilitador', 'tiempo_total', 'tiempo_asignado', 'aprendizaje'];
 
     /** @var string Regla de gobernanza del Prompt Maestro, comun a todas las etapas. */
     const NO_PEDAGOGIA = '- Nunca utilices conceptos relativos a «pedagógico» o «pedagogía» en tus respuestas: sustitúyelos '
@@ -206,8 +216,7 @@ class implementacion {
         for ($i = 1; $i <= self::CRITERIOS_MAX; $i++) {
             $criterio = ['id' => 'criterio' . $i, 'tipo' => self::T_PARRAFO, 'label' => 'Criterio de evaluación ' . $i];
             if ($i === 1) {
-                $criterio['antes'] = 'Registre solo los criterios de evaluación que efectivamente se abordaron, tal como '
-                    . 'figuran en el diseño instruccional validado para ese aprendizaje esperado.';
+                $criterio['antes'] = self::NOTA_CRITERIOS;
             }
             if ($i > self::CRITERIOS_MIN) {
                 $criterio['adicional'] = true;
@@ -216,16 +225,16 @@ class implementacion {
         }
         return [
             1 => ['titulo' => 'Identificación general', 'campos' => [
-                ['id' => 'plan', 'tipo' => self::T_TEXTO, 'label' => 'Plan formativo (nombre y código)',
+                ['id' => 'plan', 'tipo' => self::T_TEXTO, 'auto' => true, 'label' => 'Plan formativo (nombre y código)',
                     'ayuda' => 'Nombre completo y código del plan formativo, tal como figuran en el diseño instruccional '
                         . 'validado. Ejemplo: Habilidades transversales para el trabajo, código PF-0245.'],
-                ['id' => 'modulo', 'tipo' => self::T_TEXTO, 'label' => 'Módulo',
+                ['id' => 'modulo', 'tipo' => self::T_TEXTO, 'auto' => true, 'label' => 'Módulo',
                     'ayuda' => 'Nombre y número del módulo en el que se implementó la experiencia de aprendizaje. '
                         . 'Ejemplo: Módulo 1: Comunicación para el trabajo.'],
-                ['id' => 'experiencia', 'tipo' => self::T_TEXTO, 'label' => 'Nombre de la experiencia de aprendizaje',
+                ['id' => 'experiencia', 'tipo' => self::T_TEXTO, 'auto' => true, 'label' => 'Nombre de la experiencia de aprendizaje',
                     'ayuda' => 'Nombre de la experiencia implementada, tal como figura en el diseño instruccional validado. '
                         . 'Ejemplo: Elaboración de correos profesionales con criterios de calidad.'],
-                ['id' => 'facilitador', 'tipo' => self::T_TEXTO, 'label' => 'Nombre de la persona facilitadora',
+                ['id' => 'facilitador', 'tipo' => self::T_TEXTO, 'auto' => true, 'label' => 'Nombre de la persona facilitadora',
                     'ayuda' => 'Nombre completo de la persona facilitadora responsable de la implementación.'],
                 ['id' => 'fechas', 'tipo' => self::T_TEXTO, 'label' => 'Fecha(s)',
                     'ayuda' => 'Fecha o fechas en que se implementó la experiencia. Ejemplo: 22 de marzo de 2026.'],
@@ -236,7 +245,7 @@ class implementacion {
                 ['id' => 'presentes', 'tipo' => self::T_NUMERO, 'label' => 'N.º de participantes presentes',
                     'ayuda' => 'Total de participantes que asistieron a la implementación. Es la base para calcular el '
                         . 'logro (%) en la sección 4. Ejemplo: 22 participantes.'],
-                ['id' => 'tiempo_total', 'tipo' => self::T_NUMERO, 'num' => '1.1',
+                ['id' => 'tiempo_total', 'tipo' => self::T_NUMERO, 'auto' => true, 'num' => '1.1',
                     'subtitulo' => '1.1 Tiempos de la experiencia de aprendizaje',
                     'antes' => 'Registre los tres tiempos en minutos. El asistente los utiliza para calcular el tiempo '
                         . 'restante disponible para acciones remediales (tiempo total disponible − tiempo efectivamente '
@@ -244,7 +253,7 @@ class implementacion {
                     'label' => 'Tiempo total disponible para el desarrollo del aprendizaje (minutos)',
                     'ayuda' => 'Tiempo total asignado al logro del aprendizaje esperado, según el diseño instruccional '
                         . 'validado (1 hora equivale a 60 minutos). Ejemplo: 360 minutos.'],
-                ['id' => 'tiempo_asignado', 'tipo' => self::T_NUMERO,
+                ['id' => 'tiempo_asignado', 'tipo' => self::T_NUMERO, 'auto' => true,
                     'nombre' => '1.1 Tiempo asignado a la experiencia de aprendizaje (según diseño)',
                     'label' => 'Tiempo asignado a la experiencia de aprendizaje (según diseño) (minutos)',
                     'ayuda' => 'Tiempo que el diseño instruccional definió para la experiencia implementada. '
@@ -256,13 +265,11 @@ class implementacion {
                         . '180 minutos; coincidió con el tiempo asignado, aunque cambió la distribución entre actividades.'],
             ]],
             2 => ['titulo' => 'Aprendizaje esperado y criterios de evaluación trabajados', 'campos' => array_merge([
-                ['id' => 'aprendizaje', 'tipo' => self::T_PARRAFO, 'num' => '2.1',
+                ['id' => 'aprendizaje', 'tipo' => self::T_PARRAFO, 'num' => '2.1', 'auto' => true,
                     'subtitulo' => '2.1 Aprendizaje esperado y criterios de evaluación',
-                    'antes' => 'Transcriba el aprendizaje esperado y los criterios de evaluación trabajados durante la '
-                        . 'implementación, tal como figuran en el diseño instruccional validado. Deje en blanco las filas '
-                        . 'que no utilice.',
                     'label' => 'Aprendizaje esperado',
-                    'ayuda' => 'Transcriba el aprendizaje esperado tal como está formulado en el diseño instruccional validado.'],
+                    'ayuda' => 'Transcripción del aprendizaje esperado tal como está formulado en el diseño instruccional '
+                        . 'validado.'],
                 ], $criterios, [
                 ['id' => 'no_trabajados', 'tipo' => self::T_PARRAFO, 'num' => '2.2',
                     'subtitulo' => '2.2 Criterios previstos para la experiencia que no se trabajaron (obligatorio)',
@@ -772,7 +779,79 @@ class implementacion {
         return ['plan' => trim((string) ($m2['plan'] ?? '')), 'modulo' => trim((string) ($m2['modulo'] ?? '')),
             'experiencia' => trim($experiencia), 'aprendizaje' => trim((string) ($m2['aprendizaje'] ?? '')),
             'criterios' => $criterios, 'tiempo_total' => $t($m2['tiempo_total'] ?? ''),
-            'tiempo_asignado' => $t($m2['tiempo_experiencia'] ?? '')];
+            'tiempo_asignado' => $t($m2['tiempo_experiencia'] ?? ''),
+            'facilitador' => trim((string) ($m2['facilitador'] ?? ''))];
+    }
+
+    /**
+     * Lo que el diseño elegido aporta a la ficha: los campos que se completan solos (AUTOCOMPLETADOS) con su valor; los que
+     * el diseño no declara no aparecen y los escribe la persona. Funcion pura.
+     *
+     * @param array $ref design_reference().
+     * @return string[] id del campo => valor.
+     */
+    public static function auto_values(array $ref): array {
+        $valores = [];
+        foreach (self::AUTOCOMPLETADOS as $id) {
+            $v = $ref[$id] ?? null;
+            if ($v !== null && trim((string) $v) !== '') {
+                $valores[$id] = trim((string) $v);
+            }
+        }
+        return $valores;
+    }
+
+    /**
+     * Si la persona marco el criterio i del diseño: la ficha guarda el criterio en la misma posicion que tiene en el diseño
+     * y con su texto, asi que basta que el texto guardado sea el del diseño (con tolerancia de forma). Funcion pura.
+     *
+     * @param array $data Ficha ya limpia.
+     * @param array $ref design_reference().
+     * @param int $i Posicion del criterio (1..).
+     * @return bool
+     */
+    public static function criterion_selected(array $data, array $ref, int $i): bool {
+        $guardado = trim((string) ($data['criterio' . $i] ?? ''));
+        $diseno = $ref['criterios'][$i - 1] ?? null;
+        return $guardado !== '' && $diseno !== null && self::similarity($guardado, (string) $diseno) >= 0.9;
+    }
+
+    /**
+     * Aplica el diseño elegido a la ficha que llega del formulario: los campos que se completan solos llevan el valor del
+     * diseño (donde el diseño lo declara) y cada criterio marcado queda con el texto del diseño en su posicion; lo que no es
+     * un criterio del diseño se descarta. Asi la ficha no puede apartarse del diseño por un error de transcripcion. Funcion
+     * pura.
+     *
+     * @param array $data Ficha ya limpia.
+     * @param array $ref design_reference().
+     * @return array La ficha con el diseño aplicado.
+     */
+    public static function apply_design(array $data, array $ref): array {
+        foreach (self::auto_values($ref) as $id => $valor) {
+            $data[$id] = $valor;
+        }
+        for ($i = 1; $i <= self::CRITERIOS_MAX; $i++) {
+            $data['criterio' . $i] = self::criterion_selected($data, $ref, $i) ? trim((string) $ref['criterios'][$i - 1]) : '';
+        }
+        return $data;
+    }
+
+    /**
+     * La ficha tal como se muestra: los campos que se completan solos y estan vacios toman el valor del diseño (la ficha
+     * guardada antes de elegir diseño, o sin haberlo guardado). No pisa lo que ya hay: eso lo corrige apply_design() al
+     * guardar. Funcion pura.
+     *
+     * @param array $data Ficha ya limpia.
+     * @param array $ref design_reference().
+     * @return array
+     */
+    public static function prefill(array $data, array $ref): array {
+        foreach (self::auto_values($ref) as $id => $valor) {
+            if (self::vacio($data[$id] ?? '')) {
+                $data[$id] = $valor;
+            }
+        }
+        return $data;
     }
 
     /**
@@ -1649,7 +1728,8 @@ class implementacion {
      *
      * @param int $userid
      * @return array[] Una entrada por diseño (el mas reciente primero): ficha (stdClass), nombre, disponible, motivo,
-     *         aprobado (bool), puntaje (int|null), curso (id del curso del Modulo 2).
+     *         aprobado (bool), puntaje (int|null), curso (id del curso del Modulo 2) y referencia (design_reference(): lo que
+     *         el diseño completa solo en la ficha).
      */
     public static function list_designs(int $userid): array {
         global $DB;
@@ -1662,7 +1742,8 @@ class implementacion {
             $salida[] = ['ficha' => $ficha, 'nombre' => exante::design_label($ficha->data, $estado['experiencia']),
                 'disponible' => $disponible, 'motivo' => $motivo, 'aprobado' => !empty($estado['aprobado']),
                 'puntaje' => isset($estado['evaluacion']['total']) ? (int) $estado['evaluacion']['total'] : null,
-                'curso' => (int) $ficha->courseid];
+                'curso' => (int) $ficha->courseid,
+                'referencia' => self::design_reference($ficha->data, (string) $estado['experiencia'])];
         }
         return $salida;
     }

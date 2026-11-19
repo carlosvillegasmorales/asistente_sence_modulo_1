@@ -10,12 +10,14 @@ Instrumento para trabajo de campo.
 
 **Instrucciones:** marque las casillas que correspondan y complete los campos abiertos con información concreta de lo ocurrido durante la implementación. Los campos señalados como obligatorios deben completarse siempre. Para orientaciones y ejemplos de llenado, consulte la Guía de llenado de la ficha de registro de la implementación.
 
+Al elegir el diseño de la experiencia implementada, el formulario en línea completa solo los campos que se obtienen del diseño y de su ficha de diagnóstico: plan formativo, módulo, nombre de la experiencia, nombre de la persona facilitadora, tiempo total disponible, tiempo asignado a la experiencia, aprendizaje esperado y criterios de evaluación. Todo lo demás lo completa la persona.
+
 ### SECCIÓN 1. Identificación general
 
-- Plan formativo (nombre y código)
-- Módulo
-- Nombre de la experiencia de aprendizaje
-- Nombre de la persona facilitadora
+- Plan formativo (nombre y código): se completa solo desde el diseño
+- Módulo: se completa solo desde el diseño
+- Nombre de la experiencia de aprendizaje: se completa solo desde el diseño
+- Nombre de la persona facilitadora: se completa solo desde el diseño
 - Fecha(s)
 - Horario
 - N.º de participantes inscritos
@@ -25,23 +27,19 @@ Instrumento para trabajo de campo.
 
 Registre los tres tiempos en minutos. El asistente los utiliza para calcular el tiempo restante disponible para acciones remediales (tiempo total disponible − tiempo efectivamente utilizado).
 
-- Tiempo total disponible para el desarrollo del aprendizaje (minutos)
-- Tiempo asignado a la experiencia de aprendizaje (según diseño) (minutos)
+- Tiempo total disponible para el desarrollo del aprendizaje (minutos): se completa solo desde el diseño
+- Tiempo asignado a la experiencia de aprendizaje (según diseño) (minutos): se completa solo desde el diseño
 - Tiempo efectivamente utilizado en la implementación (minutos)
 
 ### SECCIÓN 2. Aprendizaje esperado y criterios de evaluación trabajados
 
 #### 2.1 Aprendizaje esperado y criterios de evaluación
 
-Transcriba el aprendizaje esperado y los criterios de evaluación trabajados durante la implementación, tal como figuran en el diseño instruccional validado. Deje en blanco las filas que no utilice.
+- Aprendizaje esperado: se completa solo desde el diseño. Transcripción del aprendizaje esperado tal como está formulado en el diseño instruccional validado.
 
-- Aprendizaje esperado
-- Criterio de evaluación 1 a Criterio de evaluación 15 (deje en blanco las filas que no utilice)
-Registre solo los criterios de evaluación que efectivamente se abordaron, tal como figuran en el diseño instruccional validado para ese aprendizaje esperado.
+Seleccione solo los criterios de evaluación que efectivamente se abordaron, tal como figuran en el diseño instruccional validado para este aprendizaje esperado
 
-- Criterio de evaluación 1
-- Criterio de evaluación 2
-- Criterio de evaluación 3
+- Criterios de evaluación: se cargan solos todos los del diseño validado y la persona marca con un clic los que efectivamente trabajó. Cada criterio conserva su número del diseño.
 
 #### 2.2 Criterios previstos para la experiencia que no se trabajaron (obligatorio)
 

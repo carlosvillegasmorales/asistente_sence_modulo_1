@@ -96,13 +96,14 @@ function local_chatbot_referencia(): array {
 $secciones = implementacion::sections();
 local_chatbot_verificar(array_keys($secciones) === range(1, 6), 'la ficha tiene 6 secciones en orden');
 local_chatbot_verificar(count($secciones[1]['campos']) === 11, 'la sección 1 tiene 8 campos de identificación y los 3 tiempos de 1.1');
-local_chatbot_verificar(count($secciones[2]['campos']) === 17, 'la sección 2 tiene el aprendizaje esperado, 15 criterios y el campo 2.2');
+local_chatbot_verificar(count($secciones[2]['campos']) === implementacion::CRITERIOS_MAX + 2,
+    'la sección 2 tiene el aprendizaje esperado, las casillas de criterio y el campo 2.2');
 local_chatbot_verificar(count($secciones[3]['campos']) === 8 && count($secciones[5]['campos']) === 8,
     'las secciones 3 y 5 tienen cuatro valoraciones con su comentario cada una');
 local_chatbot_verificar(count($secciones[6]['campos']) === 4, 'la sección 6 tiene 6.1, su fundamentación, 6.2 y 6.3');
 local_chatbot_verificar($secciones[4]['campos'] === [], 'la sección 4 va en dos tablas (4.1 y 4.2), no como campos sueltos');
-local_chatbot_verificar(count(implementacion::table_fields()) === 15 * 7 + 5 * 4,
-    'la tabla 4.1 tiene 15 filas de 7 celdas y la 4.2 cinco filas de 4');
+local_chatbot_verificar(count(implementacion::table_fields()) === implementacion::CRITERIOS_MAX * 7 + 5 * 4,
+    'la tabla 4.1 tiene una fila de 7 celdas por criterio y la 4.2 cinco filas de 4');
 local_chatbot_verificar(implementacion::scale() === ['1' => '1 – Muy bajo', '2' => '2 – Bajo', '3' => '3 – Alto', '4' => '4 – Muy alto'],
     'la escala es 1 = Muy bajo a 4 = Muy alto');
 foreach ([3 => ['val31', 'val32', 'val33', 'val34'], 5 => ['val51', 'val52', 'val53', 'val54']] as $n => $ids) {
@@ -326,6 +327,66 @@ local_chatbot_verificar(strpos(implode("\n", implementacion::reference_facts($di
 $r = implementacion::design_reference(['plan' => ' P ', 'criterio1' => 'a', 'criterio3' => 'c', 'tiempo_total' => '360', 'tiempo_experiencia' => 'x'], 'Exp');
 local_chatbot_verificar($r['plan'] === 'P' && $r['criterios'] === ['a', 'c'] && $r['tiempo_total'] === 360 && $r['tiempo_asignado'] === null
     && $r['experiencia'] === 'Exp', 'la referencia del diseño se arma desde su ficha de diagnóstico');
+
+// --- Ajustes del formulario en línea (19-11-2026): lo que el diseño elegido completa solo ---
+$camposauto = [];
+foreach (implementacion::sections() as $seccion) {
+    foreach ($seccion['campos'] as $campo) {
+        if (!empty($campo['auto'])) {
+            $camposauto[] = $campo['id'];
+        }
+    }
+}
+local_chatbot_verificar($camposauto === ['plan', 'modulo', 'experiencia', 'facilitador', 'tiempo_total', 'tiempo_asignado', 'aprendizaje']
+    && $camposauto === implementacion::AUTOCOMPLETADOS,
+    'se completan solos plan, módulo, experiencia, facilitador, los dos tiempos del diseño y el aprendizaje esperado');
+$manuales = ['fechas', 'horario', 'inscritos', 'presentes', 'tiempo_utilizado'];
+local_chatbot_verificar(!array_intersect($manuales, $camposauto), 'fechas, horario, participantes y tiempo utilizado los completa la persona');
+local_chatbot_verificar(implementacion::field('aprendizaje')['ayuda'] === 'Transcripción del aprendizaje esperado tal como está formulado en el diseño instruccional validado.'
+    && empty(implementacion::field('aprendizaje')['antes']) && implementacion::field('criterio1')['antes'] === implementacion::NOTA_CRITERIOS
+    && strpos(implementacion::NOTA_CRITERIOS, 'Seleccione solo los criterios de evaluación que efectivamente se abordaron, tal como figuran en el diseño instruccional validado para este aprendizaje esperado') === 0,
+    'las notas de 2.1 son las del ajuste: sin nota bajo el subtítulo, aprendizaje como transcripción y criterios por selección');
+
+$refauto = implementacion::design_reference(['plan' => 'Plan X', 'modulo' => 'Módulo 2', 'facilitador' => ' Marta Soto ', 'aprendizaje' => 'Aprendizaje del diseño',
+    'criterio1' => 'Criterio uno del diseño', 'criterio2' => 'Criterio dos del diseño', 'criterio3' => 'Criterio tres del diseño',
+    'tiempo_total' => '360', 'tiempo_experiencia' => '180'], 'Experiencia del diseño');
+$auto = implementacion::auto_values($refauto);
+local_chatbot_verificar($auto === ['plan' => 'Plan X', 'modulo' => 'Módulo 2', 'experiencia' => 'Experiencia del diseño', 'facilitador' => 'Marta Soto',
+    'tiempo_total' => '360', 'tiempo_asignado' => '180', 'aprendizaje' => 'Aprendizaje del diseño'],
+    'los valores automáticos salen del diseño y de su ficha de diagnóstico, con el facilitador incluido');
+$sinfac = implementacion::design_reference(['plan' => 'P', 'tiempo_total' => '0'], '');
+local_chatbot_verificar(implementacion::auto_values($sinfac) === ['plan' => 'P', 'tiempo_total' => '0'],
+    'lo que el diseño no declara no se completa: queda para la persona');
+
+$vacia = implementacion::clean([]);
+$mostrada = implementacion::prefill($vacia, $refauto);
+local_chatbot_verificar($mostrada['plan'] === 'Plan X' && $mostrada['tiempo_total'] === '360' && $mostrada['fechas'] === '' && $mostrada['presentes'] === ''
+    && $mostrada['criterio1'] === '', 'al elegir el diseño se cargan los campos automáticos y no los manuales ni los criterios');
+$escrita = implementacion::clean(['plan' => 'Lo que escribió la persona']);
+local_chatbot_verificar(implementacion::prefill($escrita, $refauto)['plan'] === 'Lo que escribió la persona',
+    'mostrar la ficha no pisa lo que ya hay (eso lo corrige el guardado)');
+
+$envio = implementacion::clean(['plan' => 'Plan mal transcrito', 'modulo' => '', 'aprendizaje' => 'otro', 'fechas' => '22 de marzo', 'presentes' => '20',
+    'criterio1' => 'Criterio uno del diseño', 'criterio2' => '', 'criterio3' => 'Criterio tres del diseño', 'criterio4' => 'Un criterio inventado']);
+$guardada = implementacion::apply_design($envio, $refauto);
+local_chatbot_verificar($guardada['plan'] === 'Plan X' && $guardada['modulo'] === 'Módulo 2' && $guardada['aprendizaje'] === 'Aprendizaje del diseño'
+    && $guardada['facilitador'] === 'Marta Soto' && $guardada['tiempo_asignado'] === '180',
+    'al guardar, los campos automáticos quedan con el valor del diseño');
+local_chatbot_verificar($guardada['fechas'] === '22 de marzo' && $guardada['presentes'] === '20', 'al guardar no se tocan los campos manuales');
+local_chatbot_verificar(implementacion::criteria_indexes($guardada) === [1, 3] && $guardada['criterio3'] === 'Criterio tres del diseño'
+    && $guardada['criterio4'] === '', 'cada criterio marcado queda en su posición del diseño y lo que no es del diseño se descarta');
+local_chatbot_verificar(implementacion::criterion_selected($guardada, $refauto, 1) && !implementacion::criterion_selected($guardada, $refauto, 2)
+    && !implementacion::criterion_selected($guardada, $refauto, 4), 'un criterio está marcado si su texto guardado es el del diseño');
+$casi = implementacion::clean(['criterio2' => 'criterio dos del diseño.']);
+local_chatbot_verificar(implementacion::apply_design($casi, $refauto)['criterio2'] === 'Criterio dos del diseño',
+    'una diferencia de forma se corrige con el texto del diseño');
+$sinauto = implementacion::apply_design(implementacion::clean(['plan' => 'Propio', 'criterio1' => 'x']), $sinfac);
+local_chatbot_verificar($sinauto['plan'] === 'P' && $sinauto['modulo'] === '' && $sinauto['criterio1'] === '',
+    'con un diseño sin criterios no queda ninguno marcado');
+$filas = implementacion::performance(array_merge($guardada, ['presentes' => '20', 'ins' => '0', 'ev1' => 'e', 'ev3' => 'e', 'ins1' => '0', 'bas1' => '5', 'ade1' => '10',
+    'ava1' => '5', 'lg1' => '75', 'ins3' => '0', 'bas3' => '5', 'ade3' => '10', 'ava3' => '5', 'lg3' => '75']));
+local_chatbot_verificar(count($filas) === 2 && $filas[0]['n'] === 1 && $filas[1]['n'] === 3 && $filas[1]['suma_ok'],
+    'la tabla 4.1 sigue funcionando con criterios que no son consecutivos: la fila lleva la posición del diseño');
 
 // --- La ficha como texto para el modelo ---
 $texto = implementacion::to_text($ej);

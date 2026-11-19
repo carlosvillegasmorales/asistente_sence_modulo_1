@@ -76,11 +76,10 @@ Esta sección permite documentar el aprendizaje esperado, los criterios de evalu
 
 ### Subsección 2.1 Aprendizaje esperado y criterios de evaluación
 
-Para completar esta subsección:
+Al elegir el diseño de la experiencia implementada, el aprendizaje esperado y todos los criterios de evaluación del diseño validado se cargan solos en el formulario en línea. Para completar esta subsección:
 
-1. Transcriba el aprendizaje esperado tal como está formulado en el diseño instruccional validado.
-2. Transcriba los criterios de evaluación trabajados durante la implementación, tal como figuran en el diseño. Registre solo los criterios que efectivamente se abordaron.
-3. Deje en blanco las filas que no utilice o elimínelas.
+1. Revise el aprendizaje esperado: es la transcripción del aprendizaje esperado tal como está formulado en el diseño instruccional validado. No se escribe ni se modifica.
+2. Seleccione, con un clic, solo los criterios de evaluación que efectivamente se abordaron durante la implementación, tal como figuran en el diseño instruccional validado para este aprendizaje esperado. Cada criterio conserva su número del diseño y los que no marque no pasan a la tabla 4.1.
 
 Ejemplo: Aprendizaje esperado: «Comunicar información de manera clara, respetuosa y pertinente en contextos laborales, adaptando el lenguaje al interlocutor y al propósito comunicativo». Criterios de evaluación trabajados: 1) redacta mensajes profesionales con claridad, coherencia y corrección ortográfica; 2) adapta el registro lingüístico al contexto y al interlocutor; 3) responde por escrito a consultas laborales de manera respetuosa, oportuna y pertinente. El diseño incluía los 4 criterios comprometidos en el plan formativo; el criterio 4, que no se trabajó, se registra en la subsección 2.2.
 
