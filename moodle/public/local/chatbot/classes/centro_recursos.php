@@ -1940,6 +1940,57 @@ class centro_recursos {
     }
 
     /**
+     * Resuelve la marca [REVISAR] numero $indice (desde 0, en el orden del material): con $reemplazo vacio la quita (el
+     * dato se verifico y queda tal cual); si no, la cambia por el dato correcto. Lo demas no se toca. Null si no existe
+     * esa marca. Funcion pura.
+     *
+     * @param string $html Contenido del material.
+     * @param int $indice
+     * @param string $reemplazo Texto plano.
+     * @return string|null
+     */
+    public static function resolve_mark(string $html, int $indice, string $reemplazo = ''): ?string {
+        if (!preg_match_all('/\s*\[REVISAR(?:\s*:\s*[^\]]+)?\]/u', $html, $m, PREG_OFFSET_CAPTURE) || !isset($m[0][$indice])) {
+            return null;
+        }
+        [$marca, $pos] = $m[0][$indice];
+        $reemplazo = trim($reemplazo);
+        $nuevo = $reemplazo === '' ? '' : ' ' . htmlspecialchars($reemplazo, ENT_QUOTES, 'UTF-8');
+        return substr($html, 0, $pos) . $nuevo . substr($html, $pos + strlen($marca));
+    }
+
+    /**
+     * Aplica resolve_mark() al material guardado (Etapa 10.4): recalcula marcas y HTML para Moodle, y un material
+     * entregado vuelve a borrador para registrar la version siguiente.
+     *
+     * @param int $id
+     * @param int $userid
+     * @param int $indice
+     * @param string $reemplazo
+     * @return bool
+     */
+    public static function save_resolved_mark(int $id, int $userid, int $indice, string $reemplazo = ''): bool {
+        global $DB;
+        $r = self::get_resource($id, $userid);
+        if (!$r || !empty($r->estructurado)) {
+            return false;
+        }
+        $nuevo = self::resolve_mark((string) $r->contenido, $indice, $reemplazo);
+        if ($nuevo === null) {
+            return false;
+        }
+        $DB->update_record('local_chatbot_recurso', (object) [
+            'id' => $r->id,
+            'contenido' => $nuevo,
+            'html_moodle' => recurso_export::to_moodle_html($nuevo, (string) $r->nombre, (string) $r->codigo),
+            'revisar_count' => self::count_review_marks($nuevo),
+            'estado' => self::state_after_change((string) $r->estado, true),
+            'timemodified' => time(),
+        ]);
+        return true;
+    }
+
+    /**
      * Guarda edicion manual del material en pantalla y recalcula marcas [REVISAR] y HTML Moodle.
      */
     public static function save_manual_edit(int $id, int $userid, string $html): void {

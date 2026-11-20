@@ -214,6 +214,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $disenoSel) {
         }
         redirect($recursourl);
     }
+    if ($action === 'resolver_marca' && $recursoid > 0) {
+        $ok = centro_recursos::save_resolved_mark($recursoid, $USER->id, required_param('indice', PARAM_INT),
+            optional_param('reemplazo', '', PARAM_TEXT));
+        redirect(new moodle_url($recursourl, [], 'cr-marcas'), get_string($ok ? 'centro_mark_resolved' : 'centro_mark_missing',
+            'local_chatbot'), null, $ok ? \core\output\notification::NOTIFY_SUCCESS : \core\output\notification::NOTIFY_WARNING);
+    }
     if ($action === 'guardar_edicion' && $recursoid > 0) {
         $htmlEdit = optional_param('contenido_edit', '', PARAM_RAW);
         centro_recursos::save_manual_edit($recursoid, $USER->id, $htmlEdit);
@@ -553,8 +559,43 @@ $estadoEtiqueta = [
                     </div>
                     <div class="card-body">
                         <?php if ((int) $recActual->revisar_count > 0): ?>
-                            <div class="alert alert-warning small py-2">
+                            <div class="alert alert-warning small py-2" id="cr-marcas">
                                 <?php echo get_string('centro_marks_warning', 'local_chatbot', (int) $recActual->revisar_count); ?>
+                                <?php $marcascr = empty($recActual->estructurado)
+                                    ? centro_recursos::extract_review_marks((string) $recActual->contenido) : []; ?>
+                                <?php if ($marcascr): ?>
+                                    <ol class="mt-2 mb-0 ps-3">
+                                    <?php foreach ($marcascr as $im => $marca): ?>
+                                        <li class="mb-2">
+                                            <span class="fw-bold"><?php echo s($marca); ?></span>
+                                            <div class="d-flex flex-wrap gap-2 align-items-start mt-1">
+                                                <form method="post" action="<?php echo $recursourl->out(false); ?>" class="d-inline">
+                                                    <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                                    <input type="hidden" name="action" value="resolver_marca">
+                                                    <input type="hidden" name="indice" value="<?php echo (int) $im; ?>">
+                                                    <button type="submit" class="btn btn-success btn-sm"><i class="fa fa-check me-1"></i><?php
+                                                        echo get_string('centro_mark_ok', 'local_chatbot'); ?></button>
+                                                </form>
+                                                <details>
+                                                    <summary class="btn btn-outline-secondary btn-sm"><i class="fa fa-pencil me-1"></i><?php
+                                                        echo get_string('centro_mark_fix', 'local_chatbot'); ?></summary>
+                                                    <form method="post" action="<?php echo $recursourl->out(false); ?>" class="d-flex flex-wrap gap-2 mt-2">
+                                                        <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                                        <input type="hidden" name="action" value="resolver_marca">
+                                                        <input type="hidden" name="indice" value="<?php echo (int) $im; ?>">
+                                                        <input type="text" name="reemplazo" required class="form-control form-control-sm" style="min-width: 320px;"
+                                                               placeholder="<?php echo s(get_string('centro_mark_fix_ph', 'local_chatbot')); ?>">
+                                                        <button type="submit" class="btn btn-primary btn-sm"><?php
+                                                            echo get_string('centro_mark_replace', 'local_chatbot'); ?></button>
+                                                    </form>
+                                                </details>
+                                            </div>
+                                        </li>
+                                    <?php endforeach; ?>
+                                    </ol>
+                                <?php elseif (!empty($recActual->estructurado)): ?>
+                                    <div class="mt-1"><?php echo get_string('centro_marks_structured', 'local_chatbot'); ?></div>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
 

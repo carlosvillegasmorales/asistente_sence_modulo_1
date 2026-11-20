@@ -379,6 +379,16 @@ local_chatbot_verificar(
     'un material entregado y sin cambios no se vuelve a aprobar; al editarlo vuelve a borrador para la versión siguiente'
 );
 
+// --- Marcas [REVISAR]: «Dato verificado» la quita, «Corregir» la reemplaza; lo demás no se toca ---
+$conMarcas = '<p>Lavado de manos 40 a 60 segundos [REVISAR: confirmar tiempo].</p><p>Norma <strong>[REVISAR: código de norma]</strong>.</p>';
+local_chatbot_verificar(
+    centro_recursos::resolve_mark($conMarcas, 0) === '<p>Lavado de manos 40 a 60 segundos.</p><p>Norma <strong>[REVISAR: código de norma]</strong>.</p>'
+    && centro_recursos::resolve_mark($conMarcas, 1, 'NT N.º 199 <MINSAL>') === '<p>Lavado de manos 40 a 60 segundos [REVISAR: confirmar tiempo].</p><p>Norma <strong> NT N.º 199 &lt;MINSAL&gt;</strong>.</p>'
+    && centro_recursos::resolve_mark($conMarcas, 2) === null
+    && centro_recursos::count_review_marks((string) centro_recursos::resolve_mark($conMarcas, 0)) === 1,
+    'resolve_mark quita la marca verificada o la cambia por el dato correcto (escapado), sin tocar el resto'
+);
+
 // --- Materiales mixtos: cada parte en su modo y «Entregado parcialmente» hasta entregar todas ---
 $mixto = centro_recursos::parse_plan_json(json_encode(['materiales' => [
     ['codigo' => 'M2', 'nombre' => 'Cápsula audiovisual y tarjetas de debate', 'fase' => 'Fase 1', 'modo' => 'B/C',

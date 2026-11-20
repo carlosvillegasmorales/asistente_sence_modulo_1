@@ -1,5 +1,13 @@
 # Changelog
 
+## M1-v1.28.2 (2026-11-19)
+
+- **Marcas [REVISAR] con botones** (pedido del 19-11-2026): el aviso del material lista cada marca con «Dato verificado:
+  quitar la marca» y «Corregir» (un campo para el dato correcto que reemplaza la marca), sin abrir la edición a mano
+  (`resolve_mark()`, pura; `save_resolved_mark()`). Al resolver una marca, el contador se actualiza y un material entregado
+  vuelve a borrador para aprobar la versión siguiente. En cuestionarios, planillas y presentaciones (contenido
+  estructurado) el aviso indica corregir con «Pedir ajuste». Sin cambios en la base.
+
 ## M1-v1.28.1 (2026-11-19)
 
 - **Etapa 11, aprobar el material** (aviso del 19-11-2026: «apreto eso y no hace nada»). El botón sí registraba la
