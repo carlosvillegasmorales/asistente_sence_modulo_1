@@ -60,6 +60,8 @@ class documento_final {
     private $estiloRecurso = false;
     /** @var int Contador de secciones numeradas en estilo recurso. */
     private $secRecurso = 0;
+    /** @var bool Si el bloque inmediatamente anterior fue cabecera de seccion o apoyo visual (para no dejar la intro suelta). */
+    private $trasCabeceraSec = false;
 
     /**
      * Escribe el documento final.
@@ -497,6 +499,7 @@ class documento_final {
     private function escribir(string $ruta, array $meta, string $html, string $logo): bool {
         $this->estiloRecurso = ($meta['estilo'] ?? '') === 'recurso';
         $this->secRecurso = 0;
+        $this->trasCabeceraSec = false;
         $png = ($logo !== '' && is_readable($logo)) ? (string) file_get_contents($logo) : '';
         $dim = $png !== '' ? @getimagesizefromstring($png) : false;
         $ratio = ($dim && $dim[1] > 0) ? $dim[0] / $dim[1] : 2.8;
@@ -681,7 +684,7 @@ class documento_final {
             . '<w:rFonts w:ascii="Calibri" w:eastAsia="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:color w:val="' . self::TEXTO . '"/>'
             . '<w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="es-CL" w:eastAsia="en-US" w:bidi="ar-SA"/></w:rPr></w:rPrDefault>'
             . '<w:pPrDefault/></w:docDefaults>'
-            . '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
+            . '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:pPr><w:widowControl/></w:pPr></w:style>'
             . $titulo('Heading1', 'heading 1', 0, '<w:b/><w:bCs/><w:color w:val="' . self::NAVY . '"/><w:sz w:val="32"/><w:szCs w:val="32"/>')
             . $titulo('Heading2', 'heading 2', 1, '<w:b/><w:bCs/><w:color w:val="' . self::TITULO2 . '"/><w:sz w:val="24"/><w:szCs w:val="24"/>')
             . $titulo('Heading3', 'heading 3', 2, '<w:b/><w:bCs/><w:color w:val="' . self::TITULO2 . '"/><w:sz w:val="22"/><w:szCs w:val="22"/>')
@@ -1134,11 +1137,15 @@ class documento_final {
             return;
         }
         if (self::is_formula($texto)) {
+            $this->trasCabeceraSec = false;
             $this->recuadro($texto);
             return;
         }
-        $this->xml .= $this->p($this->runs($items), ['spacing' => 'w:after="140" w:line="276" w:lineRule="auto"',
-            'jc' => $this->alineacion($items)]);
+        $pegarSiguiente = $this->estiloRecurso && $this->trasCabeceraSec && \core_text::strlen($texto) <= 280;
+        $this->trasCabeceraSec = false;
+        $this->xml .= $this->p($this->runs($items), ['keepNext' => ($pegarSiguiente ? 1 : 0),
+            'keepLines' => ($this->estiloRecurso && \core_text::strlen($texto) <= 280 ? 1 : 0),
+            'spacing' => 'w:after="140" w:line="276" w:lineRule="auto"', 'jc' => $this->alineacion($items)]);
     }
 
     /**
@@ -1322,6 +1329,7 @@ class documento_final {
         if ($n === 2) {
             if ($this->estiloRecurso) {
                 $this->secRecurso++;
+                $this->trasCabeceraSec = true;
                 [$badge, $resto] = recurso_export::split_section_badge($texto, $this->secRecurso);
                 $marca = $this->marcador(2, trim(($badge !== '' ? $badge . ' ' : '') . $resto));
                 $id = $this->bmid;
@@ -1512,27 +1520,37 @@ class documento_final {
             }
         }
 
+        $esIlustracion = strpos($cls, ' cr-ilustracion ') !== false;
         $contenido = '';
         if ($kicker !== '') {
             $contenido .= $this->p($this->run($kicker, ['b' => 1, 'color' => $kickerColor, 'sz' => 18]),
-                ['keepNext' => 1, 'spacing' => 'w:after="50"']);
+                ['keepNext' => 1, 'keepLines' => 1, 'spacing' => 'w:after="50"']);
         }
         $lis = $el->getElementsByTagName('li');
         if ($lis->length > 0) {
+            $totalLi = $lis->length;
+            $idxLi = 0;
             foreach ($lis as $li) {
+                $idxLi++;
                 $contenido .= $this->p($this->run('• ', ['b' => 1, 'color' => $bdr, 'sz' => $sz])
                     . $this->runs($this->inline($li), ['sz' => $sz, 'color' => '334155']),
-                    ['spacing' => 'w:after="40" w:line="252" w:lineRule="auto"', 'ind' => 'w:left="220" w:hanging="220"']);
+                    ['keepLines' => 1, 'keepNext' => ($idxLi < $totalLi ? 1 : 0),
+                        'spacing' => 'w:after="40" w:line="252" w:lineRule="auto"', 'ind' => 'w:left="220" w:hanging="220"']);
             }
         } else {
-            $fmt = strpos($cls, ' cr-ilustracion ') !== false
+            $fmt = $esIlustracion
                 ? ['i' => 1, 'color' => '334155', 'sz' => $sz]
                 : ['color' => self::TEXTO, 'sz' => $sz];
+            // Una tarjeta de apoyo visual va siempre unida al contenido que presenta debajo (no queda suelta al pie).
             $contenido .= $this->p($this->runs($this->inline($el), $fmt),
-                ['spacing' => 'w:after="20" w:line="264" w:lineRule="auto"']);
+                ['keepLines' => 1, 'keepNext' => ($esIlustracion ? 1 : 0),
+                    'spacing' => 'w:after="20" w:line="264" w:lineRule="auto"']);
         }
 
         $fino = 'w:val="single" w:sz="4" w:space="0" w:color="' . $bdrSoft . '"';
+        $espDespues = $esIlustracion
+            ? '<w:p><w:pPr><w:keepNext/><w:spacing w:after="100" w:line="120" w:lineRule="exact"/></w:pPr></w:p>'
+            : $this->espacio();
         $this->xml .= '<w:tbl><w:tblPr><w:tblW w:w="' . $ancho . '" w:type="dxa"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/>'
             . '<w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>'
             . '<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="' . $ancho . '"/></w:tblGrid>'
@@ -1542,7 +1560,8 @@ class documento_final {
             . '<w:shd w:val="clear" w:color="auto" w:fill="' . $bg . '"/>'
             . '<w:tcMar><w:top w:w="110" w:type="dxa"/><w:left w:w="200" w:type="dxa"/><w:bottom w:w="110" w:type="dxa"/>'
             . '<w:right w:w="180" w:type="dxa"/></w:tcMar></w:tcPr>' . $contenido . '</w:tc></w:tr></w:tbl>'
-            . $this->espacio();
+            . $espDespues;
+        $this->trasCabeceraSec = $esIlustracion;
     }
 
     /**
@@ -1691,6 +1710,16 @@ class documento_final {
      */
     private function lista(\DOMElement $lista, int $nivel): void {
         $ordenada = strtolower($lista->nodeName) === 'ol';
+        // En recursos didacticos, una lista corta (<= 6 items y <= 1200 caracteres) se mantiene unida en la misma pagina.
+        $directLis = [];
+        foreach ($lista->childNodes as $ch) {
+            if ($ch instanceof \DOMElement && strtolower($ch->nodeName) === 'li') {
+                $directLis[] = $ch;
+            }
+        }
+        $totalLis = count($directLis);
+        $juntarLista = $this->estiloRecurso && $nivel === 0 && $totalLis >= 2 && $totalLis <= 6
+            && \core_text::strlen(trim($lista->textContent)) <= 1200;
         $i = 0;
         foreach ($lista->childNodes as $li) {
             if ($li instanceof \DOMElement && in_array(strtolower($li->nodeName), ['ul', 'ol'], true)) {
@@ -1703,7 +1732,7 @@ class documento_final {
             $i++;
             $items = $this->inline($li);
             if ($this->plain($items) !== '') {
-                $this->item_lista($ordenada ? $i . '.' : '', $nivel, $items);
+                $this->item_lista($ordenada ? $i . '.' : '', $nivel, $items, $juntarLista && $i < $totalLis);
             }
             foreach ($li->childNodes as $sub) {
                 $nombre = $sub instanceof \DOMElement ? strtolower($sub->nodeName) : '';
@@ -1727,19 +1756,20 @@ class documento_final {
      * @param string $numero «1.»; vacio para una viñeta.
      * @param int $nivel
      * @param array $items
+     * @param bool $mantener Si se mantiene unido al siguiente item en la misma pagina.
      * @return void
      */
-    private function item_lista(string $numero, int $nivel, array $items): void {
+    private function item_lista(string $numero, int $nivel, array $items, bool $mantener = false): void {
         $espacio = 'w:after="70" w:line="276" w:lineRule="auto"';
         if ($numero !== '') {
             $izq = 360 * ($nivel + 1);
             $this->xml .= $this->p($this->run($numero, ['b' => 1, 'color' => self::AZUL]) . '<w:r><w:tab/></w:r>' . $this->runs($items),
-                ['keepLines' => 1, 'tabs' => '<w:tab w:val="left" w:pos="' . $izq . '"/>', 'spacing' => $espacio,
-                    'ind' => 'w:left="' . $izq . '" w:hanging="360"', 'jc' => $this->alineacion($items)]);
+                ['keepLines' => 1, 'keepNext' => ($mantener ? 1 : 0), 'tabs' => '<w:tab w:val="left" w:pos="' . $izq . '"/>',
+                    'spacing' => $espacio, 'ind' => 'w:left="' . $izq . '" w:hanging="360"', 'jc' => $this->alineacion($items)]);
             return;
         }
-        $this->xml .= $this->p($this->runs($items), ['style' => 'ListParagraph', 'keepLines' => 1, 'ilvl' => min(1, $nivel),
-            'spacing' => $espacio, 'jc' => $this->alineacion($items)]);
+        $this->xml .= $this->p($this->runs($items), ['style' => 'ListParagraph', 'keepLines' => 1,
+            'keepNext' => ($mantener ? 1 : 0), 'ilvl' => min(1, $nivel), 'spacing' => $espacio, 'jc' => $this->alineacion($items)]);
     }
 
     // ------------------------------------------------------------------------------------------------------------
@@ -1855,7 +1885,8 @@ class documento_final {
         // Una tabla baja (o un diagrama) no se parte entre paginas. En una alta, la fila que ocupa mas de un tercio de pagina
         // puede partirse: si no, salta entera a la pagina siguiente y deja media pagina en blanco. El encabezado se repite.
         $pagina = ($this->orient === 'h' ? 12240 : 15840) - 2500;
-        $juntas = $diagrama || $tarjetas || array_sum($altos) <= 0.45 * $pagina;
+        $limiteJuntas = ($this->estiloRecurso && count($filas) <= 8) ? 0.60 : 0.45;
+        $juntas = $diagrama || $tarjetas || array_sum($altos) <= $limiteJuntas * $pagina;
         foreach ($filas as $r => $celdas) {
             $esenc = $encabezado && $r === 0;
             $cuerpo = $r - ($encabezado ? 1 : 0);
@@ -1901,7 +1932,8 @@ class documento_final {
             return;
         }
         $texto = html_entity_decode(strip_tags($ultimo), ENT_QUOTES | ENT_XML1, 'UTF-8');
-        if (trim($texto) === '' || \core_text::strlen($texto) > 200) {
+        $tope = $this->estiloRecurso ? 380 : 200;
+        if (trim($texto) === '' || \core_text::strlen($texto) > $tope) {
             return;
         }
         if (preg_match('/^<w:p><w:pPr><w:pStyle w:val="[^"]*"\/>/', $ultimo, $m)) {
@@ -2117,11 +2149,21 @@ class documento_final {
         if ($diagrama) {
             $e = diseno::w_celda($td);
             $flecha = preg_match('/^[→←↑↓]$/u', $texto) === 1;
-            $borde = $e['borde'] !== '' ? '<w:top w:val="single" w:sz="8" w:space="0" w:color="' . $e['borde'] . '"/><w:left w:val="single" w:sz="8" w:space="0" w:color="'
-                . $e['borde'] . '"/><w:bottom w:val="single" w:sz="8" w:space="0" w:color="' . $e['borde'] . '"/><w:right w:val="single" w:sz="8" w:space="0" w:color="'
-                . $e['borde'] . '"/>' : '<w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/>';
+            if ($this->estiloRecurso && $e['borde'] !== '' && !$flecha) {
+                $acento = ($col % 4 === 0) ? self::INDIGO : self::CYAN_BRILLO;
+                $borde = '<w:top w:val="single" w:sz="22" w:space="0" w:color="' . $acento . '"/>'
+                    . '<w:left w:val="single" w:sz="6" w:space="0" w:color="B9D9EC"/>'
+                    . '<w:bottom w:val="single" w:sz="6" w:space="0" w:color="B9D9EC"/>'
+                    . '<w:right w:val="single" w:sz="6" w:space="0" w:color="B9D9EC"/>';
+            } else {
+                $borde = $e['borde'] !== '' ? '<w:top w:val="single" w:sz="8" w:space="0" w:color="' . $e['borde'] . '"/><w:left w:val="single" w:sz="8" w:space="0" w:color="'
+                    . $e['borde'] . '"/><w:bottom w:val="single" w:sz="8" w:space="0" w:color="' . $e['borde'] . '"/><w:right w:val="single" w:sz="8" w:space="0" w:color="'
+                    . $e['borde'] . '"/>' : '<w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/>';
+            }
             $fondo = $e['fondo'];
-            $fmt = $flecha ? ['sz' => 36, 'b' => 1, 'color' => $e['color'] ?: self::AZUL] : ['sz' => 20];
+            $fmt = $flecha
+                ? ['sz' => 34, 'b' => 1, 'color' => ($this->estiloRecurso ? self::CYAN_BRILLO : ($e['color'] ?: self::AZUL))]
+                : ['sz' => ($this->estiloRecurso ? 18 : 20)];
             $o['jc'] = 'center';
             if ($tarjeta) {
                 unset($o['jc']);

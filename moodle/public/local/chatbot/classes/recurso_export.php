@@ -259,9 +259,15 @@ class recurso_export {
                 $cursor++;
                 continue;
             }
-            if ($tag === 'p' && !$metaItems && strpos($txt, '|') !== false
-                    && preg_match('/\b(organismo|curso|persona\s+facilitadora|facilitador|c[oó]digo)\s*:/iu', $txt)) {
-                foreach (explode('|', $txt) as $seg) {
+            if ($tag === 'p' && !$metaItems
+                    && preg_match('/\b(organismo|curso|persona\s+facilitadora|facilitador|c[oó]digo|fase\s+y\s+actividad)\s*:/iu', $txt)) {
+                // Conservar saltos <br> y saltos de linea como separadores, y separar tambien claves pegadas en linea.
+                $rawMeta = preg_replace('#<br\s*/?>#i', ' | ', $innerHtml($el));
+                $rawMeta = html_entity_decode(strip_tags((string) $rawMeta), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $rawMeta = preg_replace('/\R+/u', ' | ', $rawMeta);
+                $rawMeta = preg_replace('/\s+(?=(?:Organismo|Curso|Persona\s+facilitadora|Facilitador(?:\/a)?|C[oó]digo|Modo|Formato(?:\s+de\s+salida)?|Impresi[oó]n|Fase\s+y\s+actividad|Actividad|Duraci[oó]n)\s*:)/iu', ' | ', (string) $rawMeta);
+                $vistos = [];
+                foreach (explode('|', (string) $rawMeta) as $seg) {
                     $seg = trim($seg);
                     if (preg_match('/^([^:]{2,40}):\s*(.+)$/u', $seg, $mm)) {
                         $k = trim($mm[1]);
@@ -273,10 +279,12 @@ class recurso_export {
                             }
                             continue;
                         }
-                        if (preg_match('/^modo$/u', $kl)) {
+                        // Datos tecnicos de produccion que no aportan al participante en la cabecera del material.
+                        if (preg_match('/^(modo|formato(?:\s+de\s+salida)?|impresi[oó]n)$/u', $kl)) {
                             continue;
                         }
-                        if ($v !== '') {
+                        if ($v !== '' && empty($vistos[$kl])) {
+                            $vistos[$kl] = true;
                             $metaItems[] = ['etiqueta' => $k, 'valor' => $v];
                         }
                     }
@@ -460,9 +468,47 @@ class recurso_export {
                         . '" data-icon="' . $e($clas['icono']) . '"><p>' . trim($mc[2]) . '</p></div>';
                 }
             }
+            // 4) Parrafo con viñetas escritas en linea («Su función operativa es: * A... * B... * C...»): pasar a <ul>.
+            $expandido = self::expand_inline_bullets($interno);
+            if ($expandido !== null) {
+                return $expandido;
+            }
         }
 
         return trim((string) $dom->saveHTML($el));
+    }
+
+    /**
+     * Convierte un parrafo que contiene una lista Markdown sin salto de linea previo («...: * Item 1. * Item 2.») en
+     * un parrafo introductorio (si existe) seguido de una lista <ul> limpia. Devuelve null si no aplica. Funcion pura.
+     *
+     * @param string $interno HTML interior de un <p>.
+     * @return string|null
+     */
+    public static function expand_inline_bullets(string $interno): ?string {
+        if (strpos($interno, '* ') === false) {
+            return null;
+        }
+        // Requiere al menos dos marcadores « * » seguidos de letra o etiqueta de inicio (evita multiplicaciones «2 * 3»).
+        if (preg_match_all('/(?:^|[\s:;.\)])\*\s+(?=[\p{Lu}<])/u', $interno) < 2) {
+            return null;
+        }
+        $partes = preg_split('/\s+\*\s+(?=[\p{Lu}<])/u', trim($interno));
+        if (!$partes || count($partes) < 2) {
+            return null;
+        }
+        $intro = trim($partes[0]);
+        $items = array_slice($partes, 1);
+        if (preg_match('/^\*\s+(.+)$/su', $intro, $m0)) {
+            array_unshift($items, trim($m0[1]));
+            $intro = '';
+        }
+        $items = array_values(array_filter(array_map('trim', $items), 'strlen'));
+        if (count($items) < 2) {
+            return null;
+        }
+        $lis = implode('', array_map(static fn($it) => '<li>' . $it . '</li>', $items));
+        return ($intro !== '' ? '<p>' . $intro . '</p>' . "\n" : '') . '<ul>' . $lis . '</ul>';
     }
 
     /**
@@ -1883,16 +1929,46 @@ class recurso_export {
             $pdf->SetY(11);
         }
 
-        $htmlPdf = self::format_pdf_html($parts, $spec, $logo);
-        $pdf->writeHTML($htmlPdf, true, false, true, false, '');
+        // Paginacion inteligente bloque a bloque con transacciones TCPDF: si una unidad didactica (seccion + diagrama,
+        // tarjeta, recuadro, tabla compacta o subtitulo + lista) se partiria entre paginas, retrocede y salta limpia
+        // a la pagina siguiente sin cortar cajas, pasos ni titulos.
+        $bloques = self::format_pdf_blocks($parts, $spec, $logo);
+        $topMin = $pdf->getMargins()['top'] + 10.0;
+        foreach ($bloques as $bloque) {
+            $bHtml = (string) $bloque['html'];
+            if (trim($bHtml) === '') {
+                continue;
+            }
+            if (!empty($bloque['atomic']) && $spec['tipo'] !== 'tarjeta') {
+                $p0 = $pdf->getPage();
+                $y0 = $pdf->GetY();
+                $pdf->startTransaction();
+                $pdf->writeHTML($bHtml, true, false, true, false, '');
+                if ($pdf->getPage() > $p0 && $y0 > $topMin) {
+                    $pdf = $pdf->rollbackTransaction();
+                    $pdf->AddPage();
+                    $pdf->writeHTML($bHtml, true, false, true, false, '');
+                } else {
+                    $pdf->commitTransaction();
+                }
+            } else {
+                $minMm = (float) ($bloque['min_space_mm'] ?? 0);
+                if ($minMm > 0 && $spec['tipo'] !== 'tarjeta') {
+                    $libre = $pdf->getPageHeight() - $pdf->getBreakMargin() - $pdf->GetY();
+                    if ($libre < $minMm && $pdf->GetY() > $topMin) {
+                        $pdf->AddPage();
+                    }
+                }
+                $pdf->writeHTML($bHtml, true, false, true, false, '');
+            }
+        }
         $pdf->Output($ruta, 'F');
         return is_file($ruta) && filesize($ruta) > 0;
     }
 
     /**
-     * Arma el HTML editorial didactico optimizado para TCPDF: portada/cabecera, banda de metadatos, proposito,
-     * secciones numeradas con proteccion anti-huerfanos, tarjetas visuales con iconos SVG, recuadros didacticos,
-     * diagramas de pasos modernos, tablas con filas alternadas y tarjeta de fuentes. Funcion pura.
+     * Arma el HTML editorial didactico completo para TCPDF uniendo las unidades atomicas de format_pdf_blocks().
+     * Funcion pura.
      *
      * @param array $parts Resultado de prepare_material_parts().
      * @param array $spec Resultado de parse_pdf_spec().
@@ -1900,19 +1976,39 @@ class recurso_export {
      * @return string
      */
     public static function format_pdf_html(array $parts, array $spec, string $logo = ''): string {
+        return implode("\n", array_column(self::format_pdf_blocks($parts, $spec, $logo), 'html'));
+    }
+
+    /**
+     * Divide el documento PDF en unidades didacticas semanticas con marca «atomic» para que build_pdf() evalue con
+     * transacciones TCPDF si cada bloque cabe completo en la pagina actual antes de dibujarlo (evitando cajas cortadas,
+     * diagramas partidos por la mitad y titulos huerfanos). Funcion pura.
+     *
+     * @param array $parts Resultado de prepare_material_parts().
+     * @param array $spec Resultado de parse_pdf_spec().
+     * @param string $logo Ruta opcional al logo PNG.
+     * @return array[] Lista de ['html' => string, 'atomic' => bool, 'min_space_mm' => float].
+     */
+    public static function format_pdf_blocks(array $parts, array $spec, string $logo = ''): array {
         $e = static fn(string $t): string => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
         $esTarjeta = $spec['tipo'] === 'tarjeta';
         $esAfiche = $spec['tipo'] === 'afiche';
         $spacer = '<div style="font-size:' . ($esTarjeta ? '2pt' : '4pt') . ';line-height:' . ($esTarjeta ? '2pt' : '4pt') . ';">&nbsp;</div>';
+        $bloques = [];
+        $push = static function(string $html, bool $atomic = true, float $minMm = 0.0) use (&$bloques): void {
+            if (trim($html) !== '') {
+                $bloques[] = ['html' => $html, 'atomic' => $atomic, 'min_space_mm' => $minMm];
+            }
+        };
 
-        // 1) Cabecera Hero + Banda de metadatos.
-        $out = '';
+        // 1) Cabecera Hero + Banda de metadatos (+ tarjeta de proposito si existe).
+        $cab = '';
         $codigo = $parts['codigo'];
         $tit = $parts['titulo'] ?: $parts['titulo_completo'];
         $sub = $parts['subtitulo'];
 
         if ($esTarjeta) {
-            $out .= '<table width="100%" cellpadding="4" cellspacing="0" nobr="true">'
+            $cab .= '<table width="100%" cellpadding="4" cellspacing="0" nobr="true">'
                 . '<tr><td style="background-color:#' . self::INDIGO . ';color:#FFFFFF;border-bottom:2px solid #' . self::CYAN_BRILLO . ';">'
                 . ($codigo !== '' ? '<span style="color:#7DD3FC;font-size:7pt;font-weight:bold;">' . $e($codigo) . ' · </span>' : '')
                 . '<span style="font-size:10pt;font-weight:bold;color:#FFFFFF;">' . $e($tit) . '</span>'
@@ -1931,7 +2027,7 @@ class recurso_export {
             }
             if ($logoSrc !== '') {
                 $logoH = $esAfiche ? 38 : 26;
-                $out .= '<table width="100%" cellpadding="' . $pad . '" cellspacing="0" nobr="true">'
+                $cab .= '<table width="100%" cellpadding="' . $pad . '" cellspacing="0" nobr="true">'
                     . '<tr>'
                     . '<td width="76%" valign="middle" style="background-color:#' . self::INDIGO . ';border-bottom:3px solid #' . self::CYAN_BRILLO . ';">'
                     . '<span style="font-size:' . $kickerSz . ';font-weight:bold;color:#7DD3FC;">' . $e($kicker) . '</span><br>'
@@ -1943,7 +2039,7 @@ class recurso_export {
                     . '<div style="font-size:4pt;line-height:4pt;">&nbsp;</div><img src="' . $logoSrc . '" height="' . $logoH . '">'
                     . '</td></tr></table>';
             } else {
-                $out .= '<table width="100%" cellpadding="' . $pad . '" cellspacing="0" nobr="true">'
+                $cab .= '<table width="100%" cellpadding="' . $pad . '" cellspacing="0" nobr="true">'
                     . '<tr><td style="background-color:#' . self::INDIGO . ';border-bottom:3px solid #' . self::CYAN_BRILLO . ';">'
                     . '<span style="font-size:' . $kickerSz . ';font-weight:bold;color:#7DD3FC;">' . $e($kicker) . '</span><br>'
                     . '<span style="font-size:' . $titSz . ';font-weight:bold;color:#FFFFFF;">' . $e($tit) . '</span>'
@@ -1961,27 +2057,28 @@ class recurso_export {
                     $celdas .= '<td width="' . $cw . '%" style="' . $sep . 'background-color:#' . self::CYAN_CLARO . ';">'
                         . '<span style="font-size:6.8pt;font-weight:bold;color:#' . self::CYAN_OSCURO . ';">'
                         . $e(mb_strtoupper($mi['etiqueta'], 'UTF-8')) . '</span><br>'
-                        . '<span style="font-size:8.6pt;font-weight:bold;color:#' . self::INDIGO . ';">'
+                        . '<span style="font-size:8.5pt;font-weight:bold;color:#' . self::INDIGO . ';">'
                         . $e($mi['valor']) . '</span></td>';
                 }
-                $out .= '<table width="100%" cellpadding="5" cellspacing="0" nobr="true" style="border-left:3px solid #'
+                $cab .= '<table width="100%" cellpadding="5" cellspacing="0" nobr="true" style="border-left:3px solid #'
                     . self::CYAN_BRILLO . ';border-right:0.6px solid #CBE1F0;border-bottom:0.6px solid #CBE1F0;">'
                     . '<tr>' . $celdas . '</tr></table>';
             }
-            $out .= $spacer;
+            $cab .= $spacer;
         }
+        $push($cab, false);
 
-        // 2) Tarjeta de proposito del recurso (si venia «Encabezado e identificacion»).
+        // 2) Tarjeta de proposito del recurso.
         if ($parts['lead'] !== '') {
-            $out .= '<table width="100%" cellpadding="7" cellspacing="0" nobr="true">'
+            $push('<table width="100%" cellpadding="7" cellspacing="0" nobr="true">'
                 . '<tr><td style="background-color:#F6FBFE;border-top:0.6px solid #CFE3F1;border-right:0.6px solid #CFE3F1;'
                 . 'border-bottom:0.6px solid #CFE3F1;border-left:3.5px solid #' . self::INDIGO . ';color:#243447;">'
                 . '<span style="font-size:7.2pt;font-weight:bold;color:#' . self::CYAN . ';">PROPÓSITO DEL RECURSO</span><br>'
                 . self::pdf_inline_polish($parts['lead'])
-                . '</td></tr></table>' . $spacer;
+                . '</td></tr></table>' . $spacer, true);
         }
 
-        // 3) Recorrer los nodos del cuerpo aplicando componentes modernos y proteccion anti-huerfanos en <h2>.
+        // 3) Recorrer nodos del cuerpo agrupando unidades didacticas coherentes que no deben partirse entre paginas.
         $dom = new \DOMDocument();
         libxml_use_internal_errors(true);
         $dom->loadHTML('<?xml encoding="UTF-8"><html><body>' . $parts['body_html'] . '</body></html>');
@@ -1996,67 +2093,130 @@ class recurso_export {
             }
         }
 
+        $isVisualTable = static function(\DOMElement $el): bool {
+            if (strtolower($el->nodeName) !== 'table') {
+                return false;
+            }
+            $cls = ' ' . $el->getAttribute('class') . ' ';
+            return strpos($cls, ' m2-diagrama ') !== false || strpos($cls, ' m2-tarjetas ') !== false;
+        };
+        $isCompactTable = static function(\DOMElement $el) use ($isVisualTable): bool {
+            if (strtolower($el->nodeName) !== 'table') {
+                return false;
+            }
+            if ($isVisualTable($el)) {
+                return true;
+            }
+            $trs = $el->getElementsByTagName('tr')->length;
+            return $trs <= 6 && mb_strlen(trim($el->textContent), 'UTF-8') <= 1500;
+        };
+        $isCompactList = static function(\DOMElement $el): bool {
+            $t = strtolower($el->nodeName);
+            if ($t !== 'ul' && $t !== 'ol') {
+                return false;
+            }
+            return $el->getElementsByTagName('li')->length <= 7 && mb_strlen(trim($el->textContent), 'UTF-8') <= 1400;
+        };
+
         $secNum = 0;
         $n = count($nodes);
         for ($i = 0; $i < $n; $i++) {
             $el = $nodes[$i];
             $tag = strtolower($el->nodeName);
+            $cls = ' ' . $el->getAttribute('class') . ' ';
+
+            // Unidad A: Seccion <h2> + su apoyo visual + intro breve + diagrama/tarjetas inmediatos.
             if ($tag === 'h2') {
                 $secNum++;
-                $secHtml = self::pdf_section_banner($el->textContent, $secNum, $esTarjeta, $esAfiche);
-                // Emparejar el titulo de seccion con su bloque introductorio, apoyo visual o diagrama inmediato en nobr="true".
-                $pareja = '';
+                $unidad = $spacer . self::pdf_section_banner($el->textContent, $secNum, $esTarjeta, $esAfiche);
+                $j = $i + 1;
+                // 1) Apoyo visual inmediato.
+                if ($j < $n && strpos(' ' . $nodes[$j]->getAttribute('class') . ' ', ' cr-ilustracion ') !== false) {
+                    $unidad .= $spacer . self::pdf_render_node($dom, $nodes[$j], $esTarjeta);
+                    $j++;
+                }
+                // 2) Parrafo introductorio breve.
+                if ($j < $n && strtolower($nodes[$j]->nodeName) === 'p'
+                        && mb_strlen(trim($nodes[$j]->textContent), 'UTF-8') <= 460) {
+                    $unidad .= $spacer . self::pdf_render_node($dom, $nodes[$j], $esTarjeta);
+                    $j++;
+                }
+                // 3) Si inmediatamente sigue un diagrama o tarjetas (como en Seccion 2 de M1 o Seccion 3 de M3), mantenerlo unido.
+                if ($j < $n && $isVisualTable($nodes[$j])) {
+                    $unidad .= self::pdf_render_node($dom, $nodes[$j], $esTarjeta);
+                    $j++;
+                } else if ($j === $i + 1 && $j < $n && strtolower($nodes[$j]->nodeName) === 'h3') {
+                    // Si tras <h2> viene directo un <h3> + contenido compacto, arrastrarlos juntos.
+                    $unidad .= self::pdf_render_node($dom, $nodes[$j], $esTarjeta);
+                    $j++;
+                    if ($j < $n && ($isCompactList($nodes[$j]) || $isCompactTable($nodes[$j])
+                            || (strtolower($nodes[$j]->nodeName) === 'p' && mb_strlen(trim($nodes[$j]->textContent), 'UTF-8') <= 480))) {
+                        $unidad .= self::pdf_render_node($dom, $nodes[$j], $esTarjeta);
+                        $j++;
+                    }
+                }
+                $i = $j - 1;
+                $push($unidad . $spacer, true);
+                continue;
+            }
+
+            // Unidad B: Subtitulo <h3> / <h4> unido a su lista corta, parrafo, diagrama o tabla compacta.
+            if ($tag === 'h3' || $tag === 'h4') {
+                $unidad = self::pdf_render_node($dom, $el, $esTarjeta);
+                $esAtomico = true;
+                $minMm = 0.0;
                 if ($i + 1 < $n) {
                     $sig = $nodes[$i + 1];
                     $sigTag = strtolower($sig->nodeName);
-                    $sigCls = ' ' . $sig->getAttribute('class') . ' ';
-                    $esIlust = strpos($sigCls, ' cr-ilustracion ') !== false;
-                    $esVisualTbl = $sigTag === 'table' && (strpos($sigCls, ' m2-diagrama ') !== false || strpos($sigCls, ' m2-tarjetas ') !== false);
-                    $esCorto = ($sigTag === 'p' && mb_strlen(trim($sig->textContent), 'UTF-8') <= 460) || $sigTag === 'h3';
-                    if ($esIlust || $esVisualTbl || $esCorto) {
-                        $pareja .= $spacer . self::pdf_render_node($dom, $sig, $esTarjeta);
+                    if ($isCompactList($sig) || $isCompactTable($sig)
+                            || ($sigTag === 'p' && mb_strlen(trim($sig->textContent), 'UTF-8') <= 540)
+                            || strpos(' ' . $sig->getAttribute('class') . ' ', ' cr-callout ') !== false) {
+                        $unidad .= self::pdf_render_node($dom, $sig, $esTarjeta);
                         $i++;
-                        // Si era una tarjeta visual y luego sigue un parrafo introductorio breve, mantener juntos los tres.
-                        if ($esIlust && $i + 1 < $n && strtolower($nodes[$i + 1]->nodeName) === 'p'
-                                && mb_strlen(trim($nodes[$i + 1]->textContent), 'UTF-8') <= 320) {
-                            $pareja .= $spacer . self::pdf_render_node($dom, $nodes[$i + 1], $esTarjeta);
+                        // Si un <p> introductorio bajo <h3> precede a una lista corta (ej. «Rol de los pares» + lista), unirlos.
+                        if ($sigTag === 'p' && $i + 1 < $n && $isCompactList($nodes[$i + 1])
+                                && mb_strlen(trim($sig->textContent) . trim($nodes[$i + 1]->textContent), 'UTF-8') <= 1300) {
+                            $unidad .= self::pdf_render_node($dom, $nodes[$i + 1], $esTarjeta);
                             $i++;
                         }
+                    } else {
+                        // Lista muy larga o tabla extensa: garantizar espacio minimo para el titulo + primeras filas.
+                        $esAtomico = false;
+                        $minMm = 36.0;
                     }
                 }
-                // TCPDF solo maneja un nivel de transaccion para nobr="true": quitar nobr de tablas internas para que
-                // el encabezado y su primer bloque viajen juntos como una unidad indivisible.
-                $parejaSinNobr = str_replace(' nobr="true"', '', $pareja);
-                $out .= $spacer . '<table width="100%" cellpadding="0" cellspacing="0" nobr="true"><tr><td>'
-                    . $secHtml . $parejaSinNobr . '</td></tr></table>' . $spacer;
+                $push($unidad, $esAtomico, $minMm);
                 continue;
             }
-            // Proteccion anti-huerfanos en <h3>: se mantiene junto a su lista corta o parrafo siguiente.
-            if ($tag === 'h3' && $i + 1 < $n) {
-                $sig = $nodes[$i + 1];
-                $sigTag = strtolower($sig->nodeName);
-                $esListaCorta = ($sigTag === 'ul' || $sigTag === 'ol') && $sig->getElementsByTagName('li')->length <= 7;
-                $esParrafoCorto = $sigTag === 'p' && mb_strlen(trim($sig->textContent), 'UTF-8') <= 520;
-                if ($esListaCorta || $esParrafoCorto) {
-                    $h3Html = str_replace(' nobr="true"', '', self::pdf_render_node($dom, $el, $esTarjeta));
-                    $sigHtml = str_replace(' nobr="true"', '', self::pdf_render_node($dom, $sig, $esTarjeta));
-                    $out .= '<table width="100%" cellpadding="0" cellspacing="0" nobr="true"><tr><td>'
-                        . $h3Html . $sigHtml . '</td></tr></table>';
-                    $i++;
-                    continue;
-                }
+
+            // Unidad C: Parrafo introductorio breve justo antes de un diagrama, tarjetas o tabla compacta.
+            if ($tag === 'p' && mb_strlen(trim($el->textContent), 'UTF-8') <= 360 && $i + 1 < $n
+                    && ($isVisualTable($nodes[$i + 1]) || $isCompactTable($nodes[$i + 1]) || $isCompactList($nodes[$i + 1]))) {
+                $unidad = self::pdf_render_node($dom, $el, $esTarjeta) . self::pdf_render_node($dom, $nodes[$i + 1], $esTarjeta);
+                $i++;
+                $push($unidad, true);
+                continue;
             }
-            $out .= self::pdf_render_node($dom, $el, $esTarjeta);
+
+            // Unidad D: Recuadros, ilustraciones, diagramas, tarjetas y tablas compactas: siempre indivisibles.
+            if (strpos($cls, ' cr-callout ') !== false || strpos($cls, ' cr-ilustracion ') !== false
+                    || $isCompactTable($el) || $isCompactList($el)) {
+                $push(self::pdf_render_node($dom, $el, $esTarjeta), true);
+                continue;
+            }
+
+            // Unidad E: Tablas o listas extensas (fluyen en varias paginas con <thead> repetido y filas nobr="true").
+            $push(self::pdf_render_node($dom, $el, $esTarjeta), $tag === 'p', $tag === 'table' ? 32.0 : 0.0);
         }
 
-        // 4) Tarjeta de fuentes utilizadas (al cierre del documento).
+        // 4) Tarjeta de fuentes utilizadas (indivisible).
         if ($parts['fuentes'] && !$esTarjeta) {
             $icoSrc = self::svg_tcpdf_src('fuentes', 18);
             $itemsHtml = '';
             foreach ($parts['fuentes'] as $f) {
                 $itemsHtml .= '<br><span style="color:#' . self::CYAN . ';font-weight:bold;">•</span> ' . $e($f);
             }
-            $out .= $spacer . '<table width="100%" cellpadding="6" cellspacing="0" nobr="true">'
+            $push($spacer . '<table width="100%" cellpadding="6" cellspacing="0" nobr="true">'
                 . '<tr>'
                 . '<td width="7%" align="center" valign="top" style="background-color:#' . self::FUENTE_BG
                 . ';border-top:0.6px solid #D5DFE9;border-bottom:0.6px solid #D5DFE9;border-left:3px solid #' . self::TEXTO_SUAVE . ';">'
@@ -2065,14 +2225,14 @@ class recurso_export {
                 . ';border-top:0.6px solid #D5DFE9;border-bottom:0.6px solid #D5DFE9;border-right:0.6px solid #D5DFE9;color:#'
                 . self::TEXTO_SUAVE . ';font-size:8.3pt;">'
                 . '<span style="font-size:7.6pt;font-weight:bold;color:#' . self::INDIGO . ';">FUENTES UTILIZADAS</span>'
-                . $itemsHtml . '</td></tr></table>';
+                . $itemsHtml . '</td></tr></table>', true);
         }
 
         if ($esTarjeta && $parts['pie'] !== '') {
-            $out .= '<p style="font-size:6.2pt;color:#' . self::TEXTO_SUAVE . ';"><em>' . $e($parts['pie']) . '</em></p>';
+            $push('<p style="font-size:6.2pt;color:#' . self::TEXTO_SUAVE . ';"><em>' . $e($parts['pie']) . '</em></p>', false);
         }
 
-        return $out;
+        return $bloques;
     }
 
     /**
@@ -2192,18 +2352,18 @@ class recurso_export {
      *  - 5+ pasos o textos largos: filas horizontales numeradas con insignia lateral y conectores SVG hacia abajo.
      */
     private static function pdf_diagram_html(string $tableHtml): string {
-        if (!preg_match_all('#<td data-n="(\d+)"[^>]*>(.*?)</td>#isu', $tableHtml, $cajas, PREG_SET_ORDER)) {
+        $cajas = diagrama::extract_cards($tableHtml);
+        if (!$cajas) {
             return diagrama::pdf_flows($tableHtml);
         }
-        usort($cajas, static fn($a, $b) => (int) $a[1] <=> (int) $b[1]);
         $e = static fn(string $t): string => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
 
         $pasos = [];
         $maxLen = 0;
-        foreach ($cajas as $idx => $c) {
+        foreach ($cajas as $idx => $cHtml) {
             $partes = array_values(array_filter(array_map(
                 static fn($s) => trim(html_entity_decode(strip_tags($s), ENT_QUOTES | ENT_HTML5, 'UTF-8')),
-                preg_split('#<br\s*/?>#i', $c[2])
+                preg_split('#<br\s*/?>#i', $cHtml)
             ), 'strlen'));
             $rotulo = 'PASO ' . ($idx + 1);
             $principal = $partes[0] ?? '';

@@ -1,5 +1,13 @@
 # Changelog
 
+## M1-v1.28.3 (2026-11-19)
+
+- **Paginación inteligente en PDF y Word del centro (sin bloques ni tarjetas cortadas)** (pedido del 19-11-2026, a partir del PDF real de M1 descargado en producción). Sin cambios en la base; aplica también a materiales ya guardados.
+  - `diagrama::extract_cards()` recupera todas las tarjetas de `m2-diagrama` en orden (incluyendo zigzag con `←`) aun cuando `clean_text()` de Moodle eliminó los atributos `data-n` al guardar el material en BD (causa por la que los pasos de `M1` se partían por la mitad entre páginas 1 y 2).
+  - En **PDF** (`recurso_export::build_pdf()` + `format_pdf_blocks()`), cada unidad didáctica (sección + apoyo visual + intro + diagrama, `<h3>` + lista corta, recuadros, tarjetas y tablas compactas) se evalúa con transacciones nativas de TCPDF (`startTransaction()` / `rollbackTransaction()`): si se partiría al pie de página, retrocede y salta completa a la página siguiente.
+  - En **Word** (`documento_final.php`), se añade `<w:widowControl/>`, `<w:cantSplit/>` en recuadros/diagramas, borde superior de acento en las tarjetas de pasos y `<w:keepNext/>` encadenado entre cabecera de sección → apoyo visual → introducción breve → primer bloque, además de listas cortas y tablas compactas unidas.
+  - **Metadatos y listas en línea** (`prepare_material_parts()` + `expand_inline_bullets()`): separa metadatos con `<br>` o pegados en línea, omite ruido técnico (`Formato de salida`) en la cabecera del participante y convierte párrafos con `* ... * ...` (como «Rol de las personas pares de apoyo») en listas `<ul>` limpias.
+
 ## M1-v1.28.2 (2026-11-19)
 
 - **Marcas [REVISAR] con botones** (pedido del 19-11-2026): el aviso del material lista cada marca con «Dato verificado:

@@ -385,9 +385,67 @@ class diagrama {
     }
 
     /**
+     * Extrae el HTML interior de las tarjetas de un diagrama en su orden secuencial (1..N), tanto si conserva el
+     * atributo data-n como si HTMLPurifier/clean_text() de Moodle lo quito al guardar el material en BD (en ese caso
+     * omite flechas/espaciadores e invierte las filas impares en zigzag que llevan «←»). Funcion pura.
+     *
+     * @param string $tableHtml HTML de <table class="m2-diagrama">...</table>.
+     * @return string[] Lista ordenada de fragmentos HTML de cada tarjeta.
+     */
+    public static function extract_cards(string $tableHtml): array {
+        if (preg_match_all('#<td\b[^>]*\bdata-n="(\d+)"[^>]*>(.*?)</td>#isu', $tableHtml, $cajas, PREG_SET_ORDER)) {
+            usort($cajas, static fn($a, $b) => (int) $a[1] <=> (int) $b[1]);
+            return array_map(static fn($c) => trim($c[2]), $cajas);
+        }
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8"><html><body>' . $tableHtml . '</body></html>');
+        libxml_clear_errors();
+        $cards = [];
+        foreach ($dom->getElementsByTagName('tr') as $tr) {
+            $rowCards = [];
+            $reversa = false;
+            foreach ($tr->childNodes as $td) {
+                if (!$td instanceof \DOMElement || strtolower($td->nodeName) !== 'td') {
+                    continue;
+                }
+                $txt = trim(str_replace("\xC2\xA0", ' ', $td->textContent));
+                if ($txt === '') {
+                    continue;
+                }
+                if ($txt === '←') {
+                    $reversa = true;
+                    continue;
+                }
+                if (preg_match('/^[→←↑↓▼▲▶▸⇒⇐⇑⇓]+$/u', $txt)) {
+                    continue;
+                }
+                $inner = '';
+                foreach ($td->childNodes as $ch) {
+                    $inner .= $dom->saveHTML($ch);
+                }
+                if (trim($inner) !== '') {
+                    $rowCards[] = trim($inner);
+                }
+            }
+            if (!$rowCards) {
+                continue;
+            }
+            if ($reversa) {
+                $rowCards = array_reverse($rowCards);
+            }
+            foreach ($rowCards as $rc) {
+                $cards[] = $rc;
+            }
+        }
+        return $cards;
+    }
+
+    /**
      * Diagramas de tarjetas para el PDF (TCPDF): una tarjeta por fila, en el orden de la secuencia, con «▼» entre ellas y
      * sin partir una tarjeta entre paginas. En el zigzag de la pantalla TCPDF no dibujaba las flechas y dejaba las cajas
-     * altas y vacias (visto en el PDF del M1 del cliente el 19-11-2026). Funcion pura.
+     * altas y vacias (visto en el PDF del M1 del cliente el 19-11-2026). Funciona tambien cuando clean_text() quito data-n.
+     * Funcion pura.
      *
      * @param string $html
      * @return string
@@ -396,15 +454,15 @@ class diagrama {
         if (strpos($html, 'm2-diagrama') === false) {
             return $html;
         }
-        return (string) preg_replace_callback('#<table\b[^>]*class="m2-diagrama"[^>]*>.*?</table>#isu', static function(array $m): string {
-            if (!preg_match_all('#<td data-n="(\d+)"[^>]*>(.*?)</td>#isu', $m[0], $cajas, PREG_SET_ORDER)) {
+        return (string) preg_replace_callback('#<table\b[^>]*class="[^"]*\bm2-diagrama\b[^"]*"[^>]*>.*?</table>#isu', static function(array $m): string {
+            $cajas = self::extract_cards($m[0]);
+            if (!$cajas) {
                 return $m[0];
             }
-            usort($cajas, static fn($a, $b) => (int) $a[1] <=> (int) $b[1]);
             $filas = [];
             foreach ($cajas as $c) {
                 $filas[] = '<tr nobr="true"><td style="background-color: ' . self::FONDO . '; border: 1px solid ' . self::BORDE
-                    . '; text-align: center;">' . $c[2] . '</td></tr>';
+                    . '; text-align: center;">' . $c . '</td></tr>';
             }
             $flecha = '<tr nobr="true"><td style="text-align: center; color: ' . self::BORDE . '; font-size: 12pt;">▼</td></tr>';
             return '<table class="m2-diagrama">' . implode($flecha, $filas) . '</table>';

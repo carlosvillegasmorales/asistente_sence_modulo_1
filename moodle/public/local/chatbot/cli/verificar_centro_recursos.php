@@ -682,6 +682,56 @@ local_chatbot_verificar(
     'build_xlsx inmoviliza la cabecera, alterna filas celestes y conserva intactas las fórmulas en fila 2'
 );
 
+// --- Paginacion inteligente (sin cortes en PDF ni Word) y diagramas tras clean_text() de Moodle ---
+$diagSinData = preg_replace('/\s+data-[a-z0-9_-]+="[^"]*"/i', '',
+    \local_chatbot\diagrama::render_html(\local_chatbot\diagrama::parse("Paso 1 / A\nPaso 2 / B\nPaso 3 / C\nPaso 4 / D\nPaso 5 / E")));
+$cardsSinData = \local_chatbot\diagrama::extract_cards($diagSinData);
+local_chatbot_verificar(
+    count($cardsSinData) === 5
+    && strpos($cardsSinData[0], 'A') !== false
+    && strpos($cardsSinData[3], 'D') !== false
+    && strpos($cardsSinData[4], 'E') !== false,
+    'diagrama::extract_cards recupera todas las tarjetas en orden (incluido zigzag) aun cuando clean_text() quitó data-n'
+);
+$metaConBr = '<p><strong>Organismo:</strong> OTEC SpA | <strong>Curso:</strong> Cuidados | <strong>Persona facilitadora:</strong> Ana<br>'
+    . '<strong>Código:</strong> M1 | <strong>Formato de salida:</strong> PDF A4 / Word (.docx)<br>'
+    . '<strong>Fase y actividad:</strong> Fase 1: Inicio</p>'
+    . '<p>Su función operativa es: * Acompañar ejercicios prácticos. * Orientar uso de insumos. * Promover colaboración.</p>';
+$pMetaBr = recurso_export::prepare_material_parts('M1 · Infografía', '', $metaConBr);
+local_chatbot_verificar(
+    count($pMetaBr['meta_items']) === 4
+    && $pMetaBr['meta_items'][2]['valor'] === 'Ana'
+    && $pMetaBr['meta_items'][3]['valor'] === 'Fase 1: Inicio'
+    && strpos($pMetaBr['body_html'], '<ul><li>Acompañar ejercicios prácticos.</li>') !== false
+    && substr_count($pMetaBr['body_html'], '<li>') === 3,
+    'prepare_material_parts separa metadatos con <br>, filtra Formato de salida y convierte «* » en línea en lista <ul>'
+);
+$bloquesPdf = recurso_export::format_pdf_blocks(
+    recurso_export::prepare_material_parts('M1 · Infografía', '', '<h2>Sección 1 — Bio</h2><p>Intro breve.</p>' . $diagSinData),
+    recurso_export::parse_pdf_spec('PDF A4')
+);
+local_chatbot_verificar(
+    count($bloquesPdf) >= 2
+    && !empty($bloquesPdf[1]['atomic'])
+    && strpos($bloquesPdf[1]['html'], 'PASO 1') !== false
+    && strpos($bloquesPdf[1]['html'], 'PASO 5') !== false,
+    'format_pdf_blocks agrupa sección + intro + diagrama (aun sin data-n) en una unidad atómica para evitar cortes en PDF'
+);
+$docxIntel = $tmpDir . '/inteligente.docx';
+$okDocxIntel = recurso_export::build_docx($docxIntel, 'M1 · Infografía', '',
+    '<h2>Sección 1 — Bio</h2><p>[Pictograma: manos]</p><p>Intro.</p><h3>Reglas</h3><ul><li>Uno</li><li>Dos</li><li>Tres</li></ul>');
+$xmlDocxIntel = '';
+if ($okDocxIntel && $zipCheck->open($docxIntel) === true) {
+    $xmlDocxIntel = (string) $zipCheck->getFromName('word/document.xml') . (string) $zipCheck->getFromName('word/styles.xml');
+    $zipCheck->close();
+}
+local_chatbot_verificar(
+    strpos($xmlDocxIntel, '<w:widowControl/>') !== false
+    && substr_count($xmlDocxIntel, '<w:keepNext/>') >= 5
+    && strpos($xmlDocxIntel, '<w:cantSplit/>') !== false,
+    'build_docx aplica widowControl, cantSplit y keepNext encadenado (sección, apoyo visual, intro y lista corta) para evitar cortes'
+);
+
 $repHtml = centro_recursos::repertory_html(
     ['experiencia' => 'Taller de cuidados', 'plan' => 'PF0960', 'modulo' => 'M1', 'organismo' => 'OTEC Demo'],
     [
@@ -717,7 +767,7 @@ if ($zipOk) {
 local_chatbot_verificar($zipOk, 'build_repertory_zip empaqueta el repertorio completo y los materiales producidos');
 
 // Limpieza de archivos temporales.
-foreach ([$docxPath, $docxTarjetas, $docxMod, $xlsxPath, $pptxPath, $pptxCards, $pdfPath, $zipPath] as $f) {
+foreach ([$docxPath, $docxTarjetas, $docxMod, $docxIntel, $xlsxPath, $pptxPath, $pptxCards, $pdfPath, $zipPath] as $f) {
     if (is_file($f)) {
         @unlink($f);
     }
