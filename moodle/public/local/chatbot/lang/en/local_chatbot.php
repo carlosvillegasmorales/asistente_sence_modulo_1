@@ -1683,6 +1683,7 @@ $string['centro_adjust_btn'] = 'Request adjustment';
 $string['centro_edit_title'] = 'Edit by hand (for example, to correct and remove [REVISAR] marks)';
 $string['centro_edit_save'] = 'Save edit';
 $string['centro_approve'] = 'Approve the material and record it in the repository (Stage 11 · v{$a})';
+$string['centro_delivered_note'] = '<strong>Delivered (v{$a})</strong> and recorded in the design repository. To record a new version, request an adjustment or edit the material: then you can approve it again.';
 $string['centro_group_state'] = 'Whole material: {$a}';
 $string['centro_lbl_puntaje'] = 'Design evaluation score:';
 $string['centro_lbl_estado'] = 'Center status:';

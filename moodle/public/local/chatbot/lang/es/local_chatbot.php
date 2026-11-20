@@ -1685,6 +1685,7 @@ $string['centro_adjust_btn'] = 'Pedir ajuste';
 $string['centro_edit_title'] = 'Editar a mano (por ejemplo, para corregir y quitar marcas [REVISAR])';
 $string['centro_edit_save'] = 'Guardar edición';
 $string['centro_approve'] = 'Aprobar el material y registrarlo en el repositorio (Etapa 11 · v{$a})';
+$string['centro_delivered_note'] = '<strong>Entregado (v{$a})</strong> y registrado en el repositorio del diseño. Para registrar una versión nueva, pide un ajuste o edita el material: entonces podrás aprobarlo otra vez.';
 $string['centro_group_state'] = 'Material completo: {$a}';
 $string['centro_lbl_puntaje'] = 'Puntaje de la evaluación del diseño:';
 $string['centro_lbl_estado'] = 'Estado del centro:';

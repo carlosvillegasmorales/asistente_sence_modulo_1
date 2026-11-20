@@ -229,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $disenoSel) {
     if ($action === 'aprobar_material' && $recursoid > 0) {
         $parcial = optional_param('parcial', 0, PARAM_INT) === 1;
         centro_recursos::approve_material($recursoid, $USER->id, $parcial);
-        redirect($recursourl, centro_recursos::CIERRE_ETAPA_11, null, \core\output\notification::NOTIFY_SUCCESS);
+        redirect($planurl, centro_recursos::CIERRE_ETAPA_11, null, \core\output\notification::NOTIFY_SUCCESS);
     }
     if ($action === 'cerrar_centro') {
         centro_recursos::close_center($fid, $USER->id);
@@ -621,9 +621,14 @@ $estadoEtiqueta = [
                         <form method="post" action="<?php echo $recursourl->out(false); ?>" class="d-flex flex-wrap gap-2 align-items-center border-top pt-3">
                             <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
                             <input type="hidden" name="action" value="aprobar_material">
-                            <button type="submit" class="btn btn-success">
-                                <?php echo get_string('centro_approve', 'local_chatbot', ((int) $recActual->version) + 1); ?>
-                            </button>
+                            <?php if (centro_recursos::can_approve((string) $recActual->estado)): ?>
+                                <button type="submit" class="btn btn-success">
+                                    <?php echo get_string('centro_approve', 'local_chatbot', ((int) $recActual->version) + 1); ?>
+                                </button>
+                            <?php else: ?>
+                                <div class="alert alert-success mb-0 w-100" role="status"><?php echo get_string('centro_delivered_note',
+                                    'local_chatbot', (int) $recActual->version); ?></div>
+                            <?php endif; ?>
                         </form>
                     </div>
                 </div>

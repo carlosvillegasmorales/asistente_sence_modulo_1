@@ -1917,6 +1917,29 @@ class centro_recursos {
     }
 
     /**
+     * Estado de un material despues de cambiar su contenido: uno entregado que cambia vuelve a borrador (hay que
+     * aprobarlo de nuevo para registrar la version siguiente); sin cambios, conserva su estado. Funcion pura.
+     *
+     * @param string $estado Estado actual.
+     * @param bool $cambio Si el contenido cambio.
+     * @return string
+     */
+    public static function state_after_change(string $estado, bool $cambio): string {
+        return $cambio && in_array($estado, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true) ? self::MAT_BORRADOR : $estado;
+    }
+
+    /**
+     * Si el boton de aprobar (Etapa 11) se muestra: no en un material ya entregado y sin cambios desde entonces, para
+     * no registrar versiones identicas (visto en el cliente el 19-11-2026: cada clic sumaba una version). Funcion pura.
+     *
+     * @param string $estado
+     * @return bool
+     */
+    public static function can_approve(string $estado): bool {
+        return !in_array($estado, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true);
+    }
+
+    /**
      * Guarda edicion manual del material en pantalla y recalcula marcas [REVISAR] y HTML Moodle.
      */
     public static function save_manual_edit(int $id, int $userid, string $html): void {
@@ -1931,6 +1954,7 @@ class centro_recursos {
             'contenido' => $limpio,
             'html_moodle' => recurso_export::to_moodle_html($limpio, (string) $r->nombre, (string) $r->codigo),
             'revisar_count' => self::count_review_marks($limpio),
+            'estado' => self::state_after_change((string) $r->estado, $limpio !== (string) $r->contenido),
             'timemodified' => time(),
         ]);
     }
@@ -1951,6 +1975,7 @@ class centro_recursos {
         $DB->update_record('local_chatbot_recurso', (object) [
             'id' => $r->id,
             'seleccionados' => json_encode($sel),
+            'estado' => self::state_after_change((string) $r->estado, json_encode($sel) !== (string) ($r->seleccionados ?? '')),
             'contenido' => $html,
             'html_moodle' => recurso_export::to_moodle_html($html, (string) $r->nombre, (string) $r->codigo),
             'timemodified' => time(),

@@ -1,5 +1,14 @@
 # Changelog
 
+## M1-v1.28.1 (2026-11-19)
+
+- **Etapa 11, aprobar el material** (aviso del 19-11-2026: «apreto eso y no hace nada»). El botón sí registraba la
+  versión, pero la página no cambiaba, el aviso quedaba arriba fuera de la vista y el botón seguía ahí con la versión
+  siguiente (cada clic sumaba una versión idéntica). Ahora, al aprobar, se vuelve al plan de producción con el aviso de
+  cierre de la Etapa 11 y el material «Entregado vN»; un material entregado y sin cambios muestra «Entregado (vN)» en vez
+  del botón (`can_approve()`), y editarlo a mano o cambiar la selección de la curaduría lo devuelve a borrador para la
+  versión siguiente (`state_after_change()`). Sin cambios en la base.
+
 ## M1-v1.28.0 (2026-11-19)
 
 **Rediseño visual moderno, didáctico y amigable de los materiales del Centro de Producción de Recursos** (pedido del 19-11-2026, a partir del PDF real de M1). Sin cambios en la base; aplica automáticamente tanto a materiales nuevos como a los ya guardados al previsualizar o descargar.

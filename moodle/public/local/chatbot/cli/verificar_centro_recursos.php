@@ -370,6 +370,15 @@ local_chatbot_verificar(
     'el prompt de producción pide redacción formal, prohíbe dibujos con caracteres y limita los pictogramas'
 );
 
+// --- Etapa 11: sin versiones repetidas; un cambio devuelve el material a borrador ---
+local_chatbot_verificar(
+    !centro_recursos::can_approve(centro_recursos::MAT_ENTREGADO) && centro_recursos::can_approve(centro_recursos::MAT_BORRADOR)
+    && centro_recursos::state_after_change(centro_recursos::MAT_ENTREGADO, true) === centro_recursos::MAT_BORRADOR
+    && centro_recursos::state_after_change(centro_recursos::MAT_ENTREGADO, false) === centro_recursos::MAT_ENTREGADO
+    && centro_recursos::state_after_change(centro_recursos::MAT_BORRADOR, true) === centro_recursos::MAT_BORRADOR,
+    'un material entregado y sin cambios no se vuelve a aprobar; al editarlo vuelve a borrador para la versión siguiente'
+);
+
 // --- Materiales mixtos: cada parte en su modo y «Entregado parcialmente» hasta entregar todas ---
 $mixto = centro_recursos::parse_plan_json(json_encode(['materiales' => [
     ['codigo' => 'M2', 'nombre' => 'Cápsula audiovisual y tarjetas de debate', 'fase' => 'Fase 1', 'modo' => 'B/C',
