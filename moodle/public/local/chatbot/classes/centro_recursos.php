@@ -1112,6 +1112,8 @@ class centro_recursos {
                 . 'al inicio y en forma breve.';
             $l[] = '- Usa títulos ## y ###, listas y tablas Markdown. Para comparar dos o más elementos, usa una tabla Markdown. '
                 . 'Nunca dibujes cajas, líneas o flechas con caracteres (+---+, |, │, ▼, v, ->).';
+            $l[] = '- Para notas didácticas destacadas, usa citas Markdown (> **Nota de profundización:** ..., > **Importante:** ..., '
+                . '> **Ejemplo:** ... o > **Recuerda:** ...); la plataforma las dibuja como recuadros didácticos con ícono.';
             $l[] = '- Pictogramas: escribe [Pictograma: descripción breve] solo donde una imagen ayude a comprender (como '
                 . 'máximo uno por sección), nunca como relleno; la plataforma lo muestra como «Ilustración sugerida».';
             $l[] = '- Para diagramas de pasos o ciclos, usa bloques ```diagrama (nunca arte ASCII): una línea por caja, '
@@ -1119,7 +1121,8 @@ class centro_recursos {
                 . 'como tarjetas con flechas.';
             $l[] = diseno::REGLA_FORMULAS;
             $l[] = '- Incluye [REVISAR: motivo] en el lugar exacto cuando un dato técnico/normativo no provenga de las fuentes autorizadas.';
-            $l[] = '- Si usaste materiales de referencia cargados, agrega «Fuentes utilizadas: ...» al final.';
+            $l[] = '- Si usaste materiales de referencia cargados, agrega al final el título «Fuentes utilizadas:» seguido de '
+                . 'una lista con viñetas en líneas separadas (una fuente por línea).';
             $l[] = '- Cierra siempre con la línea exacta: «' . $material['codigo'] . ' · ' . self::PIE_MATERIAL . '»';
             $l[] = '- No agregues saludos ni preguntas al final: la plataforma ya muestra los controles de revisión y aprobación.';
         }
@@ -2136,7 +2139,7 @@ class centro_recursos {
         switch ($tipo) {
             case 'html':
                 $ruta = $dir . '/' . $base . $ver . '.html';
-                $html = (string) ($r->html_moodle ?: recurso_export::to_moodle_html((string) $r->contenido, (string) $r->nombre, (string) $r->codigo));
+                $html = recurso_export::to_moodle_html((string) $r->contenido, (string) $r->nombre, (string) $r->codigo);
                 file_put_contents($ruta, $html);
                 return [$ruta, $base . $ver . '.html', 'text/html; charset=utf-8'];
 
@@ -2178,7 +2181,7 @@ class centro_recursos {
             case 'pdf':
                 $ruta = $dir . '/' . $base . $ver . '.pdf';
                 return recurso_export::build_pdf($ruta, (string) $r->codigo . ' · ' . $r->nombre, '',
-                    (string) $r->contenido, (string) $r->formato, $impresion)
+                    (string) $r->contenido, (string) $r->formato, $impresion, $logo)
                     ? [$ruta, $base . $ver . '.pdf', 'application/pdf']
                     : null;
 

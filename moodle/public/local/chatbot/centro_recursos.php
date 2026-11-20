@@ -121,6 +121,10 @@ if ($action === 'descargar_zip' && $disenoSel) {
     if (recurso_export::build_docx($repDocx, 'Repertorio de recursos del diseño', $disenoSel['experiencia'], $repHtml, $logo)) {
         $archivos['00_Repertorio_de_recursos.docx'] = ['ruta' => $repDocx];
     }
+    $repPdf = $dir . '/00_Repertorio_de_recursos.pdf';
+    if (recurso_export::build_pdf($repPdf, 'Repertorio de recursos del diseño', $disenoSel['experiencia'], $repHtml, 'PDF A4', $impresion, $logo)) {
+        $archivos['00_Repertorio_de_recursos.pdf'] = ['ruta' => $repPdf];
+    }
     $archivos['00_Repertorio_de_recursos.html'] = ['texto' => recurso_export::to_moodle_html($repHtml, 'Repertorio de recursos')];
 
     foreach ($recursos as $r) {
@@ -554,10 +558,13 @@ $estadoEtiqueta = [
                             </div>
                         <?php endif; ?>
 
-                        <div id="cr-material-vista" class="border rounded p-3 mb-3 bg-white">
-                            <?php echo centro_recursos::highlight_review_marks(\local_chatbot\diagrama::list_flows((string) $recActual->contenido)); ?>
+                        <div id="cr-material-vista" class="mb-3">
+                            <?php
+                            $htmlModerno = recurso_export::to_moodle_html(\local_chatbot\diagrama::list_flows((string) $recActual->contenido), (string) $recActual->nombre, (string) $recActual->codigo);
+                            echo $htmlModerno;
+                            ?>
                         </div>
-                        <textarea id="cr-html-fuente" class="d-none"><?php echo s(\local_chatbot\diagrama::list_flows((string) ($recActual->html_moodle ?: $recActual->contenido))); ?></textarea>
+                        <textarea id="cr-html-fuente" class="d-none"><?php echo s($htmlModerno); ?></textarea>
 
                         <?php if ($esModoC && !empty($recActual->estructurado)): ?>
                             <?php
@@ -695,7 +702,7 @@ $estadoEtiqueta = [
                     <a class="btn btn-success btn-sm" href="<?php echo $zipurl->out(false); ?>"><?php echo get_string('centro_zip', 'local_chatbot'); ?></a>
                 </div>
                 <div class="card-body">
-                    <?php echo $repHtml; ?>
+                    <?php echo recurso_export::to_moodle_html($repHtml, 'Repertorio de recursos del diseño'); ?>
                     <p class="mt-3 mb-0 text-muted small"><?php echo s(centro_recursos::CIERRE_ETAPA_12); ?></p>
                 </div>
             </div>

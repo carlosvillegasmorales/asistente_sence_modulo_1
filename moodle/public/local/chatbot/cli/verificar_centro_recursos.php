@@ -561,8 +561,107 @@ $pdfPath = $tmpDir . '/tarjeta.pdf';
 $okPdf = recurso_export::build_pdf($pdfPath, 'M5 · Tarjeta de acogida', '',
     '<p>[Pictograma: saludo] Hola, me llamo María y te ayudaré hoy. [REVISAR: protocolo]</p>', 'PDF tarjeta 9x6 cm');
 $pdfBytes = $okPdf ? (string) file_get_contents($pdfPath) : '';
-local_chatbot_verificar($okPdf && strpos($pdfBytes, '%PDF-') === 0,
-    'build_pdf genera un archivo PDF real (tarjeta 9×6 cm con TCPDF incluido en Moodle)');
+local_chatbot_verificar($okPdf && strpos($pdfBytes, '%PDF-') === 0 && stripos($pdfBytes, 'Powered by TCPDF') === false,
+    'build_pdf genera un archivo PDF real (tarjeta 9×6 cm con TCPDF) sin marca de agua Powered by TCPDF');
+
+// --- Diseño editorial didactico moderno (PDF, Word, PPTX, Excel y HTML Moodle) ---
+$htmlMod = '<p><strong>Organismo:</strong> OTEC Demo | <strong>Curso:</strong> Cuidados | '
+    . '<strong>Persona facilitadora:</strong> Ana Pérez | <strong>Código:</strong> M1 | <strong>Modo:</strong> B (PDF A4)</p>'
+    . '<h1>Infografía de bioseguridad</h1><h2>Encabezado e identificación</h2>'
+    . '<p>Entrega directrices operativas para el taller.</p>'
+    . '<h2>Sección 1 — Bioseguridad</h2>'
+    . '<p>[Pictograma: lavado de manos y postura de guantes]</p>'
+    . '<p><strong>Importante:</strong> Revisar protocolo local [REVISAR: norma vigente].</p>'
+    . '<blockquote><p><strong>Nota de profundización:</strong> Remitirse al material M10.</p></blockquote>'
+    . '<h2>Sección 2 — Ergonomía</h2>'
+    . '<p>[Pictograma: Esquema biomecánico del cuerpo humano con espalda recta]</p>'
+    . '<p>Fuentes utilizadas: * Plan Formativo PF0960 v3. * Ficha de Diagnóstico validada.</p>'
+    . '<p><em>M1 · ' . centro_recursos::PIE_MATERIAL . '</em></p>';
+$partesMod = recurso_export::prepare_material_parts('M1 · Infografía de bioseguridad', '', $htmlMod);
+local_chatbot_verificar(
+    $partesMod['codigo'] === 'M1'
+    && $partesMod['titulo'] === 'Infografía de bioseguridad'
+    && count($partesMod['meta_items']) === 3
+    && stripos($partesMod['body_html'], '<h1>') === false
+    && strpos($partesMod['lead'], 'directrices operativas') !== false
+    && count($partesMod['fuentes']) === 2
+    && strpos($partesMod['pie'], centro_recursos::PIE_MATERIAL) !== false
+    && strpos($partesMod['body_html'], 'cr-callout-alerta') !== false
+    && strpos($partesMod['body_html'], 'cr-callout-nota') !== false
+    && substr_count($partesMod['body_html'], 'cr-ilustracion') === 2,
+    'prepare_material_parts extrae metadatos, deduplica H1, convierte propósito, separa fuentes con «*» y anota recuadros'
+);
+local_chatbot_verificar(
+    recurso_export::classify_callout('Nota de profundización')['tipo'] === 'nota'
+    && recurso_export::classify_callout('Ejemplo práctico')['tipo'] === 'ejemplo'
+    && recurso_export::classify_callout('Importante')['tipo'] === 'alerta'
+    && recurso_export::classify_callout('Recuerda')['tipo'] === 'clave'
+    && recurso_export::split_section_badge('Sección 2 — Ergonomía', 2) === ['02', 'Ergonomía']
+    && recurso_export::split_section_badge('Principios generales', 3) === ['03', 'Principios generales'],
+    'classify_callout clasifica los 4 tipos didácticos y split_section_badge genera insignias numeradas'
+);
+local_chatbot_verificar(
+    strpos(recurso_export::svg_pictogram('lavado de manos y postura de guantes'), 'C8.5 8 6 11') !== false
+    && strpos(recurso_export::svg_pictogram('Esquema biomecánico del cuerpo humano con espalda recta'), 'y1="8" x2="12" y2="14.5"') !== false
+    && strpos(recurso_export::svg_pictogram('subgrupo colaborando en equipo'), 'cx="16.2"') !== false,
+    'svg_pictogram distingue higiene de manos, ergonomía (sin confundir «humano» con «mano») y trabajo en equipo'
+);
+$pdfHtmlMod = recurso_export::format_pdf_html($partesMod, recurso_export::parse_pdf_spec('PDF A4'));
+local_chatbot_verificar(
+    strpos($pdfHtmlMod, 'RECURSO DIDÁCTICO · M1') !== false
+    && strpos($pdfHtmlMod, 'PROPÓSITO DEL RECURSO') !== false
+    && strpos($pdfHtmlMod, 'APOYO VISUAL SUGERIDO') !== false
+    && strpos($pdfHtmlMod, 'FUENTES UTILIZADAS') !== false
+    && strpos($pdfHtmlMod, 'src="@') !== false
+    && strpos($pdfHtmlMod, 'nobr="true"') !== false,
+    'format_pdf_html arma cabecera editorial, banda de metadatos, propósito, iconos SVG vectoriales, fuentes y anti-huérfanos'
+);
+$docxMod = $tmpDir . '/moderno.docx';
+$okDocxMod = recurso_export::build_docx($docxMod, 'M1 · Infografía de bioseguridad', '', $htmlMod);
+$xmlDocxMod = '';
+if ($okDocxMod && $zipCheck->open($docxMod) === true) {
+    $xmlDocxMod = (string) $zipCheck->getFromName('word/document.xml');
+    $zipCheck->close();
+}
+local_chatbot_verificar(
+    strpos($xmlDocxMod, 'w:fill="1B2B5E"') !== false
+    && strpos($xmlDocxMod, 'w:color="1EA7E1"') !== false
+    && strpos($xmlDocxMod, 'w:fill="FEF3C7"') !== false
+    && strpos($xmlDocxMod, 'PROPÓSITO DEL RECURSO') !== false
+    && strpos($xmlDocxMod, 'FUENTES UTILIZADAS') !== false,
+    'build_docx en estilo recurso genera cabecera moderna indigo/cyan, recuadros didácticos, fuentes y marcas [REVISAR] en ámbar'
+);
+$pptxCards = $tmpDir . '/tarjetas.pptx';
+$okPptxCards = recurso_export::build_pptx($pptxCards, 'Bioseguridad', 'Módulo 1', [[
+    'titulo' => 'Directrices clave',
+    'puntos' => [
+        'Higiene de manos: Agua y jabón antes y después de cada atención.',
+        'Uso de guantes: Un par nuevo por procedimiento asistencial.',
+    ],
+    'notas' => 'Explicar ambos pilares.',
+]], 'M1 · ' . centro_recursos::PIE_MATERIAL);
+$xmlSlide2 = '';
+if ($okPptxCards && $zipCheck->open($pptxCards) === true) {
+    $xmlSlide2 = (string) $zipCheck->getFromName('ppt/slides/slide2.xml');
+    $zipCheck->close();
+}
+local_chatbot_verificar(
+    strpos($xmlSlide2, 'prst="roundRect"') !== false
+    && strpos($xmlSlide2, 'val="1EA7E1"') !== false
+    && strpos($xmlSlide2, 'Higiene de manos') !== false,
+    'build_pptx diseña diapositivas luminosas con tarjetas visuales redondeadas cuando los puntos tienen formato «Título: detalle»'
+);
+$xlsxModXml = '';
+if ($zipCheck->open($xlsxPath) === true) {
+    $xlsxModXml = (string) $zipCheck->getFromName('xl/worksheets/sheet1.xml') . (string) $zipCheck->getFromName('xl/styles.xml');
+    $zipCheck->close();
+}
+local_chatbot_verificar(
+    strpos($xlsxModXml, 'ySplit="1"') !== false
+    && strpos($xlsxModXml, 'EDF7FC') !== false
+    && strpos($xlsxModXml, 'B2*1') !== false,
+    'build_xlsx inmoviliza la cabecera, alterna filas celestes y conserva intactas las fórmulas en fila 2'
+);
 
 $repHtml = centro_recursos::repertory_html(
     ['experiencia' => 'Taller de cuidados', 'plan' => 'PF0960', 'modulo' => 'M1', 'organismo' => 'OTEC Demo'],
@@ -599,7 +698,7 @@ if ($zipOk) {
 local_chatbot_verificar($zipOk, 'build_repertory_zip empaqueta el repertorio completo y los materiales producidos');
 
 // Limpieza de archivos temporales.
-foreach ([$docxPath, $xlsxPath, $pptxPath, $pdfPath, $zipPath] as $f) {
+foreach ([$docxPath, $docxTarjetas, $docxMod, $xlsxPath, $pptxPath, $pptxCards, $pdfPath, $zipPath] as $f) {
     if (is_file($f)) {
         @unlink($f);
     }

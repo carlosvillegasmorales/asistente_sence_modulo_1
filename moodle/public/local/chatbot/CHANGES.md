@@ -1,5 +1,13 @@
 # Changelog
 
+## M1-v1.28.0 (2026-11-19)
+
+**Rediseño visual moderno, didáctico y amigable de los materiales del Centro de Producción de Recursos** (pedido del 19-11-2026, a partir del PDF real de M1). Sin cambios en la base; aplica automáticamente tanto a materiales nuevos como a los ya guardados al previsualizar o descargar.
+
+- **PDF (`recurso_export::build_pdf()`, `format_pdf_html()`):** cabecera editorial moderna en índigo y cian Interfases (`#1B2B5E` / `#1EA7E1`) con logo en panel blanco, tira limpia de metadatos (`Organismo`, `Curso`, `Persona facilitadora`), deduplicación del título principal, tarjeta «Propósito del recurso» en lugar de «Encabezado e identificación», cintas numeradas de sección (`01`, `02`, `03`…) emparejadas con su bloque inicial en `nobr="true"` para evitar títulos huérfanos, pictogramas SVG vectoriales reales incrustados (`svg_tcpdf_src()`, distinguiendo higiene, ergonomía, convivencia, seguridad, alerta, nota, ejemplo, tiempo, video y fuentes), recuadros didácticos por tipo (`Nota de profundización`, `Ejemplo práctico`, `Importante`, `Recuerda`), tiras horizontales de 2–4 pasos con flechas vectoriales y filas numeradas compactas para 5+ pasos, tarjetas comparativas con barra superior de color, tablas con filas alternadas, tarjeta «Fuentes utilizadas» (reparando listas en línea con `* `), encabezado corrido desde la página 2, pie institucional con `Página X de Y` y eliminación definitiva de la marca de agua `Powered by TCPDF`.
+- **Word (`.docx`, `recurso_export::build_docx()` + `documento_final.php`):** estilo editorial `'recurso'` con cabecera moderna índigo/cian, tira de metadatos, secciones con banda celeste y acento lateral, recuadros didácticos con borde lateral de color y `<w:cantSplit/>`, tarjeta de apoyo visual, tarjeta de fuentes y resaltado ámbar para marcas `[REVISAR]`. El diseño de los documentos de Fases 2 y 3 queda intacto (`verificar_documento_final` 111/111).
+- **PowerPoint (`.pptx`), Excel (`.xlsx`), HTML Moodle y vista previa (`centro_recursos.php`):** diapositivas luminosas con acento cian, insignia numérica y grilla automática de tarjetas redondeadas para puntos «Título: detalle»; planillas Excel con cabecera inmovilizada, filas alternadas, bordes suaves y anchos equilibrados (conservando fórmulas en fila 2); HTML compatible con Moodle y vista previa en pantalla con el mismo diseño moderno en tarjetas; repertorio `.zip` suma `00_Repertorio_de_recursos.pdf`.
+
 ## M1-v1.27.3 (2026-11-19)
 
 - **Acceso directo al centro de producción en el curso** (pedido del 19-11-2026): `configurar_modulo2.php` pone en la

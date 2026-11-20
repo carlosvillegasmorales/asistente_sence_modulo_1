@@ -25,6 +25,11 @@ class documento_final {
     const ZEBRA = 'F7F9FC';
     const BORDE = 'C3CEDD';
     const GRIS = '5B6577';
+    const INDIGO = '1B2B5E';
+    const CYAN = '0E8FC4';
+    const CYAN_BRILLO = '1EA7E1';
+    const CYAN_OSCURO = '0C6B8A';
+    const CYAN_CLARO = 'EDF7FC';
 
     /** @var int Ancho util de la pagina vertical y de la horizontal, en twips (margenes de 1300). */
     const ANCHO_V = 9640;
@@ -51,6 +56,10 @@ class documento_final {
     private $ultima = 0;
     /** @var int Niveles que se restan a los titulos (el titulo de la etapa venia como h2 o h3). */
     private $desfase = 0;
+    /** @var bool Si el documento usa el estilo editorial didactico del Centro de Produccion de Recursos. */
+    private $estiloRecurso = false;
+    /** @var int Contador de secciones numeradas en estilo recurso. */
+    private $secRecurso = 0;
 
     /**
      * Escribe el documento final.
@@ -486,6 +495,8 @@ class documento_final {
      * @return bool
      */
     private function escribir(string $ruta, array $meta, string $html, string $logo): bool {
+        $this->estiloRecurso = ($meta['estilo'] ?? '') === 'recurso';
+        $this->secRecurso = 0;
         $png = ($logo !== '' && is_readable($logo)) ? (string) file_get_contents($logo) : '';
         $dim = $png !== '' ? @getimagesizefromstring($png) : false;
         $ratio = ($dim && $dim[1] > 0) ? $dim[0] / $dim[1] : 2.8;
@@ -503,7 +514,7 @@ class documento_final {
             $this->cerrar_seccion();
         }
 
-        // Sin portada (el Word de una etapa): el documento empieza en el titulo, sin indice ni salto de pagina previo.
+        // Sin portada (el Word de una etapa o un recurso didactico): el documento empieza en el titulo o cabecera moderna.
         $conportada = ($meta['portada'] ?? true) !== false;
         if ($conportada) {
             $this->secciones[0][1] = $this->portada($meta, $png !== '') . $this->indice() . $this->secciones[0][1];
@@ -513,6 +524,9 @@ class documento_final {
                 array_shift($this->secciones);
             }
             $this->secciones[0][1] = preg_replace('/<w:pageBreakBefore\/>/', '', $this->secciones[0][1], 1);
+            if ($this->estiloRecurso) {
+                $this->secciones[0][1] = $this->recurso_cabecera($meta) . $this->secciones[0][1];
+            }
         }
 
         $cuerpo = '';
@@ -877,7 +891,8 @@ class documento_final {
             . (!empty($f['color']) ? '<w:color w:val="' . $f['color'] . '"/>' : '')
             . (!empty($f['spacing']) ? '<w:spacing w:val="' . (int) $f['spacing'] . '"/>' : '')
             . (!empty($f['sz']) ? '<w:sz w:val="' . (int) $f['sz'] . '"/><w:szCs w:val="' . (int) $f['sz'] . '"/>' : '')
-            . (!empty($f['u']) ? '<w:u w:val="single"/>' : '');
+            . (!empty($f['u']) ? '<w:u w:val="single"/>' : '')
+            . (!empty($f['shd']) ? '<w:shd w:val="clear" w:color="auto" w:fill="' . $f['shd'] . '"/>' : '');
         return $x !== '' ? '<w:rPr>' . $x . '</w:rPr>' : '';
     }
 
@@ -887,6 +902,16 @@ class documento_final {
      * @return string
      */
     private function run(string $texto, array $f = []): string {
+        if ($this->estiloRecurso && strpos($texto, '[REVISAR') !== false) {
+            $partes = preg_split('/(\[REVISAR(?:\s*:\s*[^\]]+)?\])/u', $texto, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+            $xml = '';
+            foreach ($partes as $p) {
+                $esRev = preg_match('/^\[REVISAR(?:\s*:\s*[^\]]+)?\]$/u', $p) === 1;
+                $fmt = $esRev ? array_merge($f, ['b' => 1, 'color' => '92400E', 'shd' => 'FEF3C7']) : $f;
+                $xml .= '<w:r>' . $this->rpr($fmt) . '<w:t xml:space="preserve">' . self::esc($p) . '</w:t></w:r>';
+            }
+            return $xml;
+        }
         return '<w:r>' . $this->rpr($f) . '<w:t xml:space="preserve">' . self::esc($texto) . '</w:t></w:r>';
     }
 
@@ -1051,10 +1076,16 @@ class documento_final {
             $vaciar();
             if (preg_match('/^h([1-6])$/', $tag, $m)) {
                 $this->titulo((int) $m[1], $hijo);
+            } else if ($tag === 'div' && $this->es_caja_recurso($hijo)) {
+                $this->recurso_caja($hijo);
             } else if ($tag === 'p') {
                 $this->parrafo($this->inline($hijo, $fmt), $hijo);
             } else if ($tag === 'blockquote') {
-                $this->bloques($hijo, $nivel, $fmt);
+                if ($this->estiloRecurso) {
+                    $this->recurso_caja($hijo);
+                } else {
+                    $this->bloques($hijo, $nivel, $fmt);
+                }
             } else if ($tag === 'pre') {
                 $this->preformateado((string) $hijo->textContent);
             } else if ($tag === 'ul' || $tag === 'ol') {
@@ -1289,6 +1320,22 @@ class documento_final {
             return;
         }
         if ($n === 2) {
+            if ($this->estiloRecurso) {
+                $this->secRecurso++;
+                [$badge, $resto] = recurso_export::split_section_badge($texto, $this->secRecurso);
+                $marca = $this->marcador(2, trim(($badge !== '' ? $badge . ' ' : '') . $resto));
+                $id = $this->bmid;
+                $this->xml .= $this->p('<w:bookmarkStart w:id="' . $id . '" w:name="' . $marca . '"/>'
+                    . ($badge !== '' ? $this->run(' ' . $badge . ' ', ['b' => 1, 'color' => 'FFFFFF', 'sz' => 20, 'shd' => self::INDIGO])
+                        . $this->run('  ', ['sz' => 22]) : '')
+                    . $this->run($resto, ['b' => 1, 'color' => self::INDIGO, 'sz' => 25])
+                    . '<w:bookmarkEnd w:id="' . $id . '"/>',
+                    ['style' => 'Heading2', 'keepNext' => 1, 'keepLines' => 1,
+                        'pBdr' => '<w:left w:val="single" w:sz="28" w:space="10" w:color="' . self::CYAN_BRILLO . '"/>'
+                            . '<w:bottom w:val="single" w:sz="10" w:space="5" w:color="' . self::CYAN_BRILLO . '"/>',
+                        'shd' => self::CYAN_CLARO, 'spacing' => 'w:before="260" w:after="120"', 'ind' => 'w:left="80"']);
+                return;
+            }
             [$num, $resto] = self::split_number($texto);
             // Dentro de una etapa, «1. Síntesis diagnóstica» se numera «1.1» como en el ejemplo.
             $this->seccion = '';
@@ -1328,9 +1375,174 @@ class documento_final {
             $num = $this->etapa . '.' . $num;
         }
         $num = self::number_label($num);
+        if ($this->estiloRecurso && $n === 3) {
+            $this->xml .= $this->p(($num !== '' ? $this->run($num . '  ', ['b' => 1, 'color' => self::CYAN]) : '')
+                . $this->run($resto, ['b' => 1, 'color' => self::CYAN_OSCURO, 'sz' => 22]),
+                ['style' => 'Heading3', 'keepNext' => 1, 'keepLines' => 1,
+                    'pBdr' => '<w:left w:val="single" w:sz="20" w:space="8" w:color="' . self::CYAN_BRILLO . '"/>',
+                    'spacing' => 'w:before="180" w:after="80"', 'ind' => 'w:left="60"']);
+            return;
+        }
         $this->xml .= $this->p(($num !== '' ? $this->run($num . '  ', ['color' => self::AZUL]) : '') . $this->run($resto),
             ['style' => $n === 3 ? 'Heading3' : 'Heading4', 'keepNext' => 1, 'keepLines' => 1,
             'spacing' => $n === 3 ? 'w:before="200" w:after="80"' : 'w:before="160" w:after="60"']);
+    }
+
+    /**
+     * Cabecera moderna para recursos didacticos en Word: banda indigo con acento cyan y tira de metadatos.
+     *
+     * @param array $meta
+     * @return string
+     */
+    private function recurso_cabecera(array $meta): string {
+        $ancho = self::ANCHO_V;
+        $codigo = trim((string) ($meta['codigo'] ?? ''));
+        $titulo = trim((string) ($meta['titulo'] ?? ''));
+        $sub = trim((string) ($meta['subtitulo'] ?? ''));
+        $kicker = $codigo !== '' ? ('RECURSO DIDÁCTICO · ' . $codigo) : 'RECURSO DIDÁCTICO';
+        $pCab = $this->p($this->run($kicker, ['b' => 1, 'color' => '7DD3FC', 'spacing' => 18, 'sz' => 16]),
+                ['spacing' => 'w:after="50"'])
+            . $this->p($this->run($titulo, ['b' => 1, 'color' => 'FFFFFF', 'sz' => 32]),
+                ['spacing' => $sub !== '' ? 'w:after="60"' : 'w:after="0"'])
+            . ($sub !== '' ? $this->p($this->run($sub, ['color' => 'CBE7F7', 'sz' => 19]), ['spacing' => 'w:after="0"']) : '');
+
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="' . $ancho . '" w:type="dxa"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/>'
+            . '<w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>'
+            . '<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="' . $ancho . '"/></w:tblGrid>'
+            . '<w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:tcW w:w="' . $ancho . '" w:type="dxa"/>'
+            . '<w:tcBorders><w:bottom w:val="single" w:sz="24" w:space="0" w:color="' . self::CYAN_BRILLO . '"/></w:tcBorders>'
+            . '<w:shd w:val="clear" w:color="auto" w:fill="' . self::INDIGO . '"/>'
+            . '<w:tcMar><w:top w:w="180" w:type="dxa"/><w:left w:w="220" w:type="dxa"/><w:bottom w:w="180" w:type="dxa"/>'
+            . '<w:right w:w="220" w:type="dxa"/></w:tcMar></w:tcPr>' . $pCab . '</w:tc></w:tr></w:tbl>';
+
+        $items = (array) ($meta['meta_items'] ?? []);
+        if ($items) {
+            $n = count($items);
+            $colW = (int) floor($ancho / max(1, $n));
+            $grid = '';
+            $celdas = '';
+            foreach (array_values($items) as $i => $mi) {
+                $w = ($i === $n - 1) ? ($ancho - $colW * ($n - 1)) : $colW;
+                $grid .= '<w:gridCol w:w="' . $w . '"/>';
+                $bIzq = $i === 0
+                    ? '<w:left w:val="single" w:sz="24" w:space="0" w:color="' . self::CYAN_BRILLO . '"/>'
+                    : '<w:left w:val="single" w:sz="4" w:space="0" w:color="CBE1F0"/>';
+                $celdas .= '<w:tc><w:tcPr><w:tcW w:w="' . $w . '" w:type="dxa"/><w:tcBorders>'
+                    . '<w:top w:val="nil"/>' . $bIzq
+                    . '<w:bottom w:val="single" w:sz="6" w:space="0" w:color="CBE1F0"/>'
+                    . '<w:right w:val="single" w:sz="4" w:space="0" w:color="CBE1F0"/></w:tcBorders>'
+                    . '<w:shd w:val="clear" w:color="auto" w:fill="' . self::CYAN_CLARO . '"/>'
+                    . '<w:tcMar><w:top w:w="90" w:type="dxa"/><w:left w:w="140" w:type="dxa"/><w:bottom w:w="90" w:type="dxa"/>'
+                    . '<w:right w:w="140" w:type="dxa"/></w:tcMar></w:tcPr>'
+                    . $this->p($this->run(\core_text::strtoupper((string) ($mi['etiqueta'] ?? '')),
+                        ['b' => 1, 'color' => self::CYAN_OSCURO, 'sz' => 14]), ['spacing' => 'w:after="20"'])
+                    . $this->p($this->run((string) ($mi['valor'] ?? ''), ['b' => 1, 'color' => self::INDIGO, 'sz' => 18]),
+                        ['spacing' => 'w:after="0"'])
+                    . '</w:tc>';
+            }
+            $xml .= '<w:tbl><w:tblPr><w:tblW w:w="' . $ancho . '" w:type="dxa"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/>'
+                . '<w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>'
+                . '<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>' . $grid . '</w:tblGrid>'
+                . '<w:tr><w:trPr><w:cantSplit/></w:trPr>' . $celdas . '</w:tr></w:tbl>';
+        }
+        return $xml . $this->espacio();
+    }
+
+    /**
+     * Si un <div> es una caja semantica del Centro de Produccion de Recursos.
+     */
+    private function es_caja_recurso(\DOMElement $el): bool {
+        $cls = ' ' . $el->getAttribute('class') . ' ';
+        return strpos($cls, ' cr-callout ') !== false
+            || strpos($cls, ' cr-ilustracion ') !== false
+            || strpos($cls, ' cr-lead ') !== false
+            || strpos($cls, ' cr-sources ') !== false
+            || strpos($cls, ' cr-pie ') !== false;
+    }
+
+    /**
+     * Renderiza una caja didactica moderna en Word (recuadro con borde izquierdo de color, fondo pastel y cantSplit).
+     */
+    private function recurso_caja(\DOMElement $el): void {
+        $cls = ' ' . $el->getAttribute('class') . ' ';
+        $ancho = $this->ancho();
+        $bg = 'EAF7FB';
+        $bdr = self::CYAN;
+        $bdrSoft = 'BFE3F2';
+        $kicker = '';
+        $kickerColor = self::CYAN_OSCURO;
+        $sz = 19;
+        $esPie = strpos($cls, ' cr-pie ') !== false;
+
+        if (strpos($cls, ' cr-lead ') !== false) {
+            $bg = 'F6FBFE';
+            $bdr = self::INDIGO;
+            $bdrSoft = 'CFE3F1';
+            $kicker = 'PROPÓSITO DEL RECURSO';
+            $kickerColor = self::CYAN;
+            $sz = 20;
+        } else if (strpos($cls, ' cr-ilustracion ') !== false) {
+            $bg = 'F2F9FD';
+            $bdr = self::CYAN_BRILLO;
+            $bdrSoft = 'C4E0F0';
+            $kicker = 'APOYO VISUAL SUGERIDO';
+            $kickerColor = self::CYAN;
+            $sz = 18;
+        } else if (strpos($cls, ' cr-sources ') !== false) {
+            $bg = 'F4F7FA';
+            $bdr = '475569';
+            $bdrSoft = 'D5DFE9';
+            $kicker = 'FUENTES UTILIZADAS';
+            $kickerColor = self::INDIGO;
+            $sz = 18;
+        } else if ($esPie) {
+            $this->xml .= $this->p($this->run(trim(preg_replace('/\s+/u', ' ', $el->textContent)),
+                ['i' => 1, 'color' => self::GRIS, 'sz' => 17]),
+                ['pBdr' => '<w:top w:val="single" w:sz="4" w:space="6" w:color="D5E4F0"/>',
+                    'spacing' => 'w:before="160" w:after="60"']);
+            return;
+        } else {
+            $kicker = trim((string) $el->getAttribute('data-label')) ?: 'Nota didáctica';
+            $clas = class_exists('\local_chatbot\recurso_export') ? recurso_export::classify_callout($kicker) : null;
+            if ($clas !== null) {
+                $bg = $clas['bg'];
+                $bdr = $clas['bdr'];
+                $bdrSoft = $clas['bdr_soft'];
+                $kickerColor = $clas['titulo_color'];
+            }
+        }
+
+        $contenido = '';
+        if ($kicker !== '') {
+            $contenido .= $this->p($this->run($kicker, ['b' => 1, 'color' => $kickerColor, 'sz' => 18]),
+                ['keepNext' => 1, 'spacing' => 'w:after="50"']);
+        }
+        $lis = $el->getElementsByTagName('li');
+        if ($lis->length > 0) {
+            foreach ($lis as $li) {
+                $contenido .= $this->p($this->run('• ', ['b' => 1, 'color' => $bdr, 'sz' => $sz])
+                    . $this->runs($this->inline($li), ['sz' => $sz, 'color' => '334155']),
+                    ['spacing' => 'w:after="40" w:line="252" w:lineRule="auto"', 'ind' => 'w:left="220" w:hanging="220"']);
+            }
+        } else {
+            $fmt = strpos($cls, ' cr-ilustracion ') !== false
+                ? ['i' => 1, 'color' => '334155', 'sz' => $sz]
+                : ['color' => self::TEXTO, 'sz' => $sz];
+            $contenido .= $this->p($this->runs($this->inline($el), $fmt),
+                ['spacing' => 'w:after="20" w:line="264" w:lineRule="auto"']);
+        }
+
+        $fino = 'w:val="single" w:sz="4" w:space="0" w:color="' . $bdrSoft . '"';
+        $this->xml .= '<w:tbl><w:tblPr><w:tblW w:w="' . $ancho . '" w:type="dxa"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/>'
+            . '<w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>'
+            . '<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="' . $ancho . '"/></w:tblGrid>'
+            . '<w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:tcW w:w="' . $ancho . '" w:type="dxa"/>'
+            . '<w:tcBorders><w:top ' . $fino . '/><w:left w:val="single" w:sz="28" w:space="0" w:color="' . $bdr . '"/>'
+            . '<w:bottom ' . $fino . '/><w:right ' . $fino . '/></w:tcBorders>'
+            . '<w:shd w:val="clear" w:color="auto" w:fill="' . $bg . '"/>'
+            . '<w:tcMar><w:top w:w="110" w:type="dxa"/><w:left w:w="200" w:type="dxa"/><w:bottom w:w="110" w:type="dxa"/>'
+            . '<w:right w:w="180" w:type="dxa"/></w:tcMar></w:tcPr>' . $contenido . '</w:tc></w:tr></w:tbl>'
+            . $this->espacio();
     }
 
     /**
