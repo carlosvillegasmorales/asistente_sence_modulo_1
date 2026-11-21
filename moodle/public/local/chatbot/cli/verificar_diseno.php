@@ -861,8 +861,8 @@ $pe8cc = diseno::build_eval_prompt('D', 'F', [], false, false, [], true);
 local_chatbot_verificar(strpos($pe8cc, 'INCONSISTENCIAS ACEPTADAS') !== false && strpos($pe8cc, 'sin modificar la rúbrica') !== false
     && strpos(diseno::build_eval_prompt('D', 'F', []), 'INCONSISTENCIAS ACEPTADAS') === false,
     'la etapa 8 considera las inconsistencias aceptadas en debilidades, recomendaciones y puntaje, sin cambiar la rúbrica');
-local_chatbot_verificar(diseno::PROMPT_VERSION === 'M2-F2-etapas-v13' && diseno::prompt_number(diseno::PROMPT_VERSION) >= diseno::PROMPT_CIERRE,
-    'la versión del prompt sube a la v13 y mantiene el cierre de cada etapa');
+local_chatbot_verificar(diseno::PROMPT_VERSION === 'M2-F2-etapas-v14' && diseno::prompt_number(diseno::PROMPT_VERSION) >= diseno::PROMPT_CIERRE,
+    'la versión del prompt sube a la v14 y mantiene el cierre de cada etapa');
 
 // Lectores de las tablas: lo que la página avisa.
 $registro = '<h3>Registro de ajustes</h3><table><thead><tr><th>Etapa de origen</th><th>Cambio realizado</th><th>Etapas afectadas</th>'
@@ -1023,6 +1023,131 @@ local_chatbot_verificar(diseno::inconsistencies($consistencia5) === [
     'Registro de instrumentos: Etapa 5 dice 24 pts; Etapa 6 suma 26',
     'Verificación aritmética: Ponderaciones suman 95 %',
 ], 'inconsistencies() también reporta las filas nuevas del bloque 5 con su nombre corto');
+
+// --- Ajuste del Prompt Maestro del 21-11-2026: materiales producibles y economía de recursos IA (bloques 7, 8 y 9) ---
+$mp4 = diseno::build_prompt(4, 'F', [], [1 => 'E1', 2 => 'E2', 3 => 'E3'], [], '', '', false, false, true,
+    [], '21-11-2026', true, true);
+$sinmp4 = diseno::build_prompt(4, 'F', [], [1 => 'E1', 2 => 'E2', 3 => 'E3'], [], '', '', false, false, true,
+    [], '21-11-2026', true, false);
+local_chatbot_verificar(strpos($mp4, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') !== false
+    && strpos($sinmp4, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') === false,
+    'el bloque 7 (catálogo de capacidades de producción) va en Etapa 4 solo con el interruptor encendido');
+$textuales7 = [
+    '- Modo A · Producción completa con IA: el asistente genera el contenido completo del material (textos, tablas, casos, guías, fichas, cuestionarios, guiones, diagramas descritos en texto o código) y lo entrega listo para copiar y pegar o en código HTML.',
+    '- Modo B · Producción con IA y servicios de la plataforma: el asistente genera el contenido y un servicio de conversión de la plataforma lo entrega como archivo descargable y editable (documento Word o PDF, planilla Excel o presentación).',
+    '- Modo C · Curaduría de recursos existentes con IA: cuando un material no puede generarse con calidad suficiente (por ejemplo, un video de un procedimiento real), el asistente busca en internet recursos abiertos ya publicados (por ejemplo, videos en YouTube) y recomienda los mejor contextualizados al aprendizaje esperado, para que la persona facilitadora los seleccione.',
+    'Formatos de salida',
+    '- Los cuestionarios se especifican para su configuración más rápida: formato GIFT para importar en Moodle, script de Google Apps Script para crear un formulario de Google Forms o versión impresa con pauta de respuestas.',
+    'Tipos de material y costo relativo de producción con IA, de menor a mayor:',
+    '1. Texto y datos estructurados (guías, casos, fichas, glosarios, planillas, plantillas, cuestionarios).',
+    '5. Video generado.',
+    'La curaduría (Modo C) tiene un costo similar al del tipo 1, porque produce una ficha de recomendación en texto, y suele ser preferible a generar audio o video.',
+    'Fuera del catálogo quedan los recursos del entorno formativo, que son siempre recursos físicos:',
+];
+$todos7 = true;
+foreach ($textuales7 as $t) {
+    $todos7 = $todos7 && strpos($mp4, $t) !== false;
+}
+local_chatbot_verificar($todos7
+    && strpos($mp4, 'REGLAS DE CONSISTENCIA DEL DISEÑO:') < strpos($mp4, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:')
+    && strpos($mp4, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') < strpos($mp4, 'FUENTES DE CONOCIMIENTO:'),
+    'el bloque 7 va textual a continuación de «REGLAS DE CONSISTENCIA DEL DISEÑO»');
+
+$textuales8 = [
+    'REGLA 11. MATERIALES PRODUCIBLES CON IA',
+    '- Propón cada material producido con IA en un solo modo (A, B o C). Si un material requiere partes en distintos modos (por ejemplo, una selección de videos y un dossier de casos), divídelo en dos materiales, cada uno con su modo.',
+    'Los materiales instruccionales siempre se resuelven en estos tres modos: nunca se registran como requerimiento al organismo ejecutor.',
+    'REGLA 12. ECONOMÍA DE RECURSOS DE IA',
+    '- Especifica las versiones impresa y digital de un material como salidas de una sola fuente.',
+    'La economía de recursos nunca puede reducir la cobertura de los criterios de evaluación ni la seguridad de las actividades.',
+    'REGLA 13. ESPECIFICACIÓN LISTA PARA PRODUCIR',
+    '- Código del material (M1, M2…), que se mantiene en todas las etapas.',
+    '- En Modo C, la especificación de la búsqueda.',
+    'REGISTRO OBLIGATORIO EN LA ETAPA 4',
+    '- En la descripción de cada material producido con IA (4.1), registra todos los campos de la regla 13 y, cuando corresponda, la justificación de un tipo de costo mayor que el texto.',
+    'con las columnas «Código», «Material», «Fase y actividad», «Tipo de material», «Modo de producción», «Formato de salida» y «Criterios de evaluación», que se envía al centro de producción; y la lista de recursos del entorno formativo, a cargo del organismo ejecutor.',
+    '- En el análisis de factibilidad (4.3), agrega la factibilidad de producción con IA: número de materiales por modo, tipos de mayor costo utilizados y su justificación, y materiales que debieron reformularse para quedar en los Modos A, B o C.',
+];
+$todos8 = true;
+foreach ($textuales8 as $t) {
+    $todos8 = $todos8 && strpos($mp4, $t) !== false && strpos($sinmp4, $t) === false;
+}
+local_chatbot_verificar($todos8
+    && strpos($mp4, 'TAREA: ETAPA 4: MATERIALES INSTRUCCIONALES DE APOYO AL APRENDIZAJE.') < strpos($mp4, 'REGLA 11. MATERIALES PRODUCIBLES CON IA')
+    && strpos($mp4, 'REGISTRO OBLIGATORIO EN LA ETAPA 4') < strpos($mp4, 'Desarrolla solo esta etapa;'),
+    'el bloque 8 va textual al inicio de la Etapa 4 (reglas 11, 12, 13 y registro 4.1, 4.2, 4.3) solo con el interruptor encendido');
+
+$textuales9e4 = [
+    '- Verificar que cada material producido con IA tenga un solo modo y que su tipo y formato de salida correspondan al catálogo.',
+    '- Verificar que cada material de la lista de producción cumpla todos los campos de la regla 13.',
+    '- Verificar que ningún material producido con IA reemplace una práctica con recursos reales prevista en el diseño.',
+    '- Verificar que la lista de producción no incluya instrumentos de evaluación ni herramientas fuera del catálogo.',
+    '- Verificar que la lista de recursos del entorno formativo contenga solo recursos físicos, sin materiales instruccionales.',
+    '- Verificar que no haya materiales con contenidos repetidos entre sí ni con los instrumentos de la Etapa 6.',
+];
+$todos9e4 = true;
+foreach ($textuales9e4 as $t) {
+    $todos9e4 = $todos9e4 && strpos($mp4, $t) !== false && strpos($sinmp4, $t) === false;
+}
+local_chatbot_verificar($todos9e4
+    && strpos($mp4, '- No declarar en la verificación de calidad') < strpos($mp4, $textuales9e4[0])
+    && strpos($mp4, $textuales9e4[5]) < strpos($mp4, 'FORMATO:'),
+    'el bloque 9 agrega las 6 verificaciones textuales al final del control de calidad interno de la Etapa 4');
+
+// Las Etapas 1 y 2 no cambian con el interruptor encendido; la 5 y la 6 tampoco mientras la Etapa 4 no esté aceptada.
+$otrasIguales = true;
+foreach ([1, 2, 5, 6] as $otraEtapa) {
+    $con = diseno::build_prompt($otraEtapa, 'F', [], [1 => 'E1'], [], '', '', false, false, true, [], '21-11-2026', true, true);
+    $sin = diseno::build_prompt($otraEtapa, 'F', [], [1 => 'E1'], [], '', '', false, false, true, [], '21-11-2026', true, false);
+    $otrasIguales = $otrasIguales && $con === $sin;
+}
+local_chatbot_verificar($otrasIguales,
+    'las reglas de producción no modifican las Etapas 1 y 2, ni la 5 y la 6 sin la Etapa 4 aceptada');
+// La Etapa 3 propone los recursos de cada actividad: ve el catálogo (bloque 7), pero no las reglas 11 a 13 ni las
+// verificaciones de la Etapa 4.
+$mp3 = diseno::build_prompt(3, 'F', [], [1 => 'E1', 2 => 'E2'], [], '', '', false, false, true, [], '21-11-2026', true, true);
+local_chatbot_verificar(strpos($mp3, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') !== false
+    && strpos($mp3, 'REGLAS DE CONSISTENCIA DEL DISEÑO:') < strpos($mp3, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:')
+    && strpos($mp3, 'REGLA 11. MATERIALES PRODUCIBLES CON IA') === false && strpos($mp3, $textuales9e4[0]) === false
+    && strpos($mp3, diseno::CODIGOS_MATERIALES_PLATAFORMA) === false,
+    'la Etapa 3 ve el catálogo de capacidades (propone los recursos antes de la Etapa 4), sin las reglas de la Etapa 4');
+// Con la Etapa 4 aceptada, las Etapas 3 (ajuste posterior), 5 y 6 citan los materiales por su código (regla 13).
+$con4 = [1 => 'E1', 2 => 'E2', 3 => 'E3', 4 => 'M1 · Dossier'];
+$mp5 = diseno::build_prompt(5, 'F', [], $con4, [], '', '', false, false, true, [], '21-11-2026', true, true);
+$mp6 = diseno::build_prompt(6, 'F', [], $con4 + [5 => 'E5'], [], '', '', false, false, true, [], '21-11-2026', true, true);
+$mp3con4 = diseno::build_prompt(3, 'F', [], [1 => 'E1', 2 => 'E2'], [], 'E3', 'ajuste', false, false, true,
+    [4 => 'M1 · Dossier'], '21-11-2026', true, true);
+$mp5sin = diseno::build_prompt(5, 'F', [], $con4, [], '', '', false, false, true, [], '21-11-2026', true, false);
+local_chatbot_verificar(strpos($mp5, diseno::CODIGOS_MATERIALES_PLATAFORMA) !== false
+    && strpos($mp6, diseno::CODIGOS_MATERIALES_PLATAFORMA) !== false
+    && strpos($mp3con4, diseno::CODIGOS_MATERIALES_PLATAFORMA) !== false
+    && strpos($mp5sin, diseno::CODIGOS_MATERIALES_PLATAFORMA) === false
+    && strpos($mp5, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') === false,
+    'con la Etapa 4 aceptada, las Etapas 3, 5 y 6 citan los materiales por su código (la Etapa 7 compara esos códigos)');
+
+// Etapa 7: fila «Producción de materiales» + catálogo de referencia solo cuando control + producción están activos.
+$pc7mp = diseno::build_consolidation_prompt([1 => '<p>A</p>', 4 => '<p>M</p>'], true, true, true);
+$pc7mpSinRc = diseno::build_consolidation_prompt([1 => '<p>A</p>', 4 => '<p>M</p>'], true, false, true);
+$pc7sinmp = diseno::build_consolidation_prompt([1 => '<p>A</p>', 4 => '<p>M</p>'], true, true, false);
+$filaProd = '- Producción de materiales: código, tipo, modo y formato de salida de cada material producido con IA en la Etapa 4, comparados con el catálogo de capacidades, y referencias a los mismos códigos en las Etapas 3 y 5.';
+local_chatbot_verificar(strpos($pc7mp, $filaProd) !== false
+    && strpos($pc7sinmp, $filaProd) === false
+    && strpos($pc7mp, '- Equivalencia de niveles:') < strpos($pc7mp, $filaProd)
+    && strpos($pc7mp, $filaProd) < strpos($pc7mp, 'Para cada fila indica «Consistente» o «Inconsistente»')
+    && strpos($pc7mp, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') !== false
+    && strpos($pc7sinmp, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') === false
+    && strpos($pc7mpSinRc, $filaProd) !== false
+    && strpos($pc7mpSinRc, '- Evidencias e instrumentos:') < strpos($pc7mpSinRc, $filaProd),
+    'el bloque 9 agrega la fila «Producción de materiales» y el catálogo de referencia en la Etapa 7, con o sin Bloque 5');
+
+$consistenciaProd = '<h1>Anexo: Verificación de consistencia entre etapas y registro de ajustes</h1>'
+    . '<h2>Verificación de consistencia entre etapas</h2><table><thead><tr><th>Elemento</th><th>Resultado</th><th>Etapas y diferencia</th>'
+    . '<th>Corrección propuesta</th></tr></thead><tbody>'
+    . '<tr><td>Producción de materiales: código, tipo, modo y formato de salida.</td><td>Inconsistente</td><td>M2 mezcla Modo B y Modo C en Etapa 4</td><td>Dividir M2 en dos materiales</td></tr>'
+    . '</tbody></table>';
+local_chatbot_verificar(diseno::inconsistencies($consistenciaProd) === [
+    'Producción de materiales: M2 mezcla Modo B y Modo C en Etapa 4',
+], 'inconsistencies() reporta también la fila «Producción de materiales» del bloque 9');
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {

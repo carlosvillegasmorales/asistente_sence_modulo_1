@@ -1,5 +1,18 @@
 # Changelog
 
+## M1-v1.28.4 (2026-11-21)
+
+**Módulo 2: materiales producibles y economía de recursos de IA en la Etapa 4** (documento de Interfases «Ajuste Prompt Maestro M2 - Materiales Producibles y Economía de Recursos IA», 21-11-2026). Interruptor `reglasproduccion` (encendido). Prompt `M2-F2-etapas-v14`. Sin cambios en la base.
+
+- **Bloque 7, textual, en el prompt de la Etapa 4** (`diseno::BLOQUE_CATALOGO_PRODUCCION`), como nueva sección a continuación de «REGLAS DE CONSISTENCIA DEL DISEÑO»: catálogo de capacidades de producción (Modos A, B y C, formatos de salida, costos relativos de los tipos de material y recursos físicos del entorno formativo fuera del catálogo).
+- **Bloque 8, textual, al inicio de la Etapa 4** (`diseno::BLOQUE_REGLAS_PRODUCCION`): Regla 11 (materiales producibles con IA en un solo modo, separación de recursos físicos, sin herramientas externas ni instrumentos de Etapa 6, orden de alternativas y especificación de búsqueda en Modo C), Regla 12 (economía de recursos de IA sin sacrificar criterios ni seguridad), Regla 13 (especificación lista para producir con código `M1, M2…` y campos completos) y registro obligatorio en 4.1, 4.2 (dos listas: lista de producción para el centro y lista de recursos físicos del entorno formativo) y 4.3 (factibilidad de producción con IA).
+- **Adaptación a la plataforma** (revisión del 21-11-2026; el Prompt Maestro es un solo texto y aquí cada etapa tiene su
+  pedido): el catálogo del bloque 7 va también en la Etapa 3, que propone los recursos de cada actividad antes de la
+  Etapa 4; y con la Etapa 4 aceptada, las Etapas 3, 5 y 6 citan los materiales por su código y nombre
+  (`diseno::CODIGOS_MATERIALES_PLATAFORMA`, regla 13: «se mantiene en todas las etapas»), porque la fila «Producción de
+  materiales» de la Etapa 7 compara esos códigos en las Etapas 3 y 5.
+- **Bloque 9, textual, en Etapa 4 y Etapa 7:** 6 verificaciones adicionales al final del control de calidad interno de la Etapa 4 (`diseno::BLOQUE_CALIDAD_PRODUCCION`) y la fila «Producción de materiales» (`diseno::BLOQUE_CONSISTENCIA_PRODUCCION`) más el catálogo como referencia en la verificación de consistencia de la Etapa 7. No modifica las Etapas 1, 2, 3, 5 ni 6, ni la rúbrica de la Etapa 8, ni el Centro de Producción retrocompatible.
+
 ## M1-v1.28.3 (2026-11-19)
 
 - **Paginación inteligente en PDF y Word del centro (sin bloques ni tarjetas cortadas)** (pedido del 19-11-2026, a partir del PDF real de M1 descargado en producción). Sin cambios en la base; aplica también a materiales ya guardados.

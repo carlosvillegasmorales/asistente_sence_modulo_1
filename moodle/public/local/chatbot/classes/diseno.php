@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 class diseno {
 
     /** @var string Version del prompt de diseno: se guarda con cada producto (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F2-etapas-v13';
+    const PROMPT_VERSION = 'M2-F2-etapas-v14';
 
     /** @var int Desde esta version del prompt cada etapa cierra con vacios, verificacion y referencias (revision del 02-11). */
     const PROMPT_CIERRE = 11;
@@ -233,6 +233,143 @@ class diseno {
         '- No declarar en la verificación de calidad que algo «coincide exactamente» o tiene «alineación absoluta» sin '
             . 'haber hecho la comparación o el cálculo correspondiente.',
     ];
+
+    /**
+     * @var string[] Bloque 7 del documento «Ajuste Prompt Maestro M2 - Materiales Producibles y Economía de Recursos IA»
+     * (Interfases, 21-11-2026), textual, para la Etapa 4 (y referencia en la verificacion de consistencia de la Etapa 7).
+     * Va como nueva seccion a continuacion de «REGLAS DE CONSISTENCIA DEL DISEÑO».
+     */
+    const BLOQUE_CATALOGO_PRODUCCION = [
+        'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:',
+        'Para proponer los materiales instruccionales que se producirán con IA debes usar el siguiente catálogo. Cada '
+            . 'material se clasifica en uno de tres modos de producción:',
+        '- Modo A · Producción completa con IA: el asistente genera el contenido completo del material (textos, tablas, '
+            . 'casos, guías, fichas, cuestionarios, guiones, diagramas descritos en texto o código) y lo entrega listo '
+            . 'para copiar y pegar o en código HTML.',
+        '- Modo B · Producción con IA y servicios de la plataforma: el asistente genera el contenido y un servicio de '
+            . 'conversión de la plataforma lo entrega como archivo descargable y editable (documento Word o PDF, planilla '
+            . 'Excel o presentación).',
+        '- Modo C · Curaduría de recursos existentes con IA: cuando un material no puede generarse con calidad suficiente '
+            . '(por ejemplo, un video de un procedimiento real), el asistente busca en internet recursos abiertos ya '
+            . 'publicados (por ejemplo, videos en YouTube) y recomienda los mejor contextualizados al aprendizaje '
+            . 'esperado, para que la persona facilitadora los seleccione.',
+        'Formatos de salida',
+        '- Ningún material se carga ni se publica directamente en una plataforma: los materiales se entregan listos para '
+            . 'copiar y pegar, en código HTML o como archivo descargable.',
+        '- Los materiales pueden usarse en el Moodle del organismo ejecutor, en otra plataforma o en formato impreso o '
+            . 'digital con las personas participantes, sin depender de un LMS.',
+        '- Los cuestionarios se especifican para su configuración más rápida: formato GIFT para importar en Moodle, script '
+            . 'de Google Apps Script para crear un formulario de Google Forms o versión impresa con pauta de respuestas.',
+        'Tipos de material y costo relativo de producción con IA, de menor a mayor:',
+        '1. Texto y datos estructurados (guías, casos, fichas, glosarios, planillas, plantillas, cuestionarios).',
+        '2. Presentaciones, esquemas y diagramas generados a partir de texto o código.',
+        '3. Imágenes generadas.',
+        '4. Audio generado.',
+        '5. Video generado.',
+        'La curaduría (Modo C) tiene un costo similar al del tipo 1, porque produce una ficha de recomendación en texto, y '
+            . 'suele ser preferible a generar audio o video.',
+        'Fuera del catálogo quedan los recursos del entorno formativo, que son siempre recursos físicos: máquinas, '
+            . 'equipos, herramientas, materiales e insumos de consumo, elementos de protección personal, talleres, '
+            . 'laboratorios y espacios de práctica habilitados. Son indispensables para el desarrollo de competencias, '
+            . 'suelen ser la mayor parte de los recursos de una experiencia y los proporciona el organismo ejecutor. Se '
+            . 'definen según el plan formativo y la ficha de diagnóstico, y se registran en los recursos del diseño sin '
+            . 'las restricciones de este catálogo.',
+    ];
+
+    /**
+     * @var string[] Bloque 8, textual: al inicio de «ETAPA 4: MATERIALES INSTRUCCIONALES DE APOYO AL APRENDIZAJE».
+     * Reglas 11, 12 y 13 y registro obligatorio en la Etapa 4 (4.1, 4.2 y 4.3).
+     */
+    const BLOQUE_REGLAS_PRODUCCION = [
+        'REGLA 11. MATERIALES PRODUCIBLES CON IA',
+        '- Distingue en la Etapa 4 dos grupos: los materiales instruccionales producidos con IA y los recursos del entorno '
+            . 'formativo que proporciona el organismo ejecutor.',
+        '- Propón cada material producido con IA en un solo modo (A, B o C). Si un material requiere partes en distintos '
+            . 'modos (por ejemplo, una selección de videos y un dossier de casos), divídelo en dos materiales, cada uno '
+            . 'con su modo.',
+        '- No propongas materiales cuya producción dependa de herramientas, plataformas de autoría o servicios externos '
+            . 'que no figuren en el catálogo (por ejemplo, editores de presentaciones interactivas o plataformas de video '
+            . 'interactivo). Si un material de ese tipo sería deseable, propón la alternativa producible equivalente.',
+        '- Los materiales producidos con IA apoyan la práctica con recursos reales; nunca la reemplazan. No sustituyas una '
+            . 'práctica con equipos, herramientas o espacios reales por un material generado.',
+        '- No incluyas en la lista de producción los instrumentos de evaluación, que se desarrollan en la Etapa 6.',
+        '- Si un material deseable no puede generarse con calidad suficiente, busca alternativas en este orden: (1) un '
+            . 'material equivalente en Modo A o B; (2) la curaduría de recursos existentes en Modo C; (3) si ninguna de '
+            . 'las anteriores es viable, reformula la actividad o el material para trabajar el criterio con un material '
+            . 'producible en los Modos A, B o C. Los materiales instruccionales siempre se resuelven en estos tres modos: '
+            . 'nunca se registran como requerimiento al organismo ejecutor.',
+        '- Cuando propongas un material en Modo C, especifica la búsqueda: tipo de recurso, número de opciones que se '
+            . 'recomendarán (hasta 5), criterio o actividad a la que sirve, idioma, duración máxima y criterios de '
+            . 'selección (pertinencia con el aprendizaje esperado y el contexto laboral, procedimientos correctos y '
+            . 'seguros, fuente confiable, acceso libre y vigente).',
+        'REGLA 12. ECONOMÍA DE RECURSOS DE IA',
+        'Entre las alternativas de materiales producidos con IA que permiten lograr los criterios de evaluación con la '
+            . 'misma calidad, elige la de menor costo de producción con IA:',
+        '- Prefiere el tipo de material de menor costo relativo del catálogo. Si propones un tipo de mayor costo, '
+            . 'justifica qué criterio o qué característica del grupo lo exige.',
+        '- Diseña la menor cantidad de materiales que cubra todas las actividades: un mismo material puede servir a '
+            . 'varias actividades o fases.',
+        '- No repitas contenidos entre materiales ni con los instrumentos de la Etapa 6; remite al material o instrumento '
+            . 'que ya los contiene.',
+        '- Prefiere plantillas reutilizables que se completen con datos de cada actividad, en lugar de materiales '
+            . 'distintos para cada variante.',
+        '- Ajusta la extensión de cada material al tiempo de uso previsto en la secuencia instruccional.',
+        '- Especifica las versiones impresa y digital de un material como salidas de una sola fuente.',
+        'La economía de recursos nunca puede reducir la cobertura de los criterios de evaluación ni la seguridad de las '
+            . 'actividades.',
+        'REGLA 13. ESPECIFICACIÓN LISTA PARA PRODUCIR',
+        'Cada material producido con IA debe quedar especificado con todo lo necesario para que el centro de producción lo '
+            . 'genere sin tomar decisiones de diseño:',
+        '- Código del material (M1, M2…), que se mantiene en todas las etapas.',
+        '- Destinatarios.',
+        '- Propósito y actividad o fase en que se usa.',
+        '- Contenidos y su secuencia, con los criterios de evaluación a los que sirve.',
+        '- Extensión (por ejemplo, número de páginas, tarjetas, preguntas o minutos de uso).',
+        '- Estructura (secciones o partes).',
+        '- Formato de salida (texto para copiar y pegar, código HTML o archivo descargable, y versión impresa o digital) '
+            . 'y, en cuestionarios, la plataforma de uso (Moodle, Google Forms o impreso).',
+        '- Tipo de material y modo de producción.',
+        '- En Modo C, la especificación de la búsqueda.',
+        'REGISTRO OBLIGATORIO EN LA ETAPA 4',
+        '- En la descripción de cada material producido con IA (4.1), registra todos los campos de la regla 13 y, cuando '
+            . 'corresponda, la justificación de un tipo de costo mayor que el texto.',
+        '- Presenta la síntesis de materiales (4.2) en dos listas: la lista de producción, con las columnas «Código», '
+            . '«Material», «Fase y actividad», «Tipo de material», «Modo de producción», «Formato de salida» y «Criterios '
+            . 'de evaluación», que se envía al centro de producción; y la lista de recursos del entorno formativo, a cargo '
+            . 'del organismo ejecutor. Esta segunda lista solo puede incluir recursos físicos para talleres, laboratorios '
+            . 'o espacios de práctica: máquinas, equipos y herramientas, materiales e insumos de consumo, elementos de '
+            . 'protección personal y espacios físicos habilitados.',
+        '- En el análisis de factibilidad (4.3), agrega la factibilidad de producción con IA: número de materiales por '
+            . 'modo, tipos de mayor costo utilizados y su justificación, y materiales que debieron reformularse para '
+            . 'quedar en los Modos A, B o C.',
+    ];
+
+    /** @var string[] Bloque 9 (Etapa 4), textual: verificaciones adicionales del control de calidad interno de la Etapa 4. */
+    const BLOQUE_CALIDAD_PRODUCCION = [
+        '- Verificar que cada material producido con IA tenga un solo modo y que su tipo y formato de salida correspondan '
+            . 'al catálogo.',
+        '- Verificar que cada material de la lista de producción cumpla todos los campos de la regla 13.',
+        '- Verificar que ningún material producido con IA reemplace una práctica con recursos reales prevista en el diseño.',
+        '- Verificar que la lista de producción no incluya instrumentos de evaluación ni herramientas fuera del catálogo.',
+        '- Verificar que la lista de recursos del entorno formativo contenga solo recursos físicos, sin materiales '
+            . 'instruccionales.',
+        '- Verificar que no haya materiales con contenidos repetidos entre sí ni con los instrumentos de la Etapa 6.',
+    ];
+
+    /**
+     * @var string Forma de cumplir en la plataforma la regla 13 («Código del material (M1, M2…), que se mantiene en todas las
+     * etapas»): el Prompt Maestro es un solo texto, pero aqui cada etapa tiene su pedido y la regla va solo en la Etapa 4.
+     * Va en las Etapas 3, 5 y 6 cuando la Etapa 4 ya esta aceptada, porque la Etapa 7 compara esos codigos en las
+     * Etapas 3 y 5 (fila «Producción de materiales»).
+     */
+    const CODIGOS_MATERIALES_PLATAFORMA = '- Materiales instruccionales: cuando nombres un material de la Etapa 4, cítalo '
+        . 'por su código y nombre tal como aparecen en su lista de producción (por ejemplo, «M3 · Dossier de casos»): el '
+        . 'código del material se mantiene en todas las etapas (regla 13).';
+
+    /** @var string Bloque 9 (Etapa 7), textual: fila adicional en la tabla de verificacion de consistencia del Bloque 3. */
+    const BLOQUE_CONSISTENCIA_PRODUCCION = '- Producción de materiales: código, tipo, modo y formato de salida de cada '
+        . 'material producido con IA en la Etapa 4, comparados con el catálogo de capacidades, y referencias a los mismos '
+        . 'códigos en las Etapas 3 y 5.';
 
     /** Estado del producto. */
     const BORRADOR = 'borrador';
@@ -777,9 +914,11 @@ class diseno {
      * @param string[] $etapas Numero de etapa (1 a 6) => producto aceptado (HTML).
      * @param bool $control Verificacion de consistencia entre etapas (interruptor «controlcambios»).
      * @param bool $consistencia Ampliacion de la verificacion de consistencia (bloque 5, interruptor «reglasconsistencia»).
+     * @param bool $produccion Fila «Produccion de materiales» y catalogo de referencia (bloques 7 y 9, interruptor «reglasproduccion»).
      * @return string
      */
-    public static function build_consolidation_prompt(array $etapas, bool $control = false, bool $consistencia = false): string {
+    public static function build_consolidation_prompt(array $etapas, bool $control = false, bool $consistencia = false,
+            bool $produccion = false): string {
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, '
             . 'especializado en formación de personas adultas en contextos de capacitación laboral.';
@@ -791,6 +930,10 @@ class diseno {
         if ($control) {
             // Bloque 3 del ajuste del Prompt Maestro del 10-11-2026: antes de «consolidar todos los entregables».
             foreach (self::BLOQUE_CONSISTENCIA as $linea) {
+                // Bloque 9 del ajuste del Prompt Maestro del 21-11-2026: fila «Produccion de materiales» en la tabla.
+                if ($produccion && strpos($linea, 'Para cada fila indica') === 0) {
+                    $l[] = self::BLOQUE_CONSISTENCIA_PRODUCCION;
+                }
                 $l[] = $linea;
                 // Bloque 5 del ajuste del Prompt Maestro del 19-11-2026: despues de «Evidencias e instrumentos».
                 if ($consistencia && strpos($linea, '- Evidencias e instrumentos:') === 0) {
@@ -805,6 +948,14 @@ class diseno {
                 . 'prueba): si algún criterio no coincide, la fila es «Inconsistente». Una fila no es «Consistente» si en el '
                 . 'elemento hay una inconsistencia aceptada.';
             $aceptadas = self::accepted_inconsistencies($etapas);
+            if ($produccion) {
+                // Catalogo de capacidades del Bloque 7 como referencia para evaluar la fila «Produccion de materiales».
+                $l[] = 'REFERENCIA PARA LA FILA «PRODUCCIÓN DE MATERIALES» (solo para comparar la Etapa 4 en la tabla '
+                    . 'de consistencia; no modifiques los productos aceptados):';
+                foreach (self::BLOQUE_CATALOGO_PRODUCCION as $linea) {
+                    $l[] = $linea;
+                }
+            }
             if ($aceptadas) {
                 $l[] = 'INCONSISTENCIAS ACEPTADAS REGISTRADAS EN LAS ETAPAS (la persona facilitadora decidió no actualizar '
                     . 'esas etapas): van en el «Registro de ajustes» del anexo con su estado «Inconsistencia aceptada», y la '
@@ -1019,11 +1170,13 @@ class diseno {
      * @param string[] $posteriores Numero de etapa => texto de las etapas siguientes ya aceptadas (para el control).
      * @param string $hoy Fecha de hoy, para el registro de ajustes.
      * @param bool $consistencia Reglas de consistencia del diseno (bloques 4 y 6, interruptor «reglasconsistencia»).
+     * @param bool $produccion Catalogo y reglas de materiales producibles con IA en la Etapa 4 (bloques 7 a 9, interruptor «reglasproduccion»).
      * @return string
      */
     public static function build_prompt(int $etapa, string $ficha, array $informe, array $previas, array $adjuntos,
             string $actual = '', string $ajustes = '', bool $conlibreria = false, bool $conbusqueda = false,
-            bool $control = false, array $posteriores = [], string $hoy = '', bool $consistencia = false): string {
+            bool $control = false, array $posteriores = [], string $hoy = '', bool $consistencia = false,
+            bool $produccion = false): string {
         $e = self::etapas()[$etapa];
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, especializado en formación '
@@ -1035,6 +1188,13 @@ class diseno {
             . 'asegurar calidad.';
         $l[] = '';
         $l[] = 'TAREA: ETAPA ' . $etapa . ': ' . \core_text::strtoupper($e['titulo']) . '.';
+        if ($produccion && $etapa === 4) {
+            // Bloque 8 del ajuste del Prompt Maestro del 21-11-2026: al inicio de la Etapa 4.
+            foreach (self::BLOQUE_REGLAS_PRODUCCION as $linea) {
+                $l[] = $linea;
+            }
+            $l[] = '';
+        }
         $l[] = 'Desarrolla solo esta etapa; no adelantes las siguientes. Debe incluir obligatoriamente:';
         foreach ($e['incluye'] as $item) {
             $l[] = '- ' . $item;
@@ -1072,6 +1232,19 @@ class diseno {
             foreach (self::BLOQUE_REGLAS_CONSISTENCIA as $linea) {
                 $l[] = $linea;
             }
+            $l[] = '';
+        }
+        if ($produccion && in_array($etapa, [3, 4], true)) {
+            // Bloque 7 del ajuste del Prompt Maestro del 21-11-2026: nueva seccion a continuacion de «REGLAS DE CONSISTENCIA DEL DISEÑO».
+            // Tambien en la Etapa 3, que propone los recursos de cada actividad antes de la Etapa 4: asi no propone
+            // materiales que luego no se pueden producir (en el Prompt Maestro, un solo texto, el catalogo lo ven todas).
+            foreach (self::BLOQUE_CATALOGO_PRODUCCION as $linea) {
+                $l[] = $linea;
+            }
+            $l[] = '';
+        }
+        if ($produccion && in_array($etapa, [3, 5, 6], true) && (isset($previas[4]) || isset($posteriores[4]))) {
+            $l[] = self::CODIGOS_MATERIALES_PLATAFORMA;
             $l[] = '';
         }
         foreach (exante::knowledge_rules($conlibreria, $conbusqueda) as $regla) {
@@ -1115,6 +1288,12 @@ class diseno {
         if ($consistencia) {
             // Bloque 6: al final del control de calidad interno.
             foreach (self::BLOQUE_CALIDAD_CONSISTENCIA as $linea) {
+                $l[] = $linea;
+            }
+        }
+        if ($produccion && $etapa === 4) {
+            // Bloque 9 (Etapa 4): verificaciones del control de calidad interno de la Etapa 4.
+            foreach (self::BLOQUE_CALIDAD_PRODUCCION as $linea) {
                 $l[] = $linea;
             }
         }
@@ -2509,7 +2688,7 @@ class diseno {
         $buscar = exante::web_search_available();
         $prompt = self::build_prompt((int) $fila->etapa, pseudonymizer::scrub(exante::to_text($ficha)), $informe,
             $previas, $etiquetas, $actual, (string) $fila->ajustes, $libreria !== '', $buscar, $control, $posteriores,
-            $control ? userdate(time(), '%d-%m-%Y') : '', ux::on('reglasconsistencia'));
+            $control ? userdate(time(), '%d-%m-%Y') : '', ux::on('reglasconsistencia'), ux::on('reglasproduccion'));
         $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
             ux::on('libreriaruta'))]];
 
@@ -2547,7 +2726,7 @@ class diseno {
         }
         $huella = self::stages_fingerprint($filas);
         $contenido = [['role' => 'user', 'parts' => [['text' => self::build_consolidation_prompt($etapas,
-            ux::on('controlcambios'), ux::on('reglasconsistencia'))]]]];
+            ux::on('controlcambios'), ux::on('reglasconsistencia'), ux::on('reglasproduccion'))]]]];
         $modelo = ai\provider_factory::get_configured_model();
         $resultado = exante::generate_steady($contenido, 600, $modelo);
         if (isset($resultado['error'])) {

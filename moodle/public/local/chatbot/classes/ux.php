@@ -90,6 +90,8 @@ class ux {
         'reglasconsistencia' => 1, // Modulo 2: 10 reglas de consistencia del diseno, ampliacion de verificacion en etapa 7 y control de calidad (v1.24.8).
         // Especificacion funcional del Modulo 2 (19-11-2026): Centro de produccion de recursos de aprendizaje (Etapas 9 a 12).
         'centrorecursos' => 1,  // Modulo 2: pestana independiente Centro de produccion de recursos (Modos A, B sin Azure y C; v1.25.0).
+        // Ajuste del Prompt Maestro del Modulo 2 de Interfases (21-11-2026): materiales producibles y economia de recursos IA (bloques 7 a 9).
+        'reglasproduccion' => 1, // Modulo 2, Etapa 4 y Etapa 7: catalogo de capacidades, reglas 11 a 13, dos listas en 4.2, factibilidad IA en 4.3 y verificaciones (v1.28.4).
     ];
 
     /**
