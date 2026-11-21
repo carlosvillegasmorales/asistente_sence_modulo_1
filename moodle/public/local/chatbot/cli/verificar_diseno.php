@@ -1125,6 +1125,25 @@ local_chatbot_verificar(strpos($mp5, diseno::CODIGOS_MATERIALES_PLATAFORMA) !== 
     && strpos($mp5, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') === false,
     'con la Etapa 4 aceptada, las Etapas 3, 5 y 6 citan los materiales por su código (la Etapa 7 compara esos códigos)');
 
+// Revisión automática de la lista de producción (visto en el cliente el 21-11-2026: M2 juntaba curaduría y tarjetas,
+// y M3 estaba en Modo A con «PDF descargable»).
+$lista4 = '<h3>4.2. Síntesis</h3><table><tr><th>Código</th><th>Material</th><th>Fase y actividad</th><th>Tipo de material</th>'
+    . '<th>Modo de producción</th><th>Formato de salida</th><th>Criterios de evaluación</th></tr>'
+    . '<tr><td>M1</td><td>Infografía de bioseguridad</td><td>F1</td><td>Tipo 2</td><td>Modo A (Producción completa con IA)</td><td>Código HTML / Impreso macrotipo</td><td>CE 1.1</td></tr>'
+    . '<tr><td>M2</td><td>Ficha de Curaduría Audiovisual y Tarjetas de Debate sobre DDHH</td><td>F1</td><td>Tipo 1</td><td>Modo C (Curaduría con IA)</td><td>Texto para copiar / Impreso</td><td>CE 1.1</td></tr>'
+    . '<tr><td>M3</td><td>Dossier Integrado y Guía de Casos</td><td>F2</td><td>Tipo 1</td><td>Modo A (Producción completa con IA)</td><td>PDF descargable / Impreso macrotipo</td><td>CE 1.2</td></tr>'
+    . '<tr><td>M4</td><td>Videos de procedimientos</td><td>F2</td><td>Tipo 1</td><td>Modo C (Curaduría con IA)</td><td>Ficha de recomendación</td><td>CE 1.5</td></tr>'
+    . '<tr><td>M5</td><td>Planilla de registro</td><td>F2</td><td>Tipo 1</td><td>Modo B (Producción con IA y servicios)</td><td>Excel (.xlsx)</td><td>CE 1.9</td></tr>'
+    . '<tr><td>M6</td><td>Guía y videos</td><td>F3</td><td>Tipo 1</td><td>Modo A / C</td><td>Texto</td><td>CE 1.1</td></tr></table>'
+    . '<h3>Recursos</h3><table><tr><th>Categoría</th><th>Recurso</th></tr><tr><td>EPP</td><td>Guantes</td></tr></table>';
+$prob4 = diseno::production_issues($lista4);
+local_chatbot_verificar(count($prob4) === 3
+    && strpos($prob4[0], 'M2 · Ficha de Curaduría Audiovisual y Tarjetas de Debate sobre DDHH: combina partes de distintos modos') === 0
+    && strpos($prob4[1], 'M3 · Dossier Integrado y Guía de Casos: está en Modo A, pero su formato de salida («PDF descargable / Impreso macrotipo») es un archivo descargable') === 0
+    && strpos($prob4[2], 'M6 · Guía y videos: combina partes de distintos modos') === 0
+    && count(diseno::production_rows($lista4)) === 6 && diseno::production_issues('<p>Sin tabla</p>') === [],
+    'la revisión de la lista de producción detecta materiales que combinan modos y Modo A con archivo descargable; los correctos pasan');
+
 // Etapa 7: fila «Producción de materiales» + catálogo de referencia solo cuando control + producción están activos.
 $pc7mp = diseno::build_consolidation_prompt([1 => '<p>A</p>', 4 => '<p>M</p>'], true, true, true);
 $pc7mpSinRc = diseno::build_consolidation_prompt([1 => '<p>A</p>', 4 => '<p>M</p>'], true, false, true);

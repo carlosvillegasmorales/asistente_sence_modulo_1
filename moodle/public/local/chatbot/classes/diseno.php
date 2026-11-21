@@ -1545,6 +1545,93 @@ class diseno {
      * @param string $columna Expresion regular sobre el encabezado.
      * @return string Texto de la primera columna que calza, o ''.
      */
+    /**
+     * Filas de la lista de produccion de la Etapa 4: la tabla cuyas columnas traen «Código» y «Modo de producción»
+     * (bloque 8, registro obligatorio en 4.2), en cualquier parte del producto. Funcion pura.
+     *
+     * @param string $html
+     * @return array[] Cada fila: encabezado normalizado => texto.
+     */
+    public static function production_rows(string $html): array {
+        if (trim($html) === '' || stripos($html, '<table') === false) {
+            return [];
+        }
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>');
+        libxml_clear_errors();
+        foreach ($dom->getElementsByTagName('table') as $tabla) {
+            $cabecera = [];
+            $filas = [];
+            foreach ($tabla->getElementsByTagName('tr') as $tr) {
+                $celdas = [];
+                foreach ($tr->childNodes as $c) {
+                    if ($c instanceof \DOMElement && ($c->nodeName === 'td' || $c->nodeName === 'th')) {
+                        $celdas[] = trim(preg_replace('/\s+/u', ' ', $c->textContent));
+                    }
+                }
+                if (!$cabecera) {
+                    $cabecera = array_map([self::class, 'plain_lower'], $celdas);
+                    if (!preg_grep('/^codigo/', $cabecera) || !preg_grep('/modo/', $cabecera)) {
+                        continue 2;
+                    }
+                    continue;
+                }
+                $fila = [];
+                foreach ($celdas as $k => $texto) {
+                    $fila[$cabecera[$k] ?? (string) $k] = $texto;
+                }
+                $filas[] = $fila;
+            }
+            return $filas;
+        }
+        return [];
+    }
+
+    /**
+     * Revision de la lista de produccion contra la regla 11 y el catalogo (bloques 7 y 8): (1) un material que combina
+     * partes de distintos modos (varios modos en la celda, o una curaduria junto con otro material), que la regla 11 pide
+     * dividir; (2) un material en Modo A con un archivo descargable (PDF, Word, Excel, presentacion), que en el catalogo
+     * es Modo B. Visto al probar la Etapa 4 en el VPS del cliente el 21-11-2026: el asistente declaro cumplirlo y no lo
+     * hizo. Funcion pura.
+     *
+     * @param string $html Producto de la Etapa 4.
+     * @return string[] Un texto por problema, listo para mostrarlo y para pedirlo como ajuste.
+     */
+    public static function production_issues(string $html): array {
+        $problemas = [];
+        foreach (self::production_rows($html) as $fila) {
+            $codigo = self::column($fila, '/^codigo/');
+            $material = self::column($fila, '/^material/');
+            $modo = self::column($fila, '/modo/');
+            $formato = self::column($fila, '/formato/');
+            if ($codigo === '' && $material === '') {
+                continue;
+            }
+            $nombre = trim($codigo . ' · ' . $material, ' ·');
+            // Letras de modo sueltas («Modo A», «A / C»), sin lo que va entre parentesis («(Producción completa con IA)»).
+            preg_match_all('/(?<![a-z])[abc](?![a-z])/u', preg_replace('/\([^)]*\)/u', ' ', self::plain_lower($modo)), $m);
+            $letras = array_values(array_unique($m[0]));
+            $c = in_array('c', $letras, true) || preg_match('/curadur/u', self::plain_lower($modo));
+            $nombrebajo = self::plain_lower($material);
+            $otro = preg_match('/\b(tarjeta|guia|dossier|plantilla|pauta|manual|cuestionario|infografia|presentacion|planilla|'
+                . 'caso|folleto|afiche|bitacora|tablero)/u', preg_replace('/ficha de (curaduria|recomendacion)/u', '', $nombrebajo));
+            if (count($letras) > 1 || ($c && preg_match('/curadur|recomendaci|video/u', $nombrebajo) && $otro)) {
+                $problemas[] = $nombre . ': combina partes de distintos modos de producción. La regla 11 pide dividirlo en '
+                    . 'materiales separados, cada uno con un solo modo (por ejemplo, la curaduría en Modo C y el resto en '
+                    . 'Modo A o B), con su propio código.';
+                continue;
+            }
+            if ($letras === ['a'] && preg_match('/\b(pdf|word|docx|excel|xlsx|pptx|powerpoint|presentacion|descargable|'
+                    . 'archivo)\b/u', self::plain_lower($formato))) {
+                $problemas[] = $nombre . ': está en Modo A, pero su formato de salida («' . $formato . '») es un archivo '
+                    . 'descargable. En el catálogo, el Modo A entrega texto para copiar y pegar o código HTML; un archivo '
+                    . 'descargable (Word, PDF, Excel o presentación) corresponde al Modo B.';
+            }
+        }
+        return $problemas;
+    }
+
     private static function column(array $fila, string $columna): string {
         foreach ($fila as $encabezado => $texto) {
             if (preg_match($columna, (string) $encabezado)) {

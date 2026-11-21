@@ -375,6 +375,18 @@ echo $OUTPUT->header();
                             <?php endforeach; ?></ul>
                         </div>
                     <?php endif; ?>
+                    <?php // Etapa 4: revision de la lista de produccion (regla 11 y catalogo, ajuste del 21-11-2026).
+                    $produccioncr = ($etapa === 4 && \local_chatbot\ux::on('reglasproduccion'))
+                        ? diseno::production_issues(diseno::normalize_product((string) $fila->contenido)) : [];
+                    if ($produccioncr): ?>
+                        <div class="alert alert-warning small" role="status">
+                            <?php echo get_string('diseno_prod_issues', 'local_chatbot'); ?>
+                            <ul class="mb-1 mt-1"><?php foreach ($produccioncr as $p): ?><li><?php echo s($p); ?></li><?php endforeach; ?></ul>
+                            <button type="button" class="btn btn-sm chatbot-gatebtn chatbot-cc-usar" data-ajuste="<?php
+                                echo s(get_string('diseno_prod_request', 'local_chatbot') . ' ' . implode(' ', $produccioncr)); ?>">
+                                <i class="fa fa-commenting-o me-1"></i><?php echo get_string('diseno_cc_use', 'local_chatbot'); ?></button>
+                        </div>
+                    <?php endif; ?>
                     <textarea id="diseno-contenido" name="contenido" rows="24" class="form-control mb-3"><?php
                         echo s(diseno::normalize_product((string) $fila->contenido)); ?></textarea>
                     <div class="d-flex flex-wrap gap-2 mb-4">

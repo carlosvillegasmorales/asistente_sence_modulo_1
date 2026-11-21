@@ -1,5 +1,13 @@
 # Changelog
 
+## M1-v1.28.5 (2026-11-21)
+
+- **Revisión automática de la lista de producción de la Etapa 4** (`diseno::production_rows()`, `production_issues()`,
+  puras; interruptor `reglasproduccion`). Al probar la Etapa 4 en el VPS del cliente, el asistente juntó en M2 la curaduría
+  con tarjetas impresas y dejó en Modo A materiales con «PDF», y su verificación declaró cumplir la regla 11. La etapa en
+  borrador avisa ahora de cada material que combina modos o que está en Modo A con un archivo descargable (Modo B en el
+  catálogo), con el botón «Usar como ajuste», que copia el pedido de corrección. Sin cambios en la base.
+
 ## M1-v1.28.4 (2026-11-21)
 
 **Módulo 2: materiales producibles y economía de recursos de IA en la Etapa 4** (documento de Interfases «Ajuste Prompt Maestro M2 - Materiales Producibles y Economía de Recursos IA», 21-11-2026). Interruptor `reglasproduccion` (encendido). Prompt `M2-F2-etapas-v14`. Sin cambios en la base.
