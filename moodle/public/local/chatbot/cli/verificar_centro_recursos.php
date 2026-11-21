@@ -389,6 +389,37 @@ local_chatbot_verificar(
     'resolve_mark quita la marca verificada o la cambia por el dato correcto (escapado), sin tocar el resto'
 );
 
+// --- Plan actualizado con una Etapa 4 nueva (cliente, 21-11-2026: la Etapa 4 rehecha renumeró los materiales) ---
+$planViejo = [
+    ['id' => 1, 'codigo' => 'M1', 'nombre' => 'Infografía de bioseguridad, ergonomía y convivencia en taller', 'version' => 7],
+    ['id' => 2, 'codigo' => 'M3', 'nombre' => 'Dossier temático ilustrado «Envejecimiento, síndromes geriátricos y dependencia»', 'version' => 1],
+    ['id' => 3, 'codigo' => 'M4', 'nombre' => 'Ficha informativa perfil legal', 'version' => 0],
+    ['id' => 4, 'codigo' => 'M6', 'nombre' => 'Ficha de Estación A', 'version' => 0],
+    ['id' => 5, 'codigo' => 'M9', 'nombre' => 'Cuadernillo de casuística', 'version' => 0],
+    ['id' => 6, 'codigo' => 'M2-C', 'nombre' => 'Cápsula · parte C: videos', 'version' => 2],
+    ['id' => 7, 'codigo' => 'M5 (ant.)', 'nombre' => 'Afiche antiguo', 'version' => 1],
+];
+$planNuevo = [
+    ['codigo' => 'M1', 'nombre' => 'Infografía y Guía de Bioseguridad, Ergonomía y Derechos Humanos', 'orden' => 1],
+    ['codigo' => 'M3', 'nombre' => 'Set de Tarjetas de Microcasos y Debate sobre DDHH', 'orden' => 3],
+    ['codigo' => 'M4', 'nombre' => 'Dossier Integrado y Guía de Casos: Envejecimiento, Síndromes y Perfil Legal', 'orden' => 4],
+    ['codigo' => 'M6', 'nombre' => 'Plantilla Reutilizable de Registro de Atención Diaria', 'orden' => 6],
+    ['codigo' => 'M7', 'nombre' => 'Pauta Unificada de Coevaluación', 'orden' => 7],
+];
+$mg = centro_recursos::plan_merge($planViejo, $planNuevo);
+local_chatbot_verificar(
+    $mg['rename'] === [2 => 'M3 (ant.)', 6 => 'M2-C (ant.)']
+    && $mg['delete'] === [5]
+    && array_keys($mg['update']) === [3, 4] && $mg['update'][3]['reiniciar'] === false && $mg['update'][4]['reiniciar'] === true
+    && array_column($mg['insert'], 'codigo') === ['M3', 'M7'],
+    'plan_merge conserva lo producido del mismo material, marca «(ant.)» lo producido que cambió o salió, actualiza o quita pendientes e inserta lo nuevo'
+);
+local_chatbot_verificar(
+    centro_recursos::same_material('Infografía de bioseguridad, ergonomía y convivencia en taller', 'Infografía y Guía de Bioseguridad, Ergonomía y Derechos Humanos')
+    && !centro_recursos::same_material('Dossier temático ilustrado «Envejecimiento, síndromes»', 'Set de Tarjetas de Microcasos y Debate sobre DDHH'),
+    'same_material reconoce el mismo material con otro nombre y distingue uno distinto'
+);
+
 // --- Materiales mixtos: cada parte en su modo y «Entregado parcialmente» hasta entregar todas ---
 $mixto = centro_recursos::parse_plan_json(json_encode(['materiales' => [
     ['codigo' => 'M2', 'nombre' => 'Cápsula audiovisual y tarjetas de debate', 'fase' => 'Fase 1', 'modo' => 'B/C',

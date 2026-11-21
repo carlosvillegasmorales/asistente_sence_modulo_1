@@ -1,5 +1,14 @@
 # Changelog
 
+## M1-v1.28.6 (2026-11-21)
+
+- **Actualizar el plan del centro con una Etapa 4 nueva** (`centro_recursos::plan_merge()`, `same_material()`, puras).
+  Al rehacer la Etapa 4 con las reglas de materiales producibles en el cliente, los materiales se renumeraron (el M3 pasó
+  a ser otro) y el plan conservaba las filas antiguas por código. Ahora un pendiente con el mismo código se actualiza (y
+  se reinicia si es otro material); uno producido se conserva si es el mismo material y, si su código ahora es otro
+  material o salió del plan, queda con el código marcado «(ant.)» y su versión; un pendiente que salió se quita. Sin
+  cambios en la base.
+
 ## M1-v1.28.5 (2026-11-21)
 
 - **Revisión automática de la lista de producción de la Etapa 4** (`diseno::production_rows()`, `production_issues()`,

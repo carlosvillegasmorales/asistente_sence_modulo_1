@@ -458,6 +458,83 @@ class centro_recursos {
             . '. Las demás partes se producen por separado.';
     }
 
+    /** @var string Marca del codigo de un material producido que ya no corresponde al plan vigente. */
+    const MARCA_ANTERIOR = ' (ant.)';
+
+    /**
+     * Si dos nombres de material son el mismo material: comparten la mitad o mas de sus palabras significativas (de
+     * cuatro letras o mas, sin tildes). Funcion pura.
+     *
+     * @param string $a
+     * @param string $b
+     * @return bool
+     */
+    public static function same_material(string $a, string $b): bool {
+        $palabras = static function(string $t): array {
+            preg_match_all('/[a-z0-9]{4,}/', diseno::plain_lower($t), $m);
+            return array_values(array_unique($m[0]));
+        };
+        [$x, $y] = [$palabras($a), $palabras($b)];
+        if (!$x || !$y) {
+            return diseno::plain_lower($a) === diseno::plain_lower($b);
+        }
+        return count(array_intersect($x, $y)) / min(count($x), count($y)) >= 0.5;
+    }
+
+    /**
+     * Cambios para actualizar el plan con una Etapa 4 nueva (Etapa 9, «muéstralo actualizado»). Visto en el cliente el
+     * 21-11-2026: la Etapa 4 rehecha con las reglas de materiales producibles renumero los materiales (M3 paso a ser otro)
+     * y el plan conservaba las filas antiguas por codigo. Reglas: un pendiente (version 0) con el mismo codigo se actualiza
+     * (y se reinicia si ahora es otro material); uno producido se conserva si es el mismo material y, si es otro o ya no esta
+     * en el plan, queda con su codigo marcado «(ant.)» y su version; un pendiente que ya no esta se quita. Funcion pura.
+     *
+     * @param array $existentes Filas actuales (objetos o arreglos con id, codigo, nombre, version).
+     * @param array $nuevos Materiales de parse_plan_json().
+     * @return array ['update' => [id => ['m' => material, 'reiniciar' => bool]], 'insert' => [material], 'delete' => [id],
+     *               'rename' => [id => codigo]].
+     */
+    public static function plan_merge(array $existentes, array $nuevos): array {
+        $porcodigo = [];
+        foreach ($nuevos as $m) {
+            $porcodigo[strtoupper(trim((string) $m['codigo']))] = $m;
+        }
+        $cambios = ['update' => [], 'insert' => [], 'delete' => [], 'rename' => []];
+        $usados = [];
+        foreach ($existentes as $e) {
+            $e = (array) $e;
+            $codigo = trim((string) $e['codigo']);
+            if (substr($codigo, -strlen(self::MARCA_ANTERIOR)) === self::MARCA_ANTERIOR) {
+                continue;
+            }
+            $clave = strtoupper($codigo);
+            $producido = (int) ($e['version'] ?? 0) > 0;
+            $nuevo = $porcodigo[$clave] ?? null;
+            if ($nuevo === null) {
+                if ($producido) {
+                    $cambios['rename'][(int) $e['id']] = mb_substr($codigo, 0, 13, 'UTF-8') . self::MARCA_ANTERIOR;
+                } else {
+                    $cambios['delete'][] = (int) $e['id'];
+                }
+                continue;
+            }
+            $mismo = self::same_material((string) $e['nombre'], (string) $nuevo['nombre']);
+            if (!$producido) {
+                $cambios['update'][(int) $e['id']] = ['m' => $nuevo, 'reiniciar' => !$mismo];
+                $usados[$clave] = true;
+            } else if ($mismo) {
+                $usados[$clave] = true;
+            } else {
+                $cambios['rename'][(int) $e['id']] = mb_substr($codigo, 0, 13, 'UTF-8') . self::MARCA_ANTERIOR;
+            }
+        }
+        foreach ($porcodigo as $clave => $m) {
+            if (!isset($usados[$clave])) {
+                $cambios['insert'][] = $m;
+            }
+        }
+        return $cambios;
+    }
+
     /**
      * Etiqueta legible del estado del centro para un diseno (tabla de Seleccion del diseno).
      *
@@ -1502,17 +1579,31 @@ class centro_recursos {
                     $DB->delete_records('local_chatbot_recurso', ['id' => $r->id]);
                 }
             }
-            // Conservar materiales ya producidos si se regenera el plan; agregar los nuevos por codigo.
-            $existentes = [];
-            foreach (self::get_resources((int) $ficha->id) as $r) {
-                $existentes[strtoupper(trim((string) $r->codigo))] = $r;
-            }
+            // Plan actualizado con la Etapa 4 vigente (plan_merge()): pendientes actualizados o quitados; lo producido se
+            // conserva y, si su codigo ahora es otro material o salio del plan, queda marcado «(ant.)».
+            $cambios = self::plan_merge(self::get_resources((int) $ficha->id), $parsed['materiales']);
             $now = time();
-            foreach ($parsed['materiales'] as $m) {
-                $key = strtoupper($m['codigo']);
-                if (isset($existentes[$key])) {
-                    continue;
+            foreach ($cambios['delete'] as $idborrar) {
+                $DB->delete_records('local_chatbot_recurso', ['id' => $idborrar, 'fichaid' => (int) $ficha->id]);
+            }
+            foreach ($cambios['rename'] as $idant => $codigoant) {
+                $DB->update_record('local_chatbot_recurso', (object) ['id' => $idant, 'codigo' => $codigoant,
+                    'orden' => 900, 'timemodified' => $now]);
+            }
+            foreach ($cambios['update'] as $idact => $u) {
+                $m = $u['m'];
+                $fila = ['id' => $idact, 'orden' => $m['orden'], 'nombre' => $m['nombre'], 'fase' => $m['fase'],
+                    'modo' => $m['modo'], 'formato' => $m['formato'], 'especificacion' => $m['especificacion'],
+                    'espec_detalle' => $m['espec_detalle'], 'estado' => $m['estado'], 'timemodified' => $now];
+                if ($u['reiniciar']) {
+                    // Ahora es otro material: lo preparado para el anterior no sirve.
+                    $fila += ['estructura' => null, 'contenido' => null, 'estructurado' => null, 'html_moodle' => null,
+                        'seleccionados' => null, 'refs_usadas' => null, 'revisar_count' => 0, 'generacion' => null,
+                        'fase_gen' => null, 'ajustes' => null, 'error' => null];
                 }
+                $DB->update_record('local_chatbot_recurso', (object) $fila);
+            }
+            foreach ($cambios['insert'] as $m) {
                 $DB->insert_record('local_chatbot_recurso', (object) [
                     'planid' => $planid,
                     'fichaid' => (int) $ficha->id,
