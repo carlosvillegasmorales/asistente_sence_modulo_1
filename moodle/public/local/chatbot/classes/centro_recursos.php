@@ -551,9 +551,11 @@ class centro_recursos {
         }
         $producibles = 0;
         $entregados = 0;
-        foreach (self::material_groups($recursos) as $grupo) {
+        foreach (self::material_groups($recursos) as $base => $grupo) {
             $est = (string) $grupo['estado'];
-            if (in_array($est, [self::MAT_NO_PRODUCIBLE, self::MAT_INSTRUMENTO], true)) {
+            // Lo producido de una version anterior del diseno («(ant.)») no es material del plan vigente.
+            if (in_array($est, [self::MAT_NO_PRODUCIBLE, self::MAT_INSTRUMENTO], true)
+                    || substr((string) $base, -strlen(self::MARCA_ANTERIOR)) === self::MARCA_ANTERIOR) {
                 continue;
             }
             $producibles++;

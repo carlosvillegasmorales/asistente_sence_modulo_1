@@ -1,5 +1,11 @@
 # Changelog
 
+## M1-v1.28.7 (2026-11-21)
+
+- El estado del centro en la lista de diseños («En producción: N de M») cuenta solo el plan vigente: lo producido de una
+  versión anterior del diseño («(ant.)») ya no suma. Visto al actualizar el plan en el cliente (decía 5 de 11 en vez de
+  2 de 7). Sin cambios en la base.
+
 ## M1-v1.28.6 (2026-11-21)
 
 - **Actualizar el plan del centro con una Etapa 4 nueva** (`centro_recursos::plan_merge()`, `same_material()`, puras).

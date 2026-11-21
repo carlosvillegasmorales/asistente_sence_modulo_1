@@ -414,6 +414,12 @@ local_chatbot_verificar(
     && array_column($mg['insert'], 'codigo') === ['M3', 'M7'],
     'plan_merge conserva lo producido del mismo material, marca «(ant.)» lo producido que cambió o salió, actualiza o quita pendientes e inserta lo nuevo'
 );
+local_chatbot_verificar(centro_recursos::design_status_label($pEn, [
+        (object) ['codigo' => 'M1', 'estado' => centro_recursos::MAT_ENTREGADO],
+        (object) ['codigo' => 'M2', 'estado' => centro_recursos::MAT_PENDIENTE],
+        (object) ['codigo' => 'M3 (ant.)', 'estado' => centro_recursos::MAT_ENTREGADO],
+        (object) ['codigo' => 'M2-C (ant.)', 'estado' => centro_recursos::MAT_ENTREGADO]]) === 'En producción: 1 de 2',
+    'el estado del centro cuenta solo el plan vigente, no lo producido de una versión anterior («(ant.)»)');
 local_chatbot_verificar(
     centro_recursos::same_material('Infografía de bioseguridad, ergonomía y convivencia en taller', 'Infografía y Guía de Bioseguridad, Ergonomía y Derechos Humanos')
     && !centro_recursos::same_material('Dossier temático ilustrado «Envejecimiento, síndromes»', 'Set de Tarjetas de Microcasos y Debate sobre DDHH'),
