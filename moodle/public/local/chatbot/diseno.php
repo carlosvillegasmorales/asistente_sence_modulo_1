@@ -63,6 +63,7 @@ if ($action === 'ejecutar' || $action === 'estado') {
 }
 
 $fase1 = exante::fase1_ok($USER->id, $courseid);
+$fichadata = $fase1 ? exante::clean((array) json_decode((string) ($fase1->snapshot ?? ''), true)) : [];
 $filas = diseno::get_all($USER->id, $courseid);
 $aceptadas = diseno::accepted($filas);
 if (!isset($etapas[$etapa])) {
@@ -145,6 +146,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $fase3 && in_array($act
         // Se confirma lo que se muestra: la consolidacion del asistente si esta al dia, o la completa por codigo.
         $huellaetapas = diseno::stages_fingerprint($filas);
         [$html, $porasistente] = diseno::consolidation_shown($filas[diseno::CONSOLIDACION] ?? null, $contenidos, $huellaetapas);
+        $exigeanexo = \local_chatbot\ux::on('consolidacionia') && \local_chatbot\ux::on('controlcambios') && \local_chatbot\ux::on('auditoriam2');
+        if (!diseno::can_confirm_consolidation(diseno::normalize_product($html), $exigeanexo)) {
+            redirect($destino, get_string('diseno_audit_required', 'local_chatbot'), null,
+                \core\output\notification::NOTIFY_WARNING);
+        }
         diseno::confirm_consolidation($USER->id, $courseid, $html, $huellaetapas,
             $porasistente ? (string) $filas[diseno::CONSOLIDACION]->promptversion : null);
         redirect(new moodle_url($pageurl, ['etapa' => diseno::EVALUACION]), get_string('diseno_confirmed', 'local_chatbot'),
@@ -384,6 +390,21 @@ echo $OUTPUT->header();
                             <ul class="mb-1 mt-1"><?php foreach ($produccioncr as $p): ?><li><?php echo s($p); ?></li><?php endforeach; ?></ul>
                             <button type="button" class="btn btn-sm chatbot-gatebtn chatbot-cc-usar" data-ajuste="<?php
                                 echo s(get_string('diseno_prod_request', 'local_chatbot') . ' ' . implode(' ', $produccioncr)); ?>">
+                                <i class="fa fa-commenting-o me-1"></i><?php echo get_string('diseno_cc_use', 'local_chatbot'); ?></button>
+                        </div>
+                    <?php endif; ?>
+                    <?php // Revision deterministica por etapa (reglas 1, 4, 5, 6, 10, 14 a 17; interruptor «auditoriam2»).
+                    $normetapa = diseno::normalize_product((string) $fila->contenido);
+                    $hallazgosetapa = ($etapa !== 4 && \local_chatbot\ux::on('auditoriam2'))
+                        ? diseno::stage_issues($etapa, $normetapa, $fichadata, true)
+                        : ($etapa === 4 && \local_chatbot\ux::on('auditoriam2')
+                            ? diseno::arithmetic_expression_issues($normetapa) : []);
+                    if ($hallazgosetapa): ?>
+                        <div class="alert alert-warning small" role="status">
+                            <?php echo get_string('diseno_stage_issues', 'local_chatbot'); ?>
+                            <ul class="mb-1 mt-1"><?php foreach ($hallazgosetapa as $h): ?><li><?php echo s($h); ?></li><?php endforeach; ?></ul>
+                            <button type="button" class="btn btn-sm chatbot-gatebtn chatbot-cc-usar" data-ajuste="<?php
+                                echo s(get_string('diseno_stage_issues_request', 'local_chatbot') . ' ' . implode(' ', $hallazgosetapa)); ?>">
                                 <i class="fa fa-commenting-o me-1"></i><?php echo get_string('diseno_cc_use', 'local_chatbot'); ?></button>
                         </div>
                     <?php endif; ?>

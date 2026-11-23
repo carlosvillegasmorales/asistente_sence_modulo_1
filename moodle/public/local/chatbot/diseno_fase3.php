@@ -89,39 +89,59 @@ foreach (diseno::etapas() as $n => $e) {
             <ul class="mb-0 mt-1"><?php foreach ($aceptadascc as $a): ?><li><?php echo s($a); ?></li><?php endforeach; ?></ul>
         </div>
     <?php endif; ?>
+    <?php // Hallazgos objetivos detectados por codigo en las etapas 2 a 6 (interruptor «auditoriam2»).
+    $docnorm = diseno::normalize_product($documento);
+    $auditoriaon = \local_chatbot\ux::on('auditoriam2');
+    $exigeanexo = $consolidaia && \local_chatbot\ux::on('controlcambios') && $auditoriaon;
+    $tieneanexo = diseno::has_consistency_annex($docnorm);
+    $puedeconfirmar = diseno::can_confirm_consolidation($docnorm, $exigeanexo);
+    $hallazgosphp = $auditoriaon ? diseno::design_audit_facts($contenidos, $fichadata ?? []) : [];
+    if ($hallazgosphp): ?>
+        <div class="alert alert-warning small" role="status">
+            <?php echo get_string('diseno_audit_facts', 'local_chatbot'); ?>
+            <ul class="mb-0 mt-1"><?php foreach ($hallazgosphp as $h): ?><li><?php echo s($h); ?></li><?php endforeach; ?></ul>
+        </div>
+    <?php endif; ?>
     <?php // Verificacion de consistencia entre etapas (ajuste del Prompt Maestro del 10-11-2026).
-    if (\local_chatbot\ux::on('controlcambios') && $porasistente):
-        $inconsistencias = diseno::inconsistencies(diseno::normalize_product($documento));
+    if (\local_chatbot\ux::on('controlcambios') && ($porasistente || $tieneanexo)):
+        $inconsistencias = diseno::inconsistencies($docnorm);
         if ($inconsistencias): ?>
             <div class="alert alert-warning small" role="status">
                 <?php echo get_string('diseno_cc_inconsistent', 'local_chatbot'); ?>
                 <ul class="mb-0 mt-1"><?php foreach ($inconsistencias as $i): ?><li><?php echo s($i); ?></li><?php endforeach; ?></ul>
             </div>
-        <?php elseif (diseno::section_rows(diseno::normalize_product($documento), '/verificacion de consistencia/')): ?>
+        <?php elseif ($tieneanexo): ?>
             <p class="small text-success mb-2"><i class="fa fa-check-circle me-1"></i><?php
                 echo get_string('diseno_cc_consistent', 'local_chatbot'); ?></p>
         <?php endif;
     endif; ?>
     <?php if (!$vigente && !$generando): ?>
+        <?php if (!$puedeconfirmar): ?>
+            <div class="alert alert-info small" role="status">
+                <?php echo get_string('diseno_audit_required', 'local_chatbot'); ?>
+            </div>
+        <?php endif; ?>
         <form method="post" action="<?php echo $pageurl->out(false); ?>" class="mb-4 d-flex flex-wrap gap-2">
             <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
             <?php // Control de cambios: tambien si la consolidacion no trae la verificacion de consistencia o no marca las
             // inconsistencias aceptadas que registraron las etapas.
-            $rehacercc = \local_chatbot\ux::on('controlcambios') && $porasistente
-                && diseno::needs_reconsolidation(diseno::normalize_product($documento), $aceptadascc); ?>
-            <?php if ($consolidaia && (!$porasistente || $faltan7 || $rehacercc)): ?>
-                <?php // Prompt Maestro: consolidar «en extenso», sin repetir los campos comunes (lo hace el asistente). ?>
+            $rehacercc = \local_chatbot\ux::on('controlcambios') && ($porasistente || $tieneanexo)
+                && diseno::needs_reconsolidation($docnorm, $aceptadascc); ?>
+            <?php if ($consolidaia && (!$puedeconfirmar || !$porasistente || $faltan7 || $rehacercc)): ?>
+                <?php // Prompt Maestro: consolidar «en extenso», sin repetir los campos comunes + auditoria de consistencia. ?>
                 <button type="submit" name="action" value="consolidar" class="btn btn-primary px-4"
                         data-espera="<?php echo s(get_string('diseno_consolidating', 'local_chatbot')); ?>">
-                    <i class="fa fa-magic me-1"></i> <?php echo get_string('diseno_consolidate_ai', 'local_chatbot'); ?>
+                    <i class="fa fa-magic me-1"></i> <?php echo get_string($exigeanexo ? 'diseno_consolidate_audit' : 'diseno_consolidate_ai', 'local_chatbot'); ?>
                 </button>
             <?php endif; ?>
-            <button type="submit" name="action" value="confirmar" class="btn btn-success px-4"
-                    data-espera="<?php echo s(get_string('exante_saving', 'local_chatbot')); ?>">
-                <i class="fa fa-check me-1"></i> <?php echo get_string('diseno_confirm', 'local_chatbot'); ?>
-            </button>
+            <?php if ($puedeconfirmar): ?>
+                <button type="submit" name="action" value="confirmar" class="btn btn-success px-4"
+                        data-espera="<?php echo s(get_string('exante_saving', 'local_chatbot')); ?>">
+                    <i class="fa fa-check me-1"></i> <?php echo get_string('diseno_confirm', 'local_chatbot'); ?>
+                </button>
+            <?php endif; ?>
         </form>
-        <?php if ($consolidaia && !$porasistente): ?>
+        <?php if ($consolidaia && !$porasistente && $puedeconfirmar): ?>
             <p class="small text-muted"><?php echo get_string('diseno_consolidate_ai_help', 'local_chatbot'); ?></p>
         <?php endif; ?>
     <?php endif; ?>

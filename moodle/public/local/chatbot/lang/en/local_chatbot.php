@@ -1259,6 +1259,7 @@ $string['diseno_final_annex'] = 'Annex: Technical evaluation of the design';
 $string['exante_error_sinconsolidado'] = 'There is no confirmed consolidated design to evaluate.';
 $string['exante_error_incompleta'] = 'The assistant\'s consolidation came back incomplete (shorter than the stages or cut off) and was not used: the document with the six complete stages is kept. You can confirm it or request the consolidation again.';
 $string['exante_error_sinetapas'] = 'To consolidate, the six stages of Phase 2 must be accepted.';
+$string['exante_error_auditoria'] = 'Could not complete the independent consistency audit of Stage 7. Press «Consolidate and verify consistency» again.';
 
 // Module 2: «Your Module 2 route» bar.
 $string['r2_title'] = 'Your Module 2 route';
@@ -1604,6 +1605,13 @@ $string['ux_centrorecursos_desc'] = 'Enables the independent Learning resource p
 $string['ux_reglasproduccion'] = 'Module 2: producible materials and AI resource economy (Stage 4)';
 $string['diseno_prod_issues'] = 'Production list review (rule 11 and capability catalog): these materials do not comply. Ask the assistant to correct them (the button copies the request into «Request adjustments») before accepting the stage:';
 $string['diseno_prod_request'] = 'Correct the production list and the description of the materials (4.1, 4.2 and 4.3) according to rule 11 and the capability catalog:';
+$string['diseno_stage_issues'] = 'Automatic consistency review (arithmetic, groupings and stage rules): these issues were detected. You can ask the assistant to fix them (the button copies the request into «Request adjustments») before accepting the stage:';
+$string['diseno_stage_issues_request'] = 'Fix in this stage the following issues detected by the automatic verification, recalculating from the tables:';
+$string['diseno_audit_facts'] = 'Preliminary automatic verification (calculations and rules verified by the platform across Stages 2 to 6): fix these points in their corresponding stage before validating, or they will be recorded in the consistency audit and in Stage 8:';
+$string['diseno_audit_required'] = 'To confirm the consolidated design and advance to Stage 8, first run «Consolidate and verify consistency» to generate the mandatory cross-stage consistency verification annex and adjustment log.';
+$string['diseno_consolidate_audit'] = 'Consolidate and verify consistency';
+$string['ux_auditoriam2'] = 'Module 2: automatic audit, rules 14 to 17 and mandatory annex in Stage 7';
+$string['ux_auditoriam2_desc'] = 'Adds rules 14 to 17 (bottom-up calculation, who applies each instrument, multi-task activities, one row per application), extension of rule 1 to materials/instruments and closed output formats; delivers to each stage only the rules that apply to it; enables deterministic checks in code (times, groupings, formats, weights, applicators and levels) and requires an independent audit with the consistency verification annex in Stage 7 before advancing to Stage 8.';
 $string['ux_reglasproduccion_desc'] = 'Adds to the Stage 4 prompt (and Stage 7 consistency check) blocks 7, 8 and 9 of the Interfases adjustment of 21-11-2026: production capability catalog (Modes A, B and C and physical resources outside the catalog), rules 11 to 13 (single mode per material, AI resource economy, production-ready specification), mandatory recording in 4.1, 4.2 (production list and training-environment physical resources list) and 4.3 (AI production feasibility), Stage 4 internal quality checks and the «Producción de materiales» row in Stage 7. Does not modify other stages or the rubric.';
 $string['centro_title'] = 'Learning resource production center';
 $string['centro_subtitle'] = 'Module 2 · Stages 9 to 12 · Material production from validated designs (optional)';

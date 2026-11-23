@@ -1261,6 +1261,7 @@ $string['diseno_final_annex'] = 'Anexo: Evaluación técnica del diseño';
 $string['exante_error_sinconsolidado'] = 'No hay un diseño consolidado confirmado para evaluar.';
 $string['exante_error_incompleta'] = 'La consolidación del asistente llegó incompleta (más corta que las etapas o cortada) y no se usó: se mantiene el documento con las seis etapas completas. Puedes confirmarlo o pedir la consolidación de nuevo.';
 $string['exante_error_sinetapas'] = 'Para consolidar, las seis etapas de la Fase 2 deben estar aceptadas.';
+$string['exante_error_auditoria'] = 'No se pudo completar la auditoría independiente de consistencia de la Etapa 7. Vuelve a pulsar «Consolidar y verificar consistencia».';
 
 // Modulo 2: barra «Tu ruta del Modulo 2».
 $string['r2_title'] = 'Tu ruta del Módulo 2';
@@ -1606,6 +1607,13 @@ $string['ux_centrorecursos_desc'] = 'Habilita la pestaña independiente del Cent
 $string['ux_reglasproduccion'] = 'Módulo 2: materiales producibles y economía de recursos IA (Etapa 4)';
 $string['diseno_prod_issues'] = 'Revisión de la lista de producción (regla 11 y catálogo de capacidades): estos materiales no cumplen. Pídele al asistente que lo corrija (el botón copia el pedido en «Pedir ajustes») antes de aceptar la etapa:';
 $string['diseno_prod_request'] = 'Corrige la lista de producción y la descripción de los materiales (4.1, 4.2 y 4.3) según la regla 11 y el catálogo de capacidades:';
+$string['diseno_stage_issues'] = 'Revisión automática de consistencia (aritmética, agrupamientos y reglas de la etapa): se detectaron estos problemas. Puedes pedirle al asistente que los corrija (el botón copia el pedido en «Pedir ajustes») antes de aceptar la etapa:';
+$string['diseno_stage_issues_request'] = 'Corrige en esta etapa los siguientes problemas detectados por la verificación automática, recalculando desde las tablas:';
+$string['diseno_audit_facts'] = 'Verificación automática previa (cálculos y reglas comprobados por la plataforma sobre las Etapas 2 a 6): conviene corregir estos puntos en su etapa antes de validar, o quedarán registrados en la auditoría de consistencia y en la Etapa 8:';
+$string['diseno_audit_required'] = 'Para confirmar el diseño consolidado y pasar a la Etapa 8, primero ejecuta «Consolidar y verificar consistencia» para generar el anexo obligatorio de verificación de consistencia entre etapas y registro de ajustes.';
+$string['diseno_consolidate_audit'] = 'Consolidar y verificar consistencia';
+$string['ux_auditoriam2'] = 'Módulo 2: auditoría automática, reglas 14 a 17 y anexo obligatorio en Etapa 7';
+$string['ux_auditoriam2_desc'] = 'Incorpora las reglas 14 a 17 (cálculo ascendente, persona que aplica cada instrumento, actividades con varias tareas, una fila por aplicación), ampliación de la regla 1 a materiales/instrumentos y formatos cerrados; entrega en cada etapa solo las reglas que le aplican; activa revisión determinística en código (tiempos, agrupamientos, formatos, ponderaciones, aplicadores y niveles) y exige una auditoría independiente con el anexo de verificación de consistencia en la Etapa 7 antes de pasar a la Etapa 8.';
 $string['ux_reglasproduccion_desc'] = 'Agrega al prompt de la Etapa 4 (y a la verificación de consistencia de la Etapa 7) los bloques 7, 8 y 9 del ajuste de Interfases del 21-11-2026: catálogo de capacidades de producción (Modos A, B y C y recursos físicos fuera del catálogo), reglas 11 a 13 (un solo modo por material, economía de recursos de IA, especificación lista para producir), registro obligatorio en 4.1, 4.2 (lista de producción y lista de recursos del entorno formativo) y 4.3 (factibilidad de producción con IA), verificaciones internas de Etapa 4 y fila «Producción de materiales» en la Etapa 7. No modifica las demás etapas ni la rúbrica.';
 $string['centro_title'] = 'Centro de producción de recursos de aprendizaje';
 $string['centro_subtitle'] = 'Módulo 2 · Etapas 9 a 12 · Producción de materiales a partir de diseños validados (uso opcional)';

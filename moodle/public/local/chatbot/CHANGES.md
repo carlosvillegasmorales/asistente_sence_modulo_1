@@ -1,5 +1,19 @@
 # Changelog
 
+## M1-v1.29.0 (2026-11-23)
+
+**Módulo 2: auditoría automática determinística, Reglas 14 a 17, prompt desfragmentado por etapa y anexo obligatorio en Etapa 7** (a partir del análisis de inconsistencias de Interfases del 23-11-2026). Interruptor `auditoriam2` (encendido). Prompt `M2-F2-etapas-v15`. Sin cambios en la base.
+
+- **Reglas 14 a 17 y dos precisiones** (`diseno::REGLA_14_CALCULO_ASCENDENTE`, `REGLA_15_QUIEN_APLICA`, `REGLA_16_VARIAS_TAREAS`, `REGLA_17_UNA_FILA_POR_APLICACION`, `REGLA_1_AMPLIACION_MATERIALES`, `REGLA_FORMATOS_CERRADOS`): cálculo ascendente desde las tablas sin fijar totales previos, columna «Persona que aplica» en el registro de Etapa 5 («acompañar» o «supervisar» no cuenta como aplicar), desglose de tiempo en actividades con varias tareas, una fila por aplicación en Etapa 5, prohibición de catálogo propio de materiales o instrumentos (`INS-*`) en Etapa 3, y formatos de salida cerrados en Etapa 4 (nunca «Markdown» ni «tabla Markdown»).
+- **Prompt desfragmentado por etapa** (`diseno::rules_for_stage()`): con `auditoriam2` encendido, cada etapa (1 a 6) recibe únicamente las reglas de consistencia que le aplican en lugar de repetir las 10 reglas completas en todas las etapas, reduciendo el ruido y mejorando el cumplimiento del modelo.
+- **Revisión determinística en código PHP por etapa** (`diseno::stage_issues()`, `arithmetic_expression_issues()`, `grouping_issues()`, `sequence_issues()`, `evaluation_plan_issues()`, `instruments_issues()`, `design_audit_facts()`, y ampliación de `production_issues()`): valida aritmética real (sumas explícitas tipo `30 + 150 + 150 + 30 = 330`, sumas de tablas de actividades vs subtotales/títulos/ficha 2.3, ponderaciones = 100 %, coherencia de umbrales), agrupamientos que parten duplas (subgrupos impares con duplas o producto ≠ participantes de la ficha), catálogo de materiales/instrumentos en Etapa 3, formatos fuera del catálogo (`Markdown`, herramientas externas) e instrumentos `INS-*` en Etapa 4, columna «Persona que aplica» sin aceptar solo acompañamiento y una fila por aplicación en Etapa 5, equivalencia a los 4 niveles del Módulo 3 en Etapa 6 y cruce de códigos `M1..Mn` entre etapas. En las hojas de las Etapas 2 a 6 avisa con el botón «Usar como ajuste».
+- **Etapa 7 — Auditoría independiente dedicada y requisito obligatorio para avanzar a Etapa 8** (`diseno::build_audit_prompt()`, `has_consistency_annex()`, `can_confirm_consolidation()`, `replace_consistency_annex()`): separa la verificación de consistencia en una llamada dedicada y corta a Gemini alimentada con los hallazgos objetivos de PHP (impidiendo declarar «Consistente» un error demostrado por código), conserva las 6 etapas completas por código si la consolidación larga se corta por tamaño y adjunta igual el anexo verificado, y bloquea en servidor y en pantalla («Confirmar consolidación») el paso a la Etapa 8 mientras falte el anexo obligatorio de verificación de consistencia.
+- **Revisión del 23-11-2026 con el diseño real del cliente:** la revisión en código ya no lee el «Registro de ajustes»
+  ni el anexo de consistencia, que describen cambios (`without_change_log()`; daba un falso «4 subgrupos de 5 personas»
+  en la Etapa 3), y la Etapa 2, que define las fases y su tiempo, recibe las reglas 4 y 14 y su revisión de tiempos
+  (`phase_time_issues()`: títulos de fase o momento con minutos, tablas de fases y sumas escritas).
+- **Etapa 8:** recibe además las filas «Inconsistente» del anexo y los hallazgos objetivos vigentes de PHP (`design_audit_facts()`) para considerarlos en debilidades, recomendaciones y puntaje, sin modificar la rúbrica.
+
 ## M1-v1.28.7 (2026-11-21)
 
 - El estado del centro en la lista de diseños («En producción: N de M») cuenta solo el plan vigente: lo producido de una

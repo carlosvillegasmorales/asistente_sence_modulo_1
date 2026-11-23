@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 class diseno {
 
     /** @var string Version del prompt de diseno: se guarda con cada producto (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-F2-etapas-v14';
+    const PROMPT_VERSION = 'M2-F2-etapas-v15';
 
     /** @var int Desde esta version del prompt cada etapa cierra con vacios, verificacion y referencias (revision del 02-11). */
     const PROMPT_CIERRE = 11;
@@ -370,6 +370,60 @@ class diseno {
     const BLOQUE_CONSISTENCIA_PRODUCCION = '- Producción de materiales: código, tipo, modo y formato de salida de cada '
         . 'material producido con IA en la Etapa 4, comparados con el catálogo de capacidades, y referencias a los mismos '
         . 'códigos en las Etapas 3 y 5.';
+
+    /**
+     * @var string[] Regla 14 (23-11-2026): calculo ascendente desde las tablas, sin fijar totales antes de sumar.
+     */
+    const REGLA_14_CALCULO_ASCENDENTE = [
+        'REGLA 14. CÁLCULO ASCENDENTE',
+        'El tiempo de cada fase es el resultado de sumar sus actividades, no un valor fijado antes. Escribe la suma '
+            . 'copiando los valores exactos desde la tabla de actividades (por ejemplo: 30 + 150 + 150 + 30 = 360 min) y '
+            . 'verifica que cuadre con el subtotal de la fase y con el tiempo asignado a la experiencia (2.3). Lo mismo '
+            . 'aplica a puntajes máximos, tablas de especificaciones y ponderaciones en las Etapas 5 y 6. En la Etapa 7 '
+            . 'todo se recalcula desde las tablas, sin copiar las verificaciones anteriores.',
+    ];
+
+    /**
+     * @var string[] Regla 15 (23-11-2026): persona concreta que aplica cada instrumento o parte; acompanar != evaluar.
+     */
+    const REGLA_15_QUIEN_APLICA = [
+        'REGLA 15. QUIÉN APLICA CADA INSTRUMENTO',
+        'Agrega al registro de instrumentos de la Etapa 5 la columna «Persona que aplica». Cada parte de un instrumento '
+            . '(sección, estación o bloque de conductas) debe tener una persona concreta que la aplique en ese momento. '
+            . '«Acompañar» o «supervisar» no cuenta como aplicar un instrumento de evaluación.',
+    ];
+
+    /**
+     * @var string[] Regla 16 (23-11-2026): desglose de tiempo cuando una actividad combina varias tareas.
+     */
+    const REGLA_16_VARIAS_TAREAS = [
+        'REGLA 16. ACTIVIDADES CON VARIAS TAREAS',
+        'Si una actividad incluye varias tareas (como traslado, visita, regreso y prueba), indica el tiempo estimado en '
+            . 'minutos de cada una y verifica que su suma no supere la duración declarada de la actividad.',
+    ];
+
+    /**
+     * @var string[] Regla 17 (23-11-2026): una fila por cada aplicacion de un instrumento en la Etapa 5.
+     */
+    const REGLA_17_UNA_FILA_POR_APLICACION = [
+        'REGLA 17. UNA FILA POR APLICACIÓN',
+        'Cada fila del registro de instrumentos de la Etapa 5 corresponde a una sola aplicación. Si un instrumento se '
+            . 'aplica en dos momentos distintos, regístralo en dos filas separadas (una por aplicación, con su momento, '
+            . 'actividad y persona que aplica).',
+    ];
+
+    /** @var string Ampliacion de la Regla 1 a materiales e instrumentos (23-11-2026). */
+    const REGLA_1_AMPLIACION_MATERIALES = '- Materiales e instrumentos: los materiales instruccionales se definen solo en '
+        . 'la Etapa 4, con su código (M1, M2…). La Etapa 3 no puede incluir un catálogo propio de materiales y, cuando '
+        . 'exista la Etapa 4, los menciona por su código. Toda pauta, lista de cotejo, escala de apreciación, rúbrica o '
+        . 'prueba —formativa o sumativa— es un instrumento de la Etapa 5 y nunca un material ni un ítem de la lista de '
+        . 'producción.';
+
+    /** @var string Formatos de salida cerrados en la Etapa 4 (23-11-2026). */
+    const REGLA_FORMATOS_CERRADOS = 'FORMATOS DE SALIDA CERRADOS: el formato de salida de cada material solo puede ser uno '
+        . 'de los definidos en el catálogo (texto para copiar y pegar, código HTML, archivo descargable Word/PDF/Excel/'
+        . 'presentación, cuestionario en GIFT/Google Apps Script/impreso con pauta, o ficha de recomendación Modo C). '
+        . '«Markdown» o «tabla Markdown» es una forma de escribir el texto, nunca un formato de salida.';
 
     /** Estado del producto. */
     const BORRADOR = 'borrador';
@@ -915,10 +969,11 @@ class diseno {
      * @param bool $control Verificacion de consistencia entre etapas (interruptor «controlcambios»).
      * @param bool $consistencia Ampliacion de la verificacion de consistencia (bloque 5, interruptor «reglasconsistencia»).
      * @param bool $produccion Fila «Produccion de materiales» y catalogo de referencia (bloques 7 y 9, interruptor «reglasproduccion»).
+     * @param bool $auditoria Si la verificacion de consistencia corre aparte en auditoria independiente (interruptor «auditoriam2»).
      * @return string
      */
     public static function build_consolidation_prompt(array $etapas, bool $control = false, bool $consistencia = false,
-            bool $produccion = false): string {
+            bool $produccion = false, bool $auditoria = false): string {
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, '
             . 'especializado en formación de personas adultas en contextos de capacitación laboral.';
@@ -927,7 +982,7 @@ class diseno {
             . 'listo para descargar en Word, sin repetir aquellos campos que puedan ser comunes. El documento tiene estas '
             . 'partes, en este orden: Análisis, Diseño, Secuencia, Materiales, Evaluación, Instrumentos.';
         $l[] = '';
-        if ($control) {
+        if ($control && !$auditoria) {
             // Bloque 3 del ajuste del Prompt Maestro del 10-11-2026: antes de «consolidar todos los entregables».
             foreach (self::BLOQUE_CONSISTENCIA as $linea) {
                 // Bloque 9 del ajuste del Prompt Maestro del 21-11-2026: fila «Produccion de materiales» en la tabla.
@@ -967,6 +1022,11 @@ class diseno {
             $l[] = '';
         }
         $l[] = 'REGLAS:';
+        if ($control && $auditoria) {
+            $l[] = '- La verificación de consistencia entre etapas y el anexo «' . self::ANEXO_CONSISTENCIA
+                . '» los ejecuta la plataforma en una auditoría independiente a continuación: NO los redactes aquí y '
+                . 'concéntrate en consolidar fielmente y en extenso las seis etapas sin recortar secciones ni tablas.';
+        }
         $l[] = '- "En extenso": conserva todo el contenido de cada etapa: actividades, tiempos, recursos, tablas, materiales, '
             . 'indicadores e instrumentos completos, con todos sus niveles, ítems y criterios. No resumas ni acortes.';
         $l[] = '- Sin repetir campos comunes: los datos que se repiten entre etapas (nombre de la experiencia, aprendizaje '
@@ -1000,6 +1060,162 @@ class diseno {
             $l[] = guardrails::isolate_user_content((string) $html);
         }
         return implode("\n", $l);
+    }
+
+    /**
+     * Instrucciones para la auditoria independiente de consistencia entre etapas (Etapa 7, interruptor «auditoriam2»):
+     * una llamada dedicada y corta que recibe las 6 etapas aceptadas, los datos clave de la ficha y los hallazgos
+     * objetivos ya calculados por el codigo PHP, y devuelve unicamente el anexo de verificacion de consistencia y
+     * registro de ajustes. Funcion pura.
+     *
+     * @param string[] $etapas Numero de etapa (1 a 6) => producto aceptado (HTML o texto).
+     * @param array $ficha Datos limpios de la ficha validada (participantes, tiempo_total, tiempo_experiencia).
+     * @param bool $consistencia Incluye las 5 filas del bloque 5 (interruptor «reglasconsistencia»).
+     * @param bool $produccion Incluye la fila «Produccion de materiales» y el catalogo (interruptor «reglasproduccion»).
+     * @param string[] $hallazgosPhp Hallazgos objetivos verificados por el codigo PHP (design_audit_facts()).
+     * @return string
+     */
+    public static function build_audit_prompt(array $etapas, array $ficha = [], bool $consistencia = true,
+            bool $produccion = true, array $hallazgosPhp = []): string {
+        $l = [];
+        $l[] = 'Eres un revisor técnico independiente de diseño instruccional con enfoque de competencias (modo auditoría '
+            . 'del ' . exante::ROL . '). No redactaste este diseño: tu única tarea es auditar las seis etapas aceptadas '
+            . 'con rigor verificable y entregar únicamente el anexo «' . self::ANEXO_CONSISTENCIA . '».';
+        $l[] = '';
+        $datosFicha = [];
+        if (!empty($ficha['participantes'])) {
+            $datosFicha[] = 'Participantes declarados: ' . trim((string) $ficha['participantes']);
+        }
+        if (!empty($ficha['tiempo_experiencia'])) {
+            $datosFicha[] = 'Tiempo asignado a la experiencia (2.3): ' . trim((string) $ficha['tiempo_experiencia']) . ' min';
+        }
+        if (!empty($ficha['tiempo_total'])) {
+            $datosFicha[] = 'Tiempo total disponible (2.2): ' . trim((string) $ficha['tiempo_total']) . ' min';
+        }
+        if ($datosFicha) {
+            $l[] = 'DATOS DE REFERENCIA DE LA FICHA VALIDADA (ETAPA 0): ' . implode(' | ', $datosFicha) . '.';
+            $l[] = '';
+        }
+        foreach (self::BLOQUE_CONSISTENCIA as $linea) {
+            if ($produccion && strpos($linea, 'Para cada fila indica') === 0) {
+                $l[] = self::BLOQUE_CONSISTENCIA_PRODUCCION;
+            }
+            $l[] = $linea;
+            if ($consistencia && strpos($linea, '- Evidencias e instrumentos:') === 0) {
+                foreach (self::BLOQUE_CONSISTENCIA_EXTRA as $extra) {
+                    $l[] = $extra;
+                }
+            }
+        }
+        $l[] = '';
+        $l[] = 'REGLAS DE AUDITORÍA OBLIGATORIAS (NO CONFÍES EN LAS VERIFICACIONES PROPIAS DE CADA ETAPA):';
+        $l[] = '- Cálculo ascendente (Regla 14): recalcula desde las tablas todas las sumas de tiempos por fase y total, '
+            . 'puntajes máximos de instrumentos, ponderaciones (deben sumar 100 %) y equivalencia de umbrales. No copies '
+            . 'sumas declaradas en el texto sin recalcularlas.';
+        $l[] = '- Quién aplica cada instrumento (Regla 15): verifica que cada instrumento —y cada parte o estación '
+            . 'evaluada— tenga una persona concreta que lo aplique en ese momento. «Acompañar» o «supervisar» no cuenta '
+            . 'como aplicar un instrumento: si una estación evaluada solo tiene acompañamiento sin aplicador, marca '
+            . '«Inconsistente» en «Agrupamientos y observación» y en «Registro de instrumentos».';
+        $l[] = '- Actividades con varias tareas (Regla 16): verifica que las actividades compuestas (traslado, visita, '
+            . 'regreso, prueba) desglosen el tiempo de cada tarea y no superen la duración declarada.';
+        $l[] = '- Una fila por aplicación (Regla 17): si un instrumento se aplica en dos momentos distintos en la misma '
+            . 'fila del registro de la Etapa 5, marca «Inconsistente» en «Registro de instrumentos».';
+        $l[] = '- Fuente única de materiales e instrumentos (Regla 1 ampliada): si la Etapa 3 crea un catálogo propio de '
+            . 'materiales o incluye pautas/listas/rúbricas/pruebas (formativas o sumativas) como materiales, o si la '
+            . 'Etapa 4 mete instrumentos en la lista de producción o usa «Markdown» / «tabla Markdown» como formato de '
+            . 'salida, marca «Inconsistente» en «Producción de materiales».';
+        $l[] = '- Evidencias e instrumentos: compara criterio por criterio el instrumento asignado en la Etapa 5 con el '
+            . 'desarrollado en la Etapa 6 (nombre, tipo, puntaje, umbral y formato).';
+        $l[] = '- Una fila nunca puede ser «Consistente» si tiene un hallazgo verificado por el código o una '
+            . 'inconsistencia aceptada.';
+        $l[] = '';
+        if ($hallazgosPhp) {
+            $l[] = 'HALLAZGOS VERIFICADOS POR CÓDIGO DE LA PLATAFORMA (HECHOS OBJETIVOS — DEBES MARCAR «Inconsistente» '
+                . 'LA FILA CORRESPONDIENTE Y DETALLAR LA CORRECCIÓN; NO PUEDES DECLARARLA «Consistente»):';
+            foreach ($hallazgosPhp as $h) {
+                $l[] = '- ' . $h;
+            }
+            $l[] = '';
+        }
+        $aceptadas = self::accepted_inconsistencies($etapas);
+        if ($aceptadas) {
+            $l[] = 'INCONSISTENCIAS ACEPTADAS REGISTRADAS EN LAS ETAPAS (van en «## Registro de ajustes» con estado '
+                . '«Inconsistencia aceptada» y la fila afectada va «Inconsistente» con la mención «inconsistencia aceptada»):';
+            foreach ($aceptadas as $a) {
+                $l[] = '- ' . $a;
+            }
+            $l[] = '';
+        }
+        if ($produccion) {
+            $l[] = 'REFERENCIA PARA LA FILA «PRODUCCIÓN DE MATERIALES»:';
+            foreach (self::BLOQUE_CATALOGO_PRODUCCION as $linea) {
+                $l[] = $linea;
+            }
+            $l[] = '';
+        }
+        $l[] = guardrails::injection_clause();
+        $l[] = '';
+        $l[] = 'FORMATO DE RESPUESTA: entrega ÚNICAMENTE el anexo en Markdown (sin consolidar ni reescribir el diseño, '
+            . 'sin saludos ni explicaciones previas), empezando exactamente con:';
+        $l[] = '# ' . self::ANEXO_CONSISTENCIA;
+        $l[] = '## ' . self::SECCION_CONSISTENCIA;
+        $l[] = '(tabla Markdown con las columnas «Elemento», «Resultado», «Etapas y diferencia» y «Corrección propuesta», '
+            . 'con una fila por cada elemento de la lista; en «Resultado» escribe únicamente «Consistente» o «Inconsistente»)';
+        $l[] = '## ' . self::SECCION_AJUSTES;
+        $l[] = '(tabla con las filas reunidas de los registros de ajustes de las etapas; si ninguna etapa trae registro, '
+            . 'indícalo en una línea).';
+        $l[] = exante::NO_PEDAGOGIA;
+        $l[] = 'Escribe todo en español de Chile.';
+        foreach ($etapas as $n => $html) {
+            $l[] = '';
+            $l[] = 'PRODUCTO ACEPTADO DE LA ETAPA ' . $n . ' (' . (self::etapas()[$n]['titulo'] ?? '') . '):';
+            $l[] = guardrails::isolate_user_content((string) $html);
+        }
+        return implode("\n", $l);
+    }
+
+    /**
+     * Si el documento consolidado incluye la tabla del anexo «Verificación de consistencia entre etapas» con filas.
+     * Funcion pura.
+     *
+     * @param string $html
+     * @return bool
+     */
+    public static function has_consistency_annex(string $html): bool {
+        return count(self::section_rows($html, '/verificacion de consistencia/')) > 0;
+    }
+
+    /**
+     * Si se puede confirmar la consolidacion (Etapa 7) para habilitar la Etapa 8: con el requisito de anexo encendido,
+     * exige que el documento consolidado incluya la tabla de verificacion de consistencia con filas. Funcion pura.
+     *
+     * @param string $html Documento consolidado mostrado (normalizado).
+     * @param bool $exigeanexo True cuando estan encendidos controlcambios y auditoriam2.
+     * @return bool
+     */
+    public static function can_confirm_consolidation(string $html, bool $exigeanexo): bool {
+        return !$exigeanexo || self::has_consistency_annex($html);
+    }
+
+    /**
+     * Reemplaza un anexo previo de verificacion de consistencia (o lo agrega al final si no existia). Funcion pura.
+     *
+     * @param string $html Documento consolidado (HTML).
+     * @param string $anexoHtml Anexo generado por la auditoria independiente (HTML).
+     * @return string
+     */
+    public static function replace_consistency_annex(string $html, string $anexoHtml): string {
+        $base = $html;
+        if (preg_match_all('#<h([1-3])\b[^>]*>(.*?)</h\1>#isu', $html, $m, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
+            foreach ($m as $h) {
+                $titulo = self::plain_lower(html_entity_decode(strip_tags($h[2][0]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                if (preg_match('/verificacion de consistencia/', $titulo)) {
+                    $base = rtrim(substr($html, 0, $h[0][1]));
+                    break;
+                }
+            }
+        }
+        return trim($base) . "\n" . trim($anexoHtml);
     }
 
     /**
@@ -1170,13 +1386,82 @@ class diseno {
      * @param string[] $posteriores Numero de etapa => texto de las etapas siguientes ya aceptadas (para el control).
      * @param string $hoy Fecha de hoy, para el registro de ajustes.
      * @param bool $consistencia Reglas de consistencia del diseno (bloques 4 y 6, interruptor «reglasconsistencia»).
+    /**
+     * Reglas de consistencia y auditoria aplicables a una etapa concreta (prompt desfragmentado, interruptor «auditoriam2»):
+     * extrae textualmente de BLOQUE_REGLAS_CONSISTENCIA solo las reglas pertinentes para esa etapa e integra las reglas
+     * 14 a 17, la ampliacion de la regla 1 y los formatos de salida cerrados. Funcion pura.
+     *
+     * @param int $etapa 1 a 6.
+     * @param bool $consistencia Interruptor «reglasconsistencia».
+     * @param bool $produccion Interruptor «reglasproduccion».
+     * @return string[]
+     */
+    public static function rules_for_stage(int $etapa, bool $consistencia, bool $produccion): array {
+        $porNumero = [];
+        $actual = 0;
+        foreach (self::BLOQUE_REGLAS_CONSISTENCIA as $linea) {
+            if (preg_match('/^REGLA\s+(\d+)\./u', $linea, $m)) {
+                $actual = (int) $m[1];
+                $porNumero[$actual] = [$linea];
+            } else if ($actual > 0) {
+                $porNumero[$actual][] = $linea;
+            }
+        }
+        $mapa = [
+            1 => [8, 9],
+            // La Etapa 2 define las fases y su tiempo (regla 1): tambien verifica y calcula esos tiempos.
+            2 => [1, 4, 14, 6, 7, 8, 9],
+            3 => [1, 4, 14, 16, 5, 6, 7, 8, 9],
+            4 => [1, 'formatos', 8, 9],
+            5 => [1, 2, 15, 17, 3, 4, 14, 5, 7, 8, 9],
+            6 => [1, 2, 15, 3, 4, 14, 5, 7, 8, 9, 10],
+        ];
+        $salida = ['REGLAS DE CONSISTENCIA APLICABLES A LA ETAPA ' . $etapa . ':'];
+        foreach ($mapa[$etapa] ?? [8, 9] as $clave) {
+            if ($clave === 14) {
+                foreach (self::REGLA_14_CALCULO_ASCENDENTE as $ln) {
+                    $salida[] = $ln;
+                }
+            } else if ($clave === 15) {
+                foreach (self::REGLA_15_QUIEN_APLICA as $ln) {
+                    $salida[] = $ln;
+                }
+            } else if ($clave === 16) {
+                foreach (self::REGLA_16_VARIAS_TAREAS as $ln) {
+                    $salida[] = $ln;
+                }
+            } else if ($clave === 17) {
+                foreach (self::REGLA_17_UNA_FILA_POR_APLICACION as $ln) {
+                    $salida[] = $ln;
+                }
+            } else if ($clave === 'formatos') {
+                if ($produccion) {
+                    $salida[] = self::REGLA_FORMATOS_CERRADOS;
+                }
+            } else if ($consistencia && isset($porNumero[$clave])) {
+                foreach ($porNumero[$clave] as $ln) {
+                    $salida[] = $ln;
+                }
+                if ($clave === 1) {
+                    $salida[] = self::REGLA_1_AMPLIACION_MATERIALES;
+                }
+            } else if ($clave === 1) {
+                $salida[] = 'REGLA 1. FUENTE ÚNICA DE CADA ELEMENTO';
+                $salida[] = self::REGLA_1_AMPLIACION_MATERIALES;
+            }
+        }
+        return count($salida) > 1 ? $salida : [];
+    }
+
+    /**
      * @param bool $produccion Catalogo y reglas de materiales producibles con IA en la Etapa 4 (bloques 7 a 9, interruptor «reglasproduccion»).
+     * @param bool $auditoria Reglas 14 a 17 y prompt desfragmentado por etapa (interruptor «auditoriam2»).
      * @return string
      */
     public static function build_prompt(int $etapa, string $ficha, array $informe, array $previas, array $adjuntos,
             string $actual = '', string $ajustes = '', bool $conlibreria = false, bool $conbusqueda = false,
             bool $control = false, array $posteriores = [], string $hoy = '', bool $consistencia = false,
-            bool $produccion = false): string {
+            bool $produccion = false, bool $auditoria = false): string {
         $e = self::etapas()[$etapa];
         $l = [];
         $l[] = 'Eres el ' . exante::ROL . ': un asistente experto en diseño instruccional con enfoque de competencias, especializado en formación '
@@ -1227,7 +1512,16 @@ class diseno {
             $l[] = self::CONTROL_CAMBIOS_PLATAFORMA . ($hoy !== '' ? ' Fecha de hoy: ' . $hoy . '.' : '');
             $l[] = '';
         }
-        if ($consistencia) {
+        if ($auditoria) {
+            // Prompt desfragmentado por etapa (23-11-2026): solo las reglas aplicables a esta etapa + Reglas 14 a 17.
+            $reglasEtapa = self::rules_for_stage($etapa, $consistencia, $produccion);
+            if ($reglasEtapa) {
+                foreach ($reglasEtapa as $linea) {
+                    $l[] = $linea;
+                }
+                $l[] = '';
+            }
+        } else if ($consistencia) {
             // Bloque 4 del ajuste del Prompt Maestro del 19-11-2026: reglas de consistencia del diseno (genericas).
             foreach (self::BLOQUE_REGLAS_CONSISTENCIA as $linea) {
                 $l[] = $linea;
@@ -1295,6 +1589,22 @@ class diseno {
             // Bloque 9 (Etapa 4): verificaciones del control de calidad interno de la Etapa 4.
             foreach (self::BLOQUE_CALIDAD_PRODUCCION as $linea) {
                 $l[] = $linea;
+            }
+            if ($auditoria) {
+                $l[] = '- Verificar que ningún formato de salida sea «Markdown» o «tabla Markdown» y que la lista de '
+                    . 'producción no contenga instrumentos evaluativos (pautas, listas de cotejo, rúbricas o pruebas).';
+            }
+        }
+        if ($auditoria && in_array($etapa, [3, 5, 6], true)) {
+            $l[] = '- Recalcular todas las sumas copiando número por número desde las tablas (Regla 14) sin arrastrar '
+                . 'totales previos.';
+            if ($etapa === 3) {
+                $l[] = '- Verificar que no exista catálogo propio de materiales ni instrumentos evaluativos listados como '
+                    . 'materiales (Regla 1 ampliada) y que toda actividad con varias tareas desglose sus tiempos (Regla 16).';
+            }
+            if ($etapa === 5) {
+                $l[] = '- Verificar que el registro incluya la columna «Persona que aplica» con un aplicador concreto '
+                    . '(acompañar o supervisar no equivale a aplicar; Regla 15) y una fila por cada aplicación (Regla 17).';
             }
         }
         $l[] = '';
@@ -1622,14 +1932,789 @@ class diseno {
                     . 'Modo A o B), con su propio código.';
                 continue;
             }
+            $formatobajo = self::plain_lower($formato);
+            if (preg_match('/^ins[\s_-]?\d/i', trim($codigo)) || preg_match('/\b(rubrica|lista de cotejo|'
+                    . 'escala de apreciacion|pauta de observacion|pauta de evaluacion|'
+                    . 'prueba (?:escrita|practica|aplicada|teorica|sumativa|formativa|diagnostica))\b/u', $nombrebajo)) {
+                $problemas[] = $nombre . ': es un instrumento de evaluación y no debe incluirse en la lista de '
+                    . 'producción de la Etapa 4 (los instrumentos se definen en la Etapa 5 y se desarrollan en la Etapa 6; '
+                    . 'Reglas 1 y 11).';
+                continue;
+            }
+            if (empty($letras) && !$c && trim($modo) !== '') {
+                $problemas[] = $nombre . ': no declara un modo válido del catálogo (A, B o C) en «' . $modo . '». Los '
+                    . 'materiales instruccionales se resuelven siempre en Modo A, B o C; los recursos físicos van en la '
+                    . 'lista del entorno formativo (Regla 11).';
+                continue;
+            }
+            if (preg_match('/\bmarkdown\b/u', $formatobajo)) {
+                $problemas[] = $nombre . ': el formato de salida («' . $formato . '») no pertenece al catálogo de '
+                    . 'capacidades («Markdown» es una forma de escribir el texto, no un formato de uso). Especifica un '
+                    . 'formato cerrado del catálogo (texto para copiar y pegar, código HTML, Word/PDF/Excel/presentación '
+                    . 'descargable, GIFT/Google Apps Script o ficha de recomendación Modo C).';
+            } else if (preg_match('/\b(genially|canva|kahoot|mentimeter|edpuzzle|articulate|storyline|h5p|padlet|prezi|'
+                    . 'miro|scorm|nearpod|quizizz)\b/u', $formatobajo . ' ' . $nombrebajo)) {
+                $problemas[] = $nombre . ': depende de una herramienta o plataforma externa fuera del catálogo de '
+                    . 'capacidades (Regla 11). Propón la alternativa producible equivalente en Modo A, B o C.';
+            }
             if ($letras === ['a'] && preg_match('/\b(pdf|word|docx|excel|xlsx|pptx|powerpoint|presentacion|descargable|'
-                    . 'archivo)\b/u', self::plain_lower($formato))) {
+                    . 'archivo)\b/u', $formatobajo)) {
                 $problemas[] = $nombre . ': está en Modo A, pero su formato de salida («' . $formato . '») es un archivo '
                     . 'descargable. En el catálogo, el Modo A entrega texto para copiar y pegar o código HTML; un archivo '
                     . 'descargable (Word, PDF, Excel o presentación) corresponde al Modo B.';
             }
         }
         return $problemas;
+    }
+
+    /**
+     * El producto sin las secciones que describen cambios o diferencias en vez del diseno vigente: «Registro de ajustes»
+     * (por ejemplo, «de 4 subgrupos de 5 personas a 5 subgrupos de 4») y el anexo o la tabla de «Verificación de
+     * consistencia». Cada seccion va desde su titulo hasta el siguiente titulo del mismo nivel o superior. La revision en
+     * codigo de una etapa lee solo lo vigente: visto el 23-11-2026 en la Etapa 3 del cliente, donde el registro de
+     * ajustes daba un falso «4 subgrupos de 5 personas». Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function without_change_log(string $html): string {
+        $partes = preg_split('/(<h[1-6]\b[^>]*>.*?<\/h[1-6]>)/isu', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $salida = '';
+        $saltar = 0;
+        foreach ($partes as $p) {
+            if (preg_match('/^<h([1-6])\b[^>]*>(.*?)<\/h\1>$/isu', $p, $m)) {
+                $nivel = (int) $m[1];
+                if ($saltar > 0 && $nivel <= $saltar) {
+                    $saltar = 0;
+                }
+                if ($saltar === 0 && preg_match('/registro de ajustes|verificacion de consistencia|anexo: verificacion/u',
+                        self::plain_lower(html_entity_decode(strip_tags($m[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8')))) {
+                    $saltar = $nivel;
+                }
+            }
+            if ($saltar === 0) {
+                $salida .= $p;
+            }
+        }
+        return $salida;
+    }
+
+    /**
+     * Revision de tiempos de la Etapa 2, que define las fases y su tiempo (regla 1): suma explicita mal hecha, tablas de
+     * fases cuya suma no da su total y fases que en conjunto superan el tiempo asignado a la experiencia (ficha 2.3, o el
+     * total 2.2 si falta). Los tiempos se leen de los titulos de fase o momento («… (60 MINUTOS)», sin las subfases) y de
+     * las tablas con columna de fase y de tiempo (Reglas 4 y 14). Funcion pura.
+     *
+     * @param string $html Producto de la Etapa 2.
+     * @param int $tiempoExp
+     * @param int $tiempoTotal
+     * @return string[]
+     */
+    public static function phase_time_issues(string $html, int $tiempoExp = 0, int $tiempoTotal = 0): array {
+        $problemas = self::arithmetic_expression_issues($html);
+        $limite = $tiempoExp > 0 ? $tiempoExp : $tiempoTotal;
+        $nombreLimite = $tiempoExp > 0 ? 'el tiempo asignado a la experiencia en la ficha (2.3)' : 'el tiempo total disponible en la ficha (2.2)';
+        // Titulos de fase o momento con su tiempo.
+        $fases = [];
+        if (preg_match_all('#<h[1-6]\b[^>]*>(.*?)</h[1-6]>#isu', $html, $hm)) {
+            foreach ($hm[1] as $ht) {
+                $t = self::plain_lower(html_entity_decode(strip_tags($ht), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                if (preg_match('/\b(fase|momento)\b/u', $t) && !preg_match('/\bsub\s*-?\s*fase\b/u', $t)
+                        && preg_match('/\(?\s*(\d{1,4})\s*min(?:utos?)?\b/u', $t, $mm)) {
+                    $fases[] = (int) $mm[1];
+                }
+            }
+        }
+        if (count($fases) >= 2 && $limite > 0 && array_sum($fases) > $limite) {
+            $problemas[] = 'Tiempos por fase (Reglas 4 y 14): las fases suman ' . array_sum($fases) . ' min ('
+                . implode(' + ', $fases) . ') y superan ' . $nombreLimite . ': ' . $limite . ' min.';
+        }
+        // Tablas de fases con su tiempo.
+        foreach (self::parse_tables($html) as $tabla) {
+            $cab = $tabla['cabecera'];
+            $colFase = null;
+            $colTiempo = null;
+            foreach ($cab as $i => $h) {
+                if ($colFase === null && preg_match('/\b(fase|momento)\b/u', $h)) {
+                    $colFase = $i;
+                }
+                if ($colTiempo === null && preg_match('/\b(tiempo|duracion|minutos?|min)\b/u', $h)) {
+                    $colTiempo = $i;
+                }
+            }
+            if ($colFase === null || $colTiempo === null) {
+                continue;
+            }
+            $sumandos = [];
+            $declarado = null;
+            foreach ($tabla['filas'] as $f) {
+                $fase = self::plain_lower($f['celdas'][$colFase] ?? '');
+                $min = self::extract_minutes($f['celdas'][$colTiempo] ?? '', true);
+                if ($min === null) {
+                    continue;
+                }
+                if (preg_match('/^(sub\s*total|total|suma)\b/u', $fase)) {
+                    $declarado = $min;
+                } else if (!preg_match('/\bsub\s*-?\s*fase\b/u', $fase)) {
+                    $sumandos[] = $min;
+                }
+            }
+            if (count($sumandos) < 2) {
+                continue;
+            }
+            $suma = array_sum($sumandos);
+            $etiqueta = $tabla['titulo'] !== '' ? $tabla['titulo'] : 'la tabla de fases';
+            if ($declarado !== null && $declarado !== $suma) {
+                $problemas[] = 'Tiempos en «' . $etiqueta . '» (Reglas 4 y 14): las fases suman ' . $suma . ' min ('
+                    . implode(' + ', $sumandos) . '), pero el total declara ' . $declarado . ' min.';
+            }
+            if ($limite > 0 && $suma > $limite) {
+                $problemas[] = 'Tiempos en «' . $etiqueta . '» (Reglas 4 y 14): las fases suman ' . $suma . ' min y superan '
+                    . $nombreLimite . ': ' . $limite . ' min.';
+            }
+        }
+        return array_values(array_unique($problemas));
+    }
+
+    /**
+     * Extrae todas las tablas HTML de un producto con el titulo de seccion mas cercano que las precede, sus encabezados
+     * normalizados y sus filas. Funcion pura.
+     *
+     * @param string $html
+     * @return array[] [['titulo' => string, 'cabecera' => string[], 'filas' => array[]], ...]
+     */
+    public static function parse_tables(string $html): array {
+        if (trim($html) === '' || stripos($html, '<table') === false) {
+            return [];
+        }
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>');
+        libxml_clear_errors();
+        $body = $dom->getElementsByTagName('body')->item(0);
+        if (!$body) {
+            return [];
+        }
+        $tablas = [];
+        $tituloActual = '';
+        $recorrer = static function(\DOMNode $nodo) use (&$recorrer, &$tablas, &$tituloActual): void {
+            foreach ($nodo->childNodes as $el) {
+                if (!$el instanceof \DOMElement) {
+                    continue;
+                }
+                $tag = strtolower($el->nodeName);
+                if (preg_match('/^h[1-6]$/', $tag)) {
+                    $tituloActual = trim(preg_replace('/\s+/u', ' ', $el->textContent));
+                    continue;
+                }
+                if ($tag === 'table') {
+                    $cabecera = [];
+                    $filas = [];
+                    foreach ($el->getElementsByTagName('tr') as $tr) {
+                        $padre = $tr->parentNode;
+                        if ($padre !== $el && ($padre === null || $padre->parentNode !== $el)) {
+                            continue;
+                        }
+                        $celdas = [];
+                        foreach ($tr->childNodes as $c) {
+                            if ($c instanceof \DOMElement && ($c->nodeName === 'td' || $c->nodeName === 'th')) {
+                                $celdas[] = trim(preg_replace('/\s+/u', ' ', $c->textContent));
+                            }
+                        }
+                        if (!$celdas) {
+                            continue;
+                        }
+                        if (!$cabecera) {
+                            $cabecera = array_map([self::class, 'plain_lower'], $celdas);
+                            continue;
+                        }
+                        $mapa = [];
+                        foreach ($celdas as $k => $texto) {
+                            $mapa[$cabecera[$k] ?? (string) $k] = $texto;
+                        }
+                        $filas[] = ['map' => $mapa, 'celdas' => $celdas];
+                    }
+                    if ($cabecera && $filas) {
+                        $tablas[] = ['titulo' => $tituloActual, 'cabecera' => $cabecera, 'filas' => $filas];
+                    }
+                    continue;
+                }
+                if ($el->hasChildNodes()) {
+                    $recorrer($el);
+                }
+            }
+        };
+        $recorrer($body);
+        return $tablas;
+    }
+
+    /**
+     * Convierte un numero escrito en formato chileno o internacional («1.200», «0,20», «330») a float. Funcion pura.
+     *
+     * @param string $raw
+     * @return float|null
+     */
+    private static function parse_number(string $raw): ?float {
+        $t = trim($raw);
+        if ($t === '') {
+            return null;
+        }
+        if (preg_match('/^\d{1,3}(?:\.\d{3})+(?:,\d+)?$/', $t)) {
+            $t = str_replace('.', '', $t);
+        }
+        $t = str_replace(',', '.', $t);
+        return is_numeric($t) ? (float) $t : null;
+    }
+
+    /**
+     * Extrae la duracion en minutos de una celda («30 min», «150», «1 h 30 min», «2 horas»). Devuelve null si es un
+     * rango ambiguo («20-30 min», «09:00-09:30») o no contiene una duracion clara. Funcion pura.
+     *
+     * @param string $texto
+     * @param bool $permiteEnteroSuelto Si un numero sin unidad se interpreta como minutos (columna «Minutos»/«Tiempo»).
+     * @return int|null
+     */
+    private static function extract_minutes(string $texto, bool $permiteEnteroSuelto = true): ?int {
+        $t = self::plain_lower(trim(preg_replace('/\s+/u', ' ', $texto)));
+        if ($t === '' || preg_match('/\d{1,2}\s*:\s*\d{2}/', $t)) {
+            return null;
+        }
+        if (preg_match('/\d+\s*(?:-|–|—|a)\s*\d+\s*(?:min|h)/u', $t)) {
+            return null;
+        }
+        if (preg_match('/^(\d+(?:[.,]\d+)?)\s*(?:h|hr|hrs|hora|horas)\s*(?:y\s*)?(\d+)\s*(?:min|mins|minuto|minutos)\b/u', $t, $m)) {
+            $h = self::parse_number($m[1]);
+            return $h !== null ? (int) round($h * 60 + (int) $m[2]) : null;
+        }
+        if (preg_match('/^(\d+(?:[.,]\d+)?)\s*(?:h|hr|hrs|hora|horas)\b/u', $t, $m)) {
+            $h = self::parse_number($m[1]);
+            return $h !== null ? (int) round($h * 60) : null;
+        }
+        if (preg_match('/^(\d+(?:[.,]\d+)?)\s*(?:min|mins|minuto|minutos)\b/u', $t, $m)) {
+            $min = self::parse_number($m[1]);
+            return $min !== null ? (int) round($min) : null;
+        }
+        if ($permiteEnteroSuelto && preg_match('/^(\d{1,4})$/', $t, $m)) {
+            return (int) $m[1];
+        }
+        return null;
+    }
+
+    /**
+     * Detecta sumas explicitas mal calculadas en el texto o tablas (por ejemplo «30 + 150 + 150 + 30 = 330», cuya suma
+     * real es 360; Reglas 4 y 14). Ignora expresiones con multiplicacion/division o unidades mezcladas para evitar falsos
+     * positivos. Funcion pura.
+     *
+     * @param string $html
+     * @return string[]
+     */
+    public static function arithmetic_expression_issues(string $html): array {
+        $texto = html_entity_decode(strip_tags(preg_replace('#</?(?:p|div|li|tr|td|th|br|h[1-6])\b[^>]*>#i', "\n", $html)),
+            ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $problemas = [];
+        $vistos = [];
+        $patron = '/(?<![\d.,×*÷\/(-])(\d+(?:[.,]\d+)?(?:\s*(?:min(?:utos?)?|pts?|puntos?|%|h))?'
+            . '(?:\s*\+\s*\d+(?:[.,]\d+)?(?:\s*(?:min(?:utos?)?|pts?|puntos?|%|h))?)+)\s*=\s*'
+            . '(\d+(?:[.,]\d+)?)\s*(min(?:utos?)?|pts?|puntos?|%|h)?(?![\d×*÷\/])/iu';
+        foreach (preg_split('/\R/u', $texto) as $linea) {
+            if (strpos($linea, '+') === false || strpos($linea, '=') === false) {
+                continue;
+            }
+            if (!preg_match_all($patron, $linea, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+                continue;
+            }
+            foreach ($matches as $m) {
+                $offset = $m[0][1];
+                $antes = substr($linea, 0, $offset);
+                if (preg_match('/[×*÷\/(-]\s*$/u', $antes)) {
+                    continue;
+                }
+                $izq = $m[1][0];
+                $derRaw = $m[2][0];
+                $unidDer = self::plain_lower(trim($m[3][0] ?? ''));
+                $partes = preg_split('/\s*\+\s*/u', $izq);
+                if (count($partes) < 2) {
+                    continue;
+                }
+                $nums = [];
+                $unidades = [];
+                $valido = true;
+                foreach ($partes as $p) {
+                    if (!preg_match('/^(\d+(?:[.,]\d+)?)\s*(min(?:utos?)?|pts?|puntos?|%|h)?$/iu', trim($p), $pm)) {
+                        $valido = false;
+                        break;
+                    }
+                    $v = self::parse_number($pm[1]);
+                    if ($v === null) {
+                        $valido = false;
+                        break;
+                    }
+                    $nums[] = $v;
+                    $u = self::plain_lower($pm[2] ?? '');
+                    if ($u !== '') {
+                        $unidades[substr($u, 0, 1)] = true;
+                    }
+                }
+                if (!$valido) {
+                    continue;
+                }
+                if ($unidDer !== '') {
+                    $unidades[substr($unidDer, 0, 1)] = true;
+                }
+                if (count($unidades) > 1) {
+                    continue;
+                }
+                $declarado = self::parse_number($derRaw);
+                if ($declarado === null) {
+                    continue;
+                }
+                $real = array_sum($nums);
+                if (abs($real - $declarado) > 0.01) {
+                    $expr = trim(preg_replace('/\s+/u', ' ', $m[0][0]));
+                    $clave = self::plain_lower($expr);
+                    if (isset($vistos[$clave])) {
+                        continue;
+                    }
+                    $vistos[$clave] = true;
+                    $realFmt = (abs($real - round($real)) < 0.001) ? (string) (int) round($real)
+                        : str_replace('.', ',', rtrim(rtrim(number_format($real, 2, '.', ''), '0'), '.'));
+                    $sufijo = $unidDer !== '' ? ' ' . $unidDer : '';
+                    $problemas[] = 'Verificación aritmética (Reglas 4 y 14): aparece el cálculo «' . $expr
+                        . '», pero la suma real es ' . $realFmt . $sufijo . '. Corrige el cálculo desde la tabla.';
+                }
+            }
+        }
+        return $problemas;
+    }
+
+    /**
+     * Detecta inconsistencias de agrupamientos (Regla 6) en las Etapas 2 y 3: (1) subgrupos de tamano impar >= 3
+     * cuando se trabaja en duplas sin explicitar un trio o subgrupos de distinto tamano (p. ej. «9 duplas en 2 subgrupos
+     * de 9 personas»); (2) producto de subgrupos x tamano distinto del total de participantes de la ficha. Funcion pura.
+     *
+     * @param string $html
+     * @param int $participantes Total declarado en la ficha (0 si no se conoce).
+     * @return string[]
+     */
+    public static function grouping_issues(string $html, int $participantes = 0): array {
+        $txt = self::plain_lower(html_entity_decode(strip_tags(preg_replace('#</?(?:p|div|li|tr|td|th|br)\b[^>]*>#i', ' ', $html)),
+            ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $txt = trim(preg_replace('/\s+/u', ' ', $txt));
+        if ($txt === '') {
+            return [];
+        }
+        $problemas = [];
+        $usaDuplas = preg_match('/(?<!\bsin\s)(?<!\bno\s)\b(?:duplas?|parejas?)\b/u', $txt) === 1;
+        $excepcion = preg_match('/\b(?:trios?|distinto tamano|tamanos? distintos?|tamanos? diferentes?|'
+            . 'subgrupo impar|grupo impar|un grupo de \d+ y otro de \d+)\b/u', $txt) === 1;
+
+        $tamVistos = [];
+        if (preg_match_all('/\b(\d+)\s+(?:subgrupos?|grupos?)\s+de\s+(\d+)\s+(?:personas?|participantes?|estudiantes?|aprendices?)\b/u',
+                $txt, $m, PREG_SET_ORDER)) {
+            foreach ($m as $hit) {
+                $nSub = (int) $hit[1];
+                $tam = (int) $hit[2];
+                if ($usaDuplas && !$excepcion && $tam >= 3 && $tam % 2 === 1 && !isset($tamVistos['impar_' . $tam])) {
+                    $tamVistos['impar_' . $tam] = true;
+                    $problemas[] = 'Agrupamientos (Regla 6): se declaran ' . $nSub . ' subgrupos de ' . $tam
+                        . ' personas trabajando en duplas, lo que separa una dupla (' . $tam . ' es impar). Ajusta el '
+                        . 'tamaño de los subgrupos a un número par o explicita la solución (un trío o subgrupos de '
+                        . 'distinto tamaño).';
+                }
+                $esMixto = preg_match('/\b' . $nSub . '\s+(?:subgrupos?|grupos?)\s+de\s+' . $tam
+                    . '\s+(?:personas?|participantes?|estudiantes?|aprendices?)[^.;]{0,35}\by\s+\d+\s+(?:subgrupos?|grupos?|trios?)/u',
+                    $txt) === 1;
+                if ($participantes > 0 && !$excepcion && !$esMixto && $nSub > 0 && $tam > 0
+                        && ($nSub * $tam) !== $participantes && !isset($tamVistos['prod_' . $nSub . '_' . $tam])) {
+                    $tamVistos['prod_' . $nSub . '_' . $tam] = true;
+                    $problemas[] = 'Agrupamientos (Regla 6): ' . $nSub . ' subgrupos de ' . $tam . ' personas suman '
+                        . ($nSub * $tam) . ', pero la ficha declara ' . $participantes . ' participantes. Ajusta los '
+                        . 'agrupamientos o explicita la solución.';
+                }
+            }
+        }
+        if ($usaDuplas && !$excepcion && preg_match_all('/\b(?:subgrupos?|grupos?)\s+de\s+(\d+)\s+'
+                . '(?:personas?|participantes?|estudiantes?|aprendices?)\b/u', $txt, $m2, PREG_SET_ORDER)) {
+            foreach ($m2 as $hit) {
+                $tam = (int) $hit[1];
+                if ($tam >= 3 && $tam % 2 === 1 && !isset($tamVistos['impar_' . $tam])) {
+                    $tamVistos['impar_' . $tam] = true;
+                    $problemas[] = 'Agrupamientos (Regla 6): se declaran subgrupos de ' . $tam
+                        . ' personas trabajando en duplas, lo que separa una dupla (' . $tam . ' es impar). Ajusta el '
+                        . 'tamaño de los subgrupos a un número par o explicita la solución (un trío o subgrupos de '
+                        . 'distinto tamaño).';
+                }
+            }
+        }
+        return $problemas;
+    }
+
+    /**
+     * Revision deterministica de la Etapa 3 (Secuencia instruccional): sumas explicitas erroneas, suma real de minutos
+     * en tablas de actividades vs subtotales/titulos/tiempo asignado (2.3) y deteccion de catalogos propios de materiales
+     * o instrumentos evaluativos listados como materiales (Reglas 1 ampliada, 4 y 14). Funcion pura.
+     *
+     * @param string $html Producto de la Etapa 3.
+     * @param int $tiempoExp Tiempo asignado a la experiencia en la ficha (2.3, en minutos; 0 si se desconoce).
+     * @param int $tiempoTotal Tiempo total disponible en la ficha (2.2, en minutos; 0 si se desconoce).
+     * @return string[]
+     */
+    public static function sequence_issues(string $html, int $tiempoExp = 0, int $tiempoTotal = 0): array {
+        $problemas = self::arithmetic_expression_issues($html);
+
+        if (preg_match_all('#<h[1-6]\b[^>]*>(.*?)</h[1-6]>#isu', $html, $hm)) {
+            foreach ($hm[1] as $ht) {
+                $h = self::plain_lower(html_entity_decode(strip_tags($ht), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                if (preg_match('/\b(catalogo de materiales|catalogo de recursos|lista de produccion)\b/u', $h)) {
+                    $problemas[] = 'Fuente única de materiales (Regla 1 ampliada): la Etapa 3 incluye una sección «'
+                        . trim(strip_tags($ht)) . '». Los materiales instruccionales se definen únicamente en la Etapa 4 '
+                        . 'y los instrumentos de evaluación en la Etapa 5.';
+                    break;
+                }
+            }
+        }
+
+        $tablas = self::parse_tables($html);
+        $sumasActividades = [];
+        foreach ($tablas as $tabla) {
+            $cab = $tabla['cabecera'];
+            if (preg_grep('/^codigo/', $cab) && preg_grep('/material|recurso|insumo/', $cab)
+                    && !preg_grep('/actividad|tiempo|duracion|minutos/', $cab)) {
+                $conInst = false;
+                foreach ($tabla['filas'] as $f) {
+                    $linea = self::plain_lower(implode(' ', $f['celdas']));
+                    if (preg_match('/\bins[\s_-]?\d|\b(rubrica|lista de cotejo|escala de apreciacion|pauta de observacion)\b/u', $linea)) {
+                        $conInst = true;
+                        break;
+                    }
+                }
+                $problemas[] = 'Fuente única (Regla 1 ampliada): la Etapa 3 incluye un catálogo propio de materiales'
+                    . ($conInst ? ' (además mezcla instrumentos evaluativos como INS/pautas/listas de cotejo)' : '')
+                    . '. Los materiales se definen solo en la Etapa 4 y los instrumentos en la Etapa 5.';
+                continue;
+            }
+
+            $colTiempo = null;
+            $esActividad = (bool) preg_grep('/actividad|fase|momento|secuencia|descripcion/', $cab);
+            foreach ($cab as $idx => $h) {
+                if (preg_match('/\b(tiempo|duracion|minutos?|min)\b/u', $h)) {
+                    $colTiempo = $idx;
+                    break;
+                }
+            }
+            if ($colTiempo === null || !$esActividad) {
+                continue;
+            }
+
+            $paralelas = 0;
+            foreach ($tabla['filas'] as $f) {
+                if (preg_match('/\b(en paralelo|simultane[ao]s?)\b/u', self::plain_lower(implode(' ', $f['celdas'])))) {
+                    $paralelas++;
+                }
+            }
+            if ($paralelas >= 2) {
+                continue;
+            }
+
+            $sumandos = [];
+            $noLeibles = 0;
+            $declarado = null;
+            foreach ($tabla['filas'] as $f) {
+                $primera = self::plain_lower($f['celdas'][0] ?? '');
+                $toda = self::plain_lower(implode(' ', $f['celdas']));
+                $celdaTiempo = $f['celdas'][$colTiempo] ?? '';
+                if (preg_match('/^(?:sub\s*total|subtotal|total|suma)\b/u', $primera)
+                        || preg_match('/\b(?:subtotal fase|total fase|total experiencia|tiempo total)\b/u', $toda)) {
+                    $d = self::extract_minutes($celdaTiempo, true);
+                    if ($d !== null) {
+                        $declarado = $d;
+                    }
+                    continue;
+                }
+                $min = self::extract_minutes($celdaTiempo, true);
+                if ($min === null) {
+                    $noLeibles++;
+                } else {
+                    $sumandos[] = $min;
+                }
+            }
+            if ($noLeibles === 0 && count($sumandos) >= 2) {
+                $suma = array_sum($sumandos);
+                $etiqueta = $tabla['titulo'] !== '' ? $tabla['titulo'] : 'la tabla de secuencia';
+                if (preg_grep('/actividad|descripcion/', $cab)) {
+                    $sumasActividades[] = $suma;
+                }
+                if ($declarado !== null && $suma !== $declarado) {
+                    $problemas[] = 'Tiempos en «' . $etiqueta . '» (Reglas 4 y 14): las actividades suman ' . $suma
+                        . ' min (' . implode(' + ', $sumandos) . '), pero el total/subtotal declara ' . $declarado
+                        . ' min. Corrige el tiempo sumando desde la tabla.';
+                } else if ($declarado === null && preg_match('/\(?\s*(\d{2,4})\s*min(?:utos?)?\s*\)?/iu', $tabla['titulo'], $mh)) {
+                    $titMin = (int) $mh[1];
+                    if ($titMin !== $suma) {
+                        $problemas[] = 'Tiempos en «' . $etiqueta . '» (Reglas 4 y 14): las actividades suman ' . $suma
+                            . ' min (' . implode(' + ', $sumandos) . '), pero el título declara ' . $titMin . ' min.';
+                    }
+                }
+            }
+        }
+
+        if ($sumasActividades) {
+            $totalCalculado = array_sum($sumasActividades);
+            if ($tiempoExp > 0 && $totalCalculado > $tiempoExp) {
+                $problemas[] = 'Tiempo total de la secuencia (Reglas 4 y 14): las actividades suman ' . $totalCalculado
+                    . ' min y superan el tiempo asignado a la experiencia en la ficha (' . $tiempoExp . ' min).';
+            } else if ($tiempoExp <= 0 && $tiempoTotal > 0 && $totalCalculado > $tiempoTotal) {
+                $problemas[] = 'Tiempo total de la secuencia (Reglas 4 y 14): las actividades suman ' . $totalCalculado
+                    . ' min y superan el tiempo total disponible en la ficha (' . $tiempoTotal . ' min).';
+            }
+        }
+        return array_values(array_unique($problemas));
+    }
+
+    /**
+     * Revision deterministica de la Etapa 5 (Plan de evaluacion): sumas explicitas, suma de ponderaciones = 100 %,
+     * unidad evaluada individual (Regla 5), columna «Persona que aplica» sin aceptar solo acompanamiento/supervision
+     * (Regla 15), una fila por aplicacion (Regla 17) y coherencia del umbral puntos/%. Funcion pura.
+     *
+     * @param string $html Producto de la Etapa 5.
+     * @param bool $auditoria Si exige las reglas 15 y 17 (interruptor «auditoriam2»).
+     * @return string[]
+     */
+    public static function evaluation_plan_issues(string $html, bool $auditoria = true): array {
+        $problemas = self::arithmetic_expression_issues($html);
+        foreach (self::parse_tables($html) as $tabla) {
+            $cab = $tabla['cabecera'];
+            $esRegistro = (bool) preg_grep('/instrumento|nombre/', $cab)
+                && (bool) preg_grep('/ponderacion|puntaje|umbral|tipo|momento/', $cab);
+            if (!$esRegistro) {
+                continue;
+            }
+            $tieneDetallesRegistro = (bool) preg_grep('/ponderacion|puntaje|umbral/', $cab);
+            $tieneAplicador = (bool) preg_grep('/aplica|responsable|evaluador|quien/', $cab);
+            if ($auditoria && $tieneDetallesRegistro && !$tieneAplicador) {
+                $problemas[] = 'Registro de instrumentos (Regla 15): falta la columna «Persona que aplica» indicando '
+                    . 'quién aplica cada instrumento o parte/estación evaluada («acompañar» no cuenta como aplicar).';
+            }
+            $ponderaciones = [];
+            foreach ($tabla['filas'] as $f) {
+                $row = $f['map'];
+                $primera = self::plain_lower($f['celdas'][0] ?? '');
+                if (preg_match('/^(?:total|suma)\b/u', $primera)) {
+                    continue;
+                }
+                $inst = self::column($row, '/instrumento|nombre/') ?: ($f['celdas'][0] ?? 'Instrumento');
+
+                $pond = self::column($row, '/ponderacion/');
+                if ($pond !== '') {
+                    $pb = self::plain_lower($pond);
+                    if (!preg_match('/\b(formativ|diagnostic|no aplica|n\/a|sin ponder)\b/u', $pb)
+                            && preg_match('/(\d+(?:[.,]\d+)?)\s*%/u', $pb, $mp)) {
+                        $val = self::parse_number($mp[1]);
+                        if ($val !== null && $val > 0) {
+                            $ponderaciones[] = $val;
+                        }
+                    }
+                }
+
+                $unidad = self::column($row, '/unidad/');
+                if ($unidad !== '') {
+                    $ub = self::plain_lower($unidad);
+                    if (preg_match('/\b(duplas?|parejas?|subgrupos?|grupal)\b/u', $ub)
+                            && !preg_match('/\b(individual|persona|participante)\b/u', $ub)) {
+                        $problemas[] = 'Evaluación individual (Regla 5): en «' . $inst . '» la unidad evaluada aparece '
+                            . 'como «' . $unidad . '». Registra y califica las evidencias sumativas por persona y no '
+                            . 'describas la unidad evaluada como «la dupla».';
+                    }
+                }
+
+                if ($auditoria && $tieneAplicador) {
+                    $apl = self::column($row, '/aplica|responsable|evaluador|quien/');
+                    $ab = self::plain_lower($apl);
+                    if ($ab === '' || preg_match('/^(?:—|-|n\/a|sin asignar|sin definir|nadie|por definir)$/u', $ab)) {
+                        $problemas[] = 'Quién aplica el instrumento (Regla 15): «' . $inst . '» no tiene persona '
+                            . 'asignada que lo aplique.';
+                    } else if (preg_match('/\b(acompana|acompanamiento|supervisa|supervision|apoya|apoyo logistico)\b/u', $ab)
+                            && !preg_match('/\b(aplica|evalua|califica|registra)\b/u', $ab)) {
+                        $problemas[] = 'Quién aplica el instrumento (Regla 15): en «' . $inst . '» figura «' . $apl
+                            . '». «Acompañar» o «supervisar» no cuenta como aplicar un instrumento: indica quién aplica '
+                            . 'y registra efectivamente cada parte o estación.';
+                    }
+                }
+
+                if ($auditoria) {
+                    $momento = self::column($row, '/momento/');
+                    if ($momento !== '') {
+                        $mb = self::plain_lower($momento);
+                        $dosMomentos = (preg_match('/\b(inicio|desarrollo|cierre)\b[^,;]{0,25}\b(?:y|\/|;)\s*(?:al\s+|en\s+|el\s+|la\s+)?\b(inicio|desarrollo|cierre)\b/u', $mb, $mm)
+                                && $mm[1] !== $mm[2])
+                            || (preg_match('/\bfase\s*(\d+)\b[^,;]{0,25}\b(?:y|\/|;)\s*\bfase\s*(\d+)\b/u', $mb, $mf)
+                                && $mf[1] !== $mf[2])
+                            || preg_match('/\b(diagnostica|formativa)\b[^,;]{0,20}\b(?:y|\/|;)\s*\bsumativa\b/u', $mb) === 1
+                            || preg_match('/\b(dos\s+(?:momentos|aplicaciones)|2\s+(?:momentos|aplicaciones)|aplicacion\s*1\s*y\s*2)\b/u', $mb) === 1;
+                        if ($dosMomentos) {
+                            $problemas[] = 'Una fila por aplicación (Regla 17): «' . $inst . '» declara varios '
+                                . 'momentos de aplicación en la misma fila («' . $momento . '»). Registra cada aplicación '
+                                . 'en una fila separada.';
+                        }
+                    }
+                }
+
+                $maxStr = self::column($row, '/puntaje/');
+                $umbStr = self::column($row, '/umbral/');
+                if ($maxStr !== '' && $umbStr !== ''
+                        && preg_match('/(\d+(?:[.,]\d+)?)/', $maxStr, $mMax)
+                        && preg_match('/(\d+)\s*(?:pts?|puntos?)/iu', $umbStr, $mPts)
+                        && preg_match('/(\d+(?:[.,]\d+)?)\s*%/u', $umbStr, $mPct)) {
+                    $maxPts = self::parse_number($mMax[1]);
+                    $umbPts = (int) $mPts[1];
+                    $umbPct = self::parse_number($mPct[1]);
+                    if ($maxPts !== null && $maxPts > 0 && $umbPct !== null && $umbPct > 0 && $umbPct <= 100) {
+                        $esperado = (int) ceil(($maxPts * $umbPct / 100.0) - 0.0001);
+                        if (abs($umbPts - $esperado) >= 2) {
+                            $problemas[] = 'Umbral de aprobación (Regla 4): en «' . $inst . '», ' . $umbPct
+                                . ' % de ' . (int) round($maxPts) . ' pts corresponde a ' . $esperado
+                                . ' pts (redondeado hacia arriba), pero se declaran ' . $umbPts . ' pts.';
+                        }
+                    }
+                }
+            }
+            if (count($ponderaciones) >= 2) {
+                $sumaPond = array_sum($ponderaciones);
+                if (abs($sumaPond - 100.0) > 0.5) {
+                    $problemas[] = 'Ponderaciones en la Etapa 5 (Regla 4): las ponderaciones sumativas del registro '
+                        . 'suman ' . rtrim(rtrim(number_format($sumaPond, 1, ',', ''), '0'), ',')
+                        . ' % en lugar de 100 %.';
+                }
+            }
+        }
+        return array_values(array_unique($problemas));
+    }
+
+    /**
+     * Revision deterministica de la Etapa 6 (Instrumentos evaluativos): sumas explicitas (Reglas 4 y 14), equivalencia
+     * a los cuatro niveles de la ficha de implementacion del Modulo 3 (Regla 10) y unidad evaluada individual (Regla 5).
+     * Funcion pura.
+     *
+     * @param string $html Producto de la Etapa 6.
+     * @return string[]
+     */
+    public static function instruments_issues(string $html): array {
+        $problemas = self::arithmetic_expression_issues($html);
+        $plano = self::plain_lower(html_entity_decode(strip_tags(
+            preg_replace('#</?(?:p|div|li|tr|td|th|br|h[1-6])\b[^>]*>#i', ' ', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if (trim($plano) === '') {
+            return $problemas;
+        }
+        $nivelesFaltantes = [];
+        foreach (['insuficiente' => 'Insuficiente', 'basico' => 'Básico', 'adecuado' => 'Adecuado', 'avanzado' => 'Avanzado']
+                as $clave => $etiqueta) {
+            if (!preg_match('/\b' . $clave . '\b/u', $plano)) {
+                $nivelesFaltantes[] = $etiqueta;
+            }
+        }
+        if ($nivelesFaltantes && (stripos($html, '<table') !== false || stripos($html, '<h3') !== false)) {
+            $problemas[] = 'Equivalencia de niveles (Regla 10): faltan niveles de la ficha del Módulo 3 ('
+                . implode(', ', $nivelesFaltantes) . '). Incluye en cada instrumento la regla de equivalencia a '
+                . 'Insuficiente, Básico, Adecuado y Avanzado.';
+        }
+        if (preg_match('/unidad evaluada\s*:\s*([^\n<]{1,60})/iu',
+                self::plain_lower(html_entity_decode(strip_tags(preg_replace('#</?(?:p|li|br|tr|td|th)\b[^>]*>#i', "\n", $html)),
+                    ENT_QUOTES | ENT_HTML5, 'UTF-8')), $mu)) {
+            if (preg_match('/\b(la dupla|dupla|pareja|subgrupo)\b/u', $mu[1])
+                    && !preg_match('/\b(individual|persona|participante)\b/u', $mu[1])) {
+                $problemas[] = 'Evaluación individual (Regla 5): aparece «Unidad evaluada: ' . trim($mu[1])
+                    . '». Registra y califica el desempeño por persona.';
+            }
+        }
+        return array_values(array_unique($problemas));
+    }
+
+    /**
+     * Revision deterministica unificada de una etapa (2 a 6). Funcion pura.
+     *
+     * @param int $etapa 1 a 6.
+     * @param string $html Producto normalizado de la etapa.
+     * @param array $ficha Datos limpios de la ficha (participantes, tiempo_experiencia, tiempo_total).
+     * @param bool $auditoria Activa las reglas 14 a 17 y controles ampliados.
+     * @return string[]
+     */
+    public static function stage_issues(int $etapa, string $html, array $ficha = [], bool $auditoria = true): array {
+        // Solo el diseno vigente: sin el registro de ajustes ni el anexo de consistencia (describen cambios).
+        $html = self::without_change_log($html);
+        if (trim(strip_tags($html)) === '') {
+            return [];
+        }
+        $participantes = (int) preg_replace('/\D+/', '', (string) ($ficha['participantes'] ?? ''));
+        $tiempoExp = (int) preg_replace('/\D+/', '', (string) ($ficha['tiempo_experiencia'] ?? ''));
+        $tiempoTotal = (int) preg_replace('/\D+/', '', (string) ($ficha['tiempo_total'] ?? ''));
+        $lista = [];
+        if ($etapa === 2) {
+            $lista = array_merge(self::phase_time_issues($html, $tiempoExp, $tiempoTotal),
+                self::grouping_issues($html, $participantes));
+        } else if ($etapa === 3) {
+            $lista = array_merge(self::sequence_issues($html, $tiempoExp, $tiempoTotal),
+                self::grouping_issues($html, $participantes));
+        } else if ($etapa === 4) {
+            $lista = array_merge(self::production_issues($html), self::arithmetic_expression_issues($html));
+        } else if ($etapa === 5) {
+            $lista = self::evaluation_plan_issues($html, $auditoria);
+        } else if ($etapa === 6) {
+            $lista = self::instruments_issues($html);
+        }
+        return array_values(array_unique($lista));
+    }
+
+    /**
+     * Hallazgos objetivos verificados por el codigo PHP a lo largo de las Etapas 2 a 6 (para la auditoria independiente
+     * de la Etapa 7 y la Etapa 8). Incluye tambien cruces de codigos de materiales entre la Etapa 4 y las Etapas 3 y 5.
+     * Funcion pura.
+     *
+     * @param string[] $contenidos Numero de etapa (1 a 6) => HTML aceptado.
+     * @param array $ficha Datos limpios de la ficha.
+     * @return string[]
+     */
+    public static function design_audit_facts(array $contenidos, array $ficha = []): array {
+        $hallazgos = [];
+        foreach ([2, 3, 4, 5, 6] as $n) {
+            if (empty($contenidos[$n])) {
+                continue;
+            }
+            $norm = self::normalize_product((string) $contenidos[$n]);
+            foreach (self::stage_issues($n, $norm, $ficha, true) as $prob) {
+                $hallazgos[] = 'Etapa ' . $n . ' — ' . $prob;
+            }
+        }
+        if (!empty($contenidos[4])) {
+            $definidos = [];
+            foreach (self::production_rows(self::normalize_product((string) $contenidos[4])) as $fila) {
+                $cod = strtoupper(trim(self::column($fila, '/^codigo/')));
+                if (preg_match('/^M(\d{1,2})$/', $cod)) {
+                    $definidos[$cod] = true;
+                }
+            }
+            if ($definidos) {
+                foreach ([3, 5] as $n) {
+                    if (empty($contenidos[$n])) {
+                        continue;
+                    }
+                    $plano = html_entity_decode(strip_tags(preg_replace('#</?(?:p|div|li|tr|td|th|br|h[1-6])\b[^>]*>#i', ' ',
+                        (string) $contenidos[$n])), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    if (preg_match_all('/(?:(?:material|c[oó]digo)\s+)?\b(M(\d{1,2}))\b/u', $plano, $mc, PREG_SET_ORDER)) {
+                        foreach ($mc as $hit) {
+                            $cod = $hit[1];
+                            $num = (int) $hit[2];
+                            $conPrefijo = stripos($hit[0], 'material') !== false || stripos($hit[0], 'c') === 0;
+                            if (!isset($definidos[$cod]) && ($conPrefijo || $num > 3)) {
+                                $hallazgos[] = 'Etapa ' . $n . ' — Referencia a material inexistente (Regla 13): cita «'
+                                    . $cod . '», que no figura en la lista de producción de la Etapa 4 ('
+                                    . implode(', ', array_keys($definidos)) . ').';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return array_values(array_unique($hallazgos));
     }
 
     private static function column(array $fila, string $columna): string {
@@ -2748,7 +3833,7 @@ class diseno {
             return self::evaluate($fila, $ficha, (int) $val->fichaid, $informe);
         }
         if ((int) $fila->etapa === self::CONSOLIDACION) {
-            return self::consolidate_ai($fila);
+            return self::consolidate_ai($fila, $ficha);
         }
 
         $previas = [];
@@ -2775,7 +3860,8 @@ class diseno {
         $buscar = exante::web_search_available();
         $prompt = self::build_prompt((int) $fila->etapa, pseudonymizer::scrub(exante::to_text($ficha)), $informe,
             $previas, $etiquetas, $actual, (string) $fila->ajustes, $libreria !== '', $buscar, $control, $posteriores,
-            $control ? userdate(time(), '%d-%m-%Y') : '', ux::on('reglasconsistencia'), ux::on('reglasproduccion'));
+            $control ? userdate(time(), '%d-%m-%Y') : '', ux::on('reglasconsistencia'), ux::on('reglasproduccion'),
+            ux::on('auditoriam2'));
         $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
             ux::on('libreriaruta'))]];
 
@@ -2802,7 +3888,7 @@ class diseno {
      * @param \stdClass $fila Fila de la etapa 7.
      * @return array [estado de la generacion, campos a guardar].
      */
-    private static function consolidate_ai(\stdClass $fila): array {
+    private static function consolidate_ai(\stdClass $fila, array $ficha = []): array {
         $filas = self::get_by_ficha((int) $fila->fichaid);
         $etapas = [];
         foreach (array_keys(self::etapas()) as $n) {
@@ -2812,20 +3898,55 @@ class diseno {
             $etapas[$n] = (string) $filas[$n]->contenido;
         }
         $huella = self::stages_fingerprint($filas);
+        $control = ux::on('controlcambios');
+        $consistencia = ux::on('reglasconsistencia');
+        $produccion = ux::on('reglasproduccion');
+        $auditoria = ux::on('auditoriam2');
+
         $contenido = [['role' => 'user', 'parts' => [['text' => self::build_consolidation_prompt($etapas,
-            ux::on('controlcambios'), ux::on('reglasconsistencia'), ux::on('reglasproduccion'))]]]];
+            $control, $consistencia, $produccion, $auditoria)]]]];
         $modelo = ai\provider_factory::get_configured_model();
-        $resultado = exante::generate_steady($contenido, 600, $modelo);
+        $resultado = exante::generate_steady($contenido, $auditoria ? 480 : 600, $modelo);
         if (isset($resultado['error'])) {
             return [exante::ERROR, ['error' => 'servicio']];
         }
         $markdown = self::clean_markdown(gemini_client::extract_text($resultado));
         $fin = $resultado['candidates'][0]['finishReason'] ?? null;
-        if ($markdown === '' || !self::consolidation_complete($markdown, $etapas, $fin)) {
+        $completa = $markdown !== '' && self::consolidation_complete($markdown, $etapas, $fin);
+        if (!$completa && !($control && $auditoria)) {
             return [exante::ERROR, ['error' => 'incompleta']];
         }
-        // Queda como borrador: la persona la revisa y la confirma (o confirma la consolidacion completa por codigo).
-        return [exante::LISTO, ['contenido' => self::product_html($markdown),
+        // Si la consolidacion larga se corto pero corre la auditoria independiente, conservamos las 6 etapas completas
+        // por codigo y adjuntamos el anexo de auditoria verificada para no bloquear a la persona facilitadora.
+        $docHtml = $completa ? self::product_html($markdown) : self::consolidate($etapas);
+
+        if ($control && $auditoria) {
+            $hallazgosPhp = self::design_audit_facts($etapas, $ficha);
+            $auditPrompt = self::build_audit_prompt($etapas, $ficha, $consistencia, $produccion, $hallazgosPhp);
+            $anexoHtml = '';
+            for ($intento = 0; $intento < 2; $intento++) {
+                $resAudit = exante::generate_steady([['role' => 'user', 'parts' => [['text' => $auditPrompt]]]],
+                    240, $modelo);
+                if (isset($resAudit['error'])) {
+                    continue;
+                }
+                $mdAudit = self::clean_markdown(gemini_client::extract_text($resAudit));
+                if ($mdAudit !== '') {
+                    $candidato = self::product_html($mdAudit);
+                    if (self::has_consistency_annex($candidato)) {
+                        $anexoHtml = $candidato;
+                        break;
+                    }
+                }
+            }
+            if ($anexoHtml === '') {
+                return [exante::ERROR, ['error' => 'auditoria']];
+            }
+            $docHtml = self::replace_consistency_annex($docHtml, $anexoHtml);
+        }
+
+        // Queda como borrador: la persona la revisa y la confirma.
+        return [exante::LISTO, ['contenido' => $docHtml,
             'estado' => self::BORRADOR, 'huella' => $huella, 'modelo' => (string) $modelo,
             'promptversion' => self::PROMPT_VERSION, 'error' => null]];
     }
@@ -2848,10 +3969,22 @@ class diseno {
         [$partes, $etiquetas] = exante::attachment_parts($fichaid);
         $libreria = exante::role_library('e8', (string) ($ficha['nivel'] ?? ''));
         $buscar = exante::web_search_available();
+        $inconsistencias = [];
+        if (ux::on('controlcambios')) {
+            $etapasHtml = array_map(static fn($f) => (string) $f->contenido,
+                array_intersect_key(self::get_by_ficha((int) $fila->fichaid), self::etapas()));
+            $inconsistencias = self::accepted_inconsistencies($etapasHtml);
+            if (ux::on('auditoriam2')) {
+                $inconsistencias = array_values(array_unique(array_merge(
+                    $inconsistencias,
+                    self::inconsistencies(self::normalize_product((string) $c->contenido)),
+                    self::design_audit_facts($etapasHtml, $ficha)
+                )));
+            }
+        }
         $prompt = self::build_eval_prompt(html_to_text((string) $c->contenido, 0, false),
             pseudonymizer::scrub(exante::to_text($ficha)), $etiquetas, $libreria !== '', $buscar, $validacion,
-            ux::on('controlcambios'), ux::on('controlcambios') ? self::accepted_inconsistencies(array_map(
-                static fn($f) => (string) $f->contenido, array_intersect_key(self::get_by_ficha((int) $fila->fichaid), self::etapas()))) : []);
+            ux::on('controlcambios'), $inconsistencias);
         $contenido = [['role' => 'user', 'parts' => exante::request_parts($prompt, $partes, $libreria,
             ux::on('libreriaruta'))]];
         $modelo = ai\provider_factory::get_configured_model();

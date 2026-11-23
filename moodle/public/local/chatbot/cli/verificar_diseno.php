@@ -861,8 +861,8 @@ $pe8cc = diseno::build_eval_prompt('D', 'F', [], false, false, [], true);
 local_chatbot_verificar(strpos($pe8cc, 'INCONSISTENCIAS ACEPTADAS') !== false && strpos($pe8cc, 'sin modificar la rúbrica') !== false
     && strpos(diseno::build_eval_prompt('D', 'F', []), 'INCONSISTENCIAS ACEPTADAS') === false,
     'la etapa 8 considera las inconsistencias aceptadas en debilidades, recomendaciones y puntaje, sin cambiar la rúbrica');
-local_chatbot_verificar(diseno::PROMPT_VERSION === 'M2-F2-etapas-v14' && diseno::prompt_number(diseno::PROMPT_VERSION) >= diseno::PROMPT_CIERRE,
-    'la versión del prompt sube a la v14 y mantiene el cierre de cada etapa');
+local_chatbot_verificar(diseno::PROMPT_VERSION === 'M2-F2-etapas-v15' && diseno::prompt_number(diseno::PROMPT_VERSION) >= diseno::PROMPT_CIERRE,
+    'la versión del prompt sube a la v15 y mantiene el cierre de cada etapa');
 
 // Lectores de las tablas: lo que la página avisa.
 $registro = '<h3>Registro de ajustes</h3><table><thead><tr><th>Etapa de origen</th><th>Cambio realizado</th><th>Etapas afectadas</th>'
@@ -1144,6 +1144,34 @@ local_chatbot_verificar(count($prob4) === 3
     && count(diseno::production_rows($lista4)) === 6 && diseno::production_issues('<p>Sin tabla</p>') === [],
     'la revisión de la lista de producción detecta materiales que combinan modos y Modo A con archivo descargable; los correctos pasan');
 
+// Revisión en código: sin el registro de ajustes (falso positivo del 23-11-2026 en la Etapa 3 del cliente) y tiempos en
+// la Etapa 2.
+$e3reg = '<h2>Etapa 3</h2><p>El grupo de 20 personas se organiza en 5 subgrupos de 4 integrantes, que trabajan en duplas.</p>'
+    . '<h3>Registro de ajustes</h3><table><tr><th>Etapa de origen</th><th>Cambio realizado</th></tr>'
+    . '<tr><td>Etapa 2</td><td>Reorganización de 4 subgrupos de 5 personas a 5 subgrupos de 4 personas</td></tr></table>'
+    . '<h3>Registro de vacíos de información y propuestas de solución</h3><p>Sin vacíos.</p>';
+local_chatbot_verificar(diseno::stage_issues(3, $e3reg, ['participantes' => '20']) === []
+    && strpos(diseno::without_change_log($e3reg), 'Registro de vacíos') !== false
+    && strpos(diseno::without_change_log($e3reg), '4 subgrupos de 5') === false
+    && count(diseno::stage_issues(3, str_replace('5 subgrupos de 4 integrantes', '4 subgrupos de 5 personas', $e3reg),
+        ['participantes' => '20'])) === 1,
+    'la revisión en código no lee el registro de ajustes (describe cambios), pero sí el diseño vigente');
+$e2 = '<h2>Etapa 2</h2><h4>1. Momento de inicio (60 minutos)</h4><p>x</p><h4>2. Momento de desarrollo (420 minutos)</h4>'
+    . '<h4>Sub-fase 2.1 (120 min)</h4><h4>3. Momento de cierre (60 minutos)</h4>';
+local_chatbot_verificar(diseno::stage_issues(2, $e2, ['tiempo_experiencia' => '540']) === []
+    && strpos(implode(' ', diseno::stage_issues(2, $e2, ['tiempo_experiencia' => '480'])), 'las fases suman 540 min (60 + 420 + 60)') !== false
+    && strpos(implode(' ', diseno::stage_issues(2, '<p>Inicio 30 + desarrollo 150 + 150 + cierre 30.</p><p>Total: 30 + 150 + 150 + 30 = 330 min</p>',
+        ['tiempo_experiencia' => '540'])), 'la suma real es 360') !== false,
+    'la Etapa 2 suma los tiempos de sus fases (sin las subfases) contra la ficha y detecta sumas escritas mal');
+$e2t = '<h3>Fases</h3><table><tr><th>Fase</th><th>Tiempo</th></tr><tr><td>Inicio</td><td>60 min</td></tr>'
+    . '<tr><td>Desarrollo</td><td>420 min</td></tr><tr><td>Cierre</td><td>60 min</td></tr><tr><td>Total</td><td>500 min</td></tr></table>';
+local_chatbot_verificar(strpos(implode(' ', diseno::stage_issues(2, $e2t, ['tiempo_experiencia' => '540'])),
+    'las fases suman 540 min (60 + 420 + 60), pero el total declara 500 min') !== false,
+    'la Etapa 2 compara la suma de su tabla de fases con el total declarado');
+$p2 = diseno::build_prompt(2, 'F', [], [1 => 'E1'], [], '', '', false, false, true, [], '23-11-2026', true, true, true);
+local_chatbot_verificar(strpos($p2, 'REGLA 4. VERIFICACIÓN ARITMÉTICA') !== false && strpos($p2, 'REGLA 14. CÁLCULO ASCENDENTE') !== false,
+    'la Etapa 2, que define los tiempos por fase, recibe las reglas 4 y 14');
+
 // Etapa 7: fila «Producción de materiales» + catálogo de referencia solo cuando control + producción están activos.
 $pc7mp = diseno::build_consolidation_prompt([1 => '<p>A</p>', 4 => '<p>M</p>'], true, true, true);
 $pc7mpSinRc = diseno::build_consolidation_prompt([1 => '<p>A</p>', 4 => '<p>M</p>'], true, false, true);
@@ -1167,6 +1195,180 @@ $consistenciaProd = '<h1>Anexo: Verificación de consistencia entre etapas y reg
 local_chatbot_verificar(diseno::inconsistencies($consistenciaProd) === [
     'Producción de materiales: M2 mezcla Modo B y Modo C en Etapa 4',
 ], 'inconsistencies() reporta también la fila «Producción de materiales» del bloque 9');
+
+// --- Mejora integral de consistencia del 23-11-2026 (M1-v1.29.0, interruptor «auditoriam2»):
+// reglas 14 a 17, prompt desfragmentado por etapa, validación determinística en PHP y auditoría obligatoria en Etapa 7 ---
+
+// 1. Prompt desfragmentado por etapa + Reglas 14 a 17 + Ampliación Regla 1 + Formatos cerrados.
+$pa1 = diseno::build_prompt(1, 'F', [], [], [], '', '', false, false, true, [], '23-11-2026', true, true, true);
+$pa2 = diseno::build_prompt(2, 'F', [], [1 => 'E1'], [], '', '', false, false, true, [], '23-11-2026', true, true, true);
+$pa3 = diseno::build_prompt(3, 'F', [], [1 => 'E1', 2 => 'E2'], [], '', '', false, false, true, [], '23-11-2026', true, true, true);
+$pa4 = diseno::build_prompt(4, 'F', [], [1 => 'E1', 2 => 'E2', 3 => 'E3'], [], '', '', false, false, true, [], '23-11-2026', true, true, true);
+$pa5 = diseno::build_prompt(5, 'F', [], [1 => 'E1', 2 => 'E2', 3 => 'E3', 4 => 'E4'], [], '', '', false, false, true, [], '23-11-2026', true, true, true);
+$pa6 = diseno::build_prompt(6, 'F', [], [1 => 'E1', 2 => 'E2', 3 => 'E3', 4 => 'E4', 5 => 'E5'], [], '', '', false, false, true, [], '23-11-2026', true, true, true);
+
+local_chatbot_verificar(strpos($pa1, 'REGLA 8. VACÍOS') !== false && strpos($pa1, 'REGLA 9. NUMERACIÓN') !== false
+    && strpos($pa1, 'REGLA 2. REGISTRO DE INSTRUMENTOS') === false && strpos($pa1, 'REGLA 10. COMPATIBILIDAD') === false,
+    'prompt desfragmentado: Etapa 1 recibe solo sus reglas (8 y 9), sin ruido de instrumentos ni Módulo 3');
+local_chatbot_verificar(strpos($pa2, 'REGLA 6. COHERENCIA DE LOS AGRUPAMIENTOS') !== false
+    && strpos($pa2, 'REGLA 7. FACTIBILIDAD DE LA OBSERVACIÓN') !== false
+    && strpos($pa2, 'REGLA 10. COMPATIBILIDAD') === false,
+    'prompt desfragmentado: Etapa 2 recibe reglas 1, 6, 7, 8 y 9');
+local_chatbot_verificar(strpos($pa3, 'REGLA 14. CÁLCULO ASCENDENTE') !== false
+    && strpos($pa3, 'REGLA 16. ACTIVIDADES CON VARIAS TAREAS') !== false
+    && strpos($pa3, 'La Etapa 3 no puede incluir un catálogo propio de materiales') !== false
+    && strpos($pa3, 'REGLA 10. COMPATIBILIDAD') === false && strpos($pa3, 'REGLA 17.') === false,
+    'prompt desfragmentado: Etapa 3 recibe Reglas 14, 16 y ampliación de Regla 1 (sin catálogo propio de materiales)');
+local_chatbot_verificar(strpos($pa4, 'FORMATOS DE SALIDA CERRADOS:') !== false
+    && strpos($pa4, '«Markdown» o «tabla Markdown» es una forma de escribir el texto') !== false
+    && strpos($pa4, 'REGLA 11. MATERIALES PRODUCIBLES CON IA') !== false
+    && strpos($pa4, 'REGLA 17.') === false,
+    'prompt desfragmentado: Etapa 4 recibe formatos de salida cerrados además de Bloques 7, 8 y 9');
+local_chatbot_verificar(strpos($pa5, 'REGLA 15. QUIÉN APLICA CADA INSTRUMENTO') !== false
+    && strpos($pa5, 'columna «Persona que aplica»') !== false
+    && strpos($pa5, '«Acompañar» o «supervisar» no cuenta como aplicar') !== false
+    && strpos($pa5, 'REGLA 17. UNA FILA POR APLICACIÓN') !== false
+    && strpos($pa5, 'REGLA 14. CÁLCULO ASCENDENTE') !== false,
+    'prompt desfragmentado: Etapa 5 recibe Reglas 14, 15 (Persona que aplica) y 17 (una fila por aplicación)');
+local_chatbot_verificar(strpos($pa6, 'REGLA 10. COMPATIBILIDAD') !== false
+    && strpos($pa6, 'REGLA 14. CÁLCULO ASCENDENTE') !== false
+    && strpos($pa6, 'REGLA 15. QUIÉN APLICA CADA INSTRUMENTO') !== false
+    && strpos($pa6, 'REGLA 16.') === false,
+    'prompt desfragmentado: Etapa 6 recibe Reglas 10, 14 y 15 sin reglas ajenas');
+
+// 2. Validador aritmético explícito (caso real de Roberto: «30 + 150 + 150 + 30 = 330»).
+$errArit = diseno::arithmetic_expression_issues('<p>Verificación Fase 3: 30 + 150 + 150 + 30 = 330 min.</p><p>Ponderación: 20% + 30% + 40% = 100%.</p>');
+local_chatbot_verificar(count($errArit) === 2
+    && strpos($errArit[0], '30 + 150 + 150 + 30 = 330 min') !== false && strpos($errArit[0], '360 min') !== false
+    && strpos($errArit[1], '90 %') !== false,
+    'arithmetic_expression_issues() detecta sumas mal calculadas como «30 + 150 + 150 + 30 = 330» y «20% + 30% + 40% = 100%»');
+local_chatbot_verificar(diseno::arithmetic_expression_issues('<p>30 + 150 + 150 + 30 = 360 min. Fórmula: (% Inst. 1 × 0,20) + (% Inst. 2 × 0,80) = 100 %. 1 h + 30 min = 90 min.</p>') === [],
+    'arithmetic_expression_issues() no genera falsos positivos con sumas correctas, fórmulas con × ni unidades mixtas');
+
+// 3. Coherencia de agrupamientos (caso real de Roberto: «9 duplas en 2 subgrupos de 9 personas» con 18 participantes).
+$errGrup = diseno::grouping_issues('<p>El curso se organiza en 9 duplas distribuidas en 2 subgrupos de 9 personas.</p>', 18);
+local_chatbot_verificar(count($errGrup) === 1 && strpos($errGrup[0], 'separa una dupla (9 es impar)') !== false,
+    'grouping_issues() detecta subgrupos de 9 personas trabajando en duplas (Regla 6)');
+local_chatbot_verificar(diseno::grouping_issues('<p>El curso de 18 participantes se organiza en 8 duplas y 1 trío (subgrupos de distinto tamaño).</p>', 18) === []
+    && diseno::grouping_issues('<p>El curso se organiza en 10 duplas en 2 subgrupos de 10 personas.</p>', 20) === []
+    && diseno::grouping_issues('<p>Trabajan en 5 subgrupos de 3 personas (sin parejas).</p>', 15) === [],
+    'grouping_issues() acepta agrupamientos pares, excepciones explícitas con trío y subgrupos impares sin duplas');
+$errGrupProd = diseno::grouping_issues('<p>Se forman 4 subgrupos de 5 personas para las estaciones.</p>', 18);
+local_chatbot_verificar(count($errGrupProd) === 1 && strpos($errGrupProd[0], 'suman 20, pero la ficha declara 18') !== false,
+    'grouping_issues() detecta cuando subgrupos × tamaño no coincide con el total de participantes de la ficha');
+
+// 4. Etapa 3: suma real en tabla de actividades + catálogo propio de materiales con INS-01/INS-02.
+$etapa3Mala = '<h3>Fase 3: Desarrollo (330 min)</h3><table><tr><th>Actividad</th><th>Descripción</th><th>Tiempo (min)</th></tr>'
+    . '<tr><td>3.1</td><td>Preparación</td><td>30 min</td></tr>'
+    . '<tr><td>3.2</td><td>Estación A</td><td>150 min</td></tr>'
+    . '<tr><td>3.3</td><td>Estación B</td><td>150 min</td></tr>'
+    . '<tr><td>3.4</td><td>Plenario</td><td>30 min</td></tr>'
+    . '<tr><td>Subtotal Fase 3</td><td></td><td>330 min</td></tr></table>'
+    . '<h3>Catálogo de materiales y recursos</h3><table><tr><th>Código</th><th>Material</th></tr>'
+    . '<tr><td>INS-01</td><td>Pauta de observación</td></tr><tr><td>INS-02</td><td>Lista de cotejo</td></tr></table>';
+$errSeq = diseno::sequence_issues($etapa3Mala, 330, 600);
+local_chatbot_verificar(count($errSeq) >= 3
+    && strpos(implode("\n", $errSeq), 'suman 360 min (30 + 150 + 150 + 30), pero el total/subtotal declara 330 min') !== false
+    && strpos(implode("\n", $errSeq), 'superan el tiempo asignado a la experiencia en la ficha (330 min)') !== false
+    && strpos(implode("\n", $errSeq), 'catálogo propio de materiales') !== false,
+    'sequence_issues() detecta suma real de actividades (360 vs 330), exceso sobre ficha 2.3 y catálogo con INS-01/INS-02');
+$etapa3Ok = '<h3>Fase 1: Inicio (60 min)</h3><table><tr><th>Actividad</th><th>Recursos</th><th>Tiempo</th></tr>'
+    . '<tr><td>1.1</td><td>M1 · Guía</td><td>20 min</td></tr>'
+    . '<tr><td>1.2</td><td>M1 · Guía</td><td>40 min</td></tr>'
+    . '<tr><td>Subtotal</td><td></td><td>60 min</td></tr></table>';
+local_chatbot_verificar(diseno::sequence_issues($etapa3Ok, 360, 600) === [],
+    'sequence_issues() pasa en limpio una secuencia bien sumada sin catálogo propio');
+
+// 5. Etapa 4: formatos prohibidos («tabla Markdown», herramienta externa) e instrumentos colados (INS-01, pauta).
+$lista4Extra = '<table><tr><th>Código</th><th>Material</th><th>Fase</th><th>Tipo</th><th>Modo de producción</th><th>Formato de salida</th></tr>'
+    . '<tr><td>M1</td><td>Guía práctica</td><td>F1</td><td>Tipo 1</td><td>Modo A</td><td>Tabla Markdown</td></tr>'
+    . '<tr><td>M2</td><td>Presentación interactiva en Genially</td><td>F2</td><td>Tipo 2</td><td>Modo B</td><td>Genially</td></tr>'
+    . '<tr><td>INS-01</td><td>Pauta de observación Estación A</td><td>F2</td><td>Tipo 1</td><td>Modo B</td><td>Word (.docx)</td></tr>'
+    . '<tr><td>M3</td><td>Taller equipado</td><td>F2</td><td>Físico</td><td>Organismo ejecutor</td><td>Presencial</td></tr>'
+    . '<tr><td>M4</td><td>Cuaderno de casos</td><td>F2</td><td>Tipo 1</td><td>Modo B</td><td>Word (.docx) editable</td></tr></table>';
+$prob4Extra = diseno::production_issues($lista4Extra);
+local_chatbot_verificar(count($prob4Extra) === 4
+    && strpos($prob4Extra[0], 'Tabla Markdown') !== false
+    && strpos($prob4Extra[1], 'herramienta o plataforma externa') !== false
+    && strpos($prob4Extra[2], 'es un instrumento de evaluación') !== false
+    && strpos($prob4Extra[3], 'no declara un modo válido del catálogo') !== false,
+    'production_issues() detecta «Tabla Markdown», herramientas externas, instrumentos INS-01 y filas sin modo A/B/C');
+
+// 6. Etapa 5: ponderaciones != 100%, «la dupla», «acompaña» != aplica (Regla 15), dos momentos en 1 fila (Regla 17), umbral.
+$etapa5Mala = '<h3>Registro de instrumentos</h3><table><tr><th>N°</th><th>Instrumento</th><th>Momento</th><th>Unidad evaluada</th>'
+    . '<th>Persona que aplica</th><th>Puntaje máximo</th><th>Umbral</th><th>Ponderación</th></tr>'
+    . '<tr><td>INS-01</td><td>Prueba diagnóstica/final</td><td>Inicio y Cierre</td><td>Persona</td><td>Persona facilitadora</td><td>20 pts</td><td>10 pts (75%)</td><td>40%</td></tr>'
+    . '<tr><td>INS-02</td><td>Pauta Estación B</td><td>Desarrollo</td><td>La dupla</td><td>Instructor técnico acompaña</td><td>30 pts</td><td>21 pts (70%)</td><td>50%</td></tr></table>';
+$errE5 = diseno::evaluation_plan_issues($etapa5Mala, true);
+$txtE5 = implode("\n", $errE5);
+local_chatbot_verificar(strpos($txtE5, 'Una fila por aplicación (Regla 17)') !== false
+    && strpos($txtE5, 'Umbral de aprobación (Regla 4)') !== false
+    && strpos($txtE5, 'Evaluación individual (Regla 5)') !== false
+    && strpos($txtE5, '«Acompañar» o «supervisar» no cuenta como aplicar') !== false
+    && strpos($txtE5, 'suman 90 % en lugar de 100 %') !== false,
+    'evaluation_plan_issues() detecta Regla 17 (dos momentos), Regla 15 (acompaña != aplica), Regla 5 (la dupla) y Regla 4 (ponderación/umbral)');
+$etapa5SinCol = '<table><tr><th>Instrumento</th><th>Puntaje máximo</th><th>Ponderación</th></tr>'
+    . '<tr><td>INS-01</td><td>20</td><td>50%</td></tr><tr><td>INS-02</td><td>20</td><td>50%</td></tr></table>';
+local_chatbot_verificar(strpos(implode("\n", diseno::evaluation_plan_issues($etapa5SinCol, true)), 'falta la columna «Persona que aplica»') !== false,
+    'evaluation_plan_issues() detecta cuando falta la columna «Persona que aplica» (Regla 15)');
+$etapa5Ok = '<table><tr><th>Instrumento</th><th>Momento</th><th>Unidad evaluada</th><th>Persona que aplica</th><th>Puntaje máximo</th><th>Umbral</th><th>Ponderación</th></tr>'
+    . '<tr><td>INS-01A</td><td>Inicio</td><td>Individual (por persona)</td><td>Persona facilitadora</td><td>20 pts</td><td>14 pts (70%)</td><td>Formativa (0%)</td></tr>'
+    . '<tr><td>INS-01B</td><td>Cierre</td><td>Individual (por persona)</td><td>Persona facilitadora</td><td>20 pts</td><td>14 pts (70%)</td><td>40%</td></tr>'
+    . '<tr><td>INS-02</td><td>Desarrollo</td><td>Individual (por persona)</td><td>Persona facilitadora (aplica en rotación)</td><td>30 pts</td><td>21 pts (70%)</td><td>60%</td></tr></table>';
+local_chatbot_verificar(diseno::evaluation_plan_issues($etapa5Ok, true) === [],
+    'evaluation_plan_issues() pasa en limpio un registro conforme a Reglas 2, 4, 5, 15 y 17');
+
+// 7. Etapa 6: equivalencia a los 4 niveles del Módulo 3 (Regla 10) + unidad evaluada.
+$errE6 = diseno::instruments_issues('<h3>INS-01</h3><p>Unidad evaluada: la dupla.</p><table><tr><th>Nivel</th></tr><tr><td>Insuficiente</td></tr><tr><td>Adecuado</td></tr></table>');
+local_chatbot_verificar(strpos(implode("\n", $errE6), 'Básico, Avanzado') !== false
+    && strpos(implode("\n", $errE6), 'Evaluación individual (Regla 5)') !== false,
+    'instruments_issues() detecta niveles faltantes del Módulo 3 (Regla 10) y unidad «la dupla» (Regla 5)');
+local_chatbot_verificar(diseno::instruments_issues('<h3>INS-01</h3><p>Unidad evaluada: persona (individual).</p><table><tr><th>Equivalencia</th></tr><tr><td>Insuficiente / Básico / Adecuado / Avanzado</td></tr></table>') === [],
+    'instruments_issues() pasa en limpio cuando están los 4 niveles y evaluación individual');
+
+// 8. design_audit_facts() agrega hallazgos por etapa y detecta códigos de material inexistentes.
+$facts = diseno::design_audit_facts([
+    2 => '<p>9 duplas en 2 subgrupos de 9 personas.</p>',
+    3 => $etapa3Ok . '<p>Usar material M9 en el cierre.</p>',
+    4 => '<table><tr><th>Código</th><th>Material</th><th>Modo de producción</th><th>Formato de salida</th></tr>'
+        . '<tr><td>M1</td><td>Guía</td><td>Modo B</td><td>Word (.docx)</td></tr></table>',
+    5 => $etapa5Ok,
+    6 => '<h3>INS-01</h3><table><tr><td>Insuficiente Básico Adecuado Avanzado</td></tr></table>',
+], ['participantes' => 18, 'tiempo_experiencia' => 360, 'tiempo_total' => 600]);
+local_chatbot_verificar(count($facts) === 2
+    && strpos(implode("\n", $facts), 'Etapa 2 — Agrupamientos (Regla 6)') !== false
+    && strpos(implode("\n", $facts), 'Etapa 3 — Referencia a material inexistente (Regla 13): cita «M9»') !== false,
+    'design_audit_facts() agrega hallazgos objetivos por etapa y cruza códigos de material contra la Etapa 4');
+
+// 9. Etapa 7: auditoría independiente, delegación, reemplazo de anexo y bloqueo sin anexo.
+$pConsDeleg = diseno::build_consolidation_prompt([1 => '<p>A</p>', 4 => '<p>M</p>'], true, true, true, true);
+local_chatbot_verificar(strpos($pConsDeleg, 'en una auditoría independiente a continuación') !== false
+    && strpos($pConsDeleg, 'VERIFICACIÓN DE CONSISTENCIA ENTRE ETAPAS:') === false,
+    'con auditoriam2 encendido, build_consolidation_prompt() delega la auditoría al paso independiente');
+
+$pAudit = diseno::build_audit_prompt([1 => '<p>E1</p>', 3 => $etapa3Mala], ['participantes' => 18, 'tiempo_experiencia' => 330], true, true, $facts);
+local_chatbot_verificar(strpos($pAudit, 'revisor técnico independiente') !== false
+    && strpos($pAudit, 'Participantes declarados: 18 | Tiempo asignado a la experiencia (2.3): 330 min') !== false
+    && strpos($pAudit, 'HALLAZGOS VERIFICADOS POR CÓDIGO DE LA PLATAFORMA') !== false
+    && strpos($pAudit, 'cita «M9»') !== false
+    && strpos($pAudit, '- Producción de materiales:') !== false
+    && strpos($pAudit, '- Equivalencia de niveles:') !== false
+    && strpos($pAudit, 'REGLAS DE AUDITORÍA OBLIGATORIAS') !== false
+    && strpos($pAudit, 'CATÁLOGO DE CAPACIDADES DE PRODUCCIÓN:') !== false,
+    'build_audit_prompt() construye una auditoría independiente con datos de ficha, hallazgos PHP, 11 filas, Reglas 14-17 y catálogo');
+
+local_chatbot_verificar(!diseno::has_consistency_annex('<h2>Parte 1</h2><p>Sin anexo</p>')
+    && !diseno::can_confirm_consolidation('<h2>Parte 1</h2><p>Sin anexo</p>', true)
+    && diseno::can_confirm_consolidation('<h2>Parte 1</h2><p>Sin anexo</p>', false)
+    && diseno::has_consistency_annex($consistenciaProd)
+    && diseno::can_confirm_consolidation($consistenciaProd, true),
+    'Etapa 7 exige el anexo de verificación de consistencia para confirmar cuando auditoriam2 está encendido');
+
+$reemplazado = diseno::replace_consistency_annex('<h2>Parte 1</h2><p>Texto</p>' . $consistenciaProd,
+    '<h1>Anexo: Verificación de consistencia entre etapas y registro de ajustes</h1><h2>Verificación de consistencia entre etapas</h2><table><tr><th>Elemento</th><th>Resultado</th></tr><tr><td>Tiempos</td><td>Consistente</td></tr></table>');
+local_chatbot_verificar(substr_count($reemplazado, 'Verificación de consistencia entre etapas') === 2
+    && strpos($reemplazado, 'M2 mezcla Modo B') === false && strpos($reemplazado, '<h2>Parte 1</h2>') !== false,
+    'replace_consistency_annex() sustituye un anexo anterior sin duplicarlo ni tocar las 6 etapas');
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
