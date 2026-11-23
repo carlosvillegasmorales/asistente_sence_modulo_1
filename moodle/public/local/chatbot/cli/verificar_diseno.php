@@ -1163,6 +1163,10 @@ local_chatbot_verificar(diseno::stage_issues(2, $e2, ['tiempo_experiencia' => '5
     && strpos(implode(' ', diseno::stage_issues(2, '<p>Inicio 30 + desarrollo 150 + 150 + cierre 30.</p><p>Total: 30 + 150 + 150 + 30 = 330 min</p>',
         ['tiempo_experiencia' => '540'])), 'la suma real es 360') !== false,
     'la Etapa 2 suma los tiempos de sus fases (sin las subfases) contra la ficha y detecta sumas escritas mal');
+local_chatbot_verificar(diseno::arithmetic_expression_issues('<p>La suma por fase (60 + 420 + 60 = 540 min) cuadra.</p>') === []
+    && diseno::arithmetic_expression_issues('<p>Rotación: 2 × (30 + 15) = 90 min.</p>') === []
+    && count(diseno::arithmetic_expression_issues('<p>Total (30 + 150 + 150 + 30 = 330 min).</p>')) === 1,
+    'una suma entre paréntesis se lee completa (falso error del 23-11-2026) y un factor de multiplicación no se verifica');
 $e2t = '<h3>Fases</h3><table><tr><th>Fase</th><th>Tiempo</th></tr><tr><td>Inicio</td><td>60 min</td></tr>'
     . '<tr><td>Desarrollo</td><td>420 min</td></tr><tr><td>Cierre</td><td>60 min</td></tr><tr><td>Total</td><td>500 min</td></tr></table>';
 local_chatbot_verificar(strpos(implode(' ', diseno::stage_issues(2, $e2t, ['tiempo_experiencia' => '540'])),

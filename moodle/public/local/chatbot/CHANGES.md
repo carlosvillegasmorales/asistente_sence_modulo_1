@@ -1,5 +1,12 @@
 # Changelog
 
+## M1-v1.29.1 (2026-11-23)
+
+- **Revisión aritmética: sumas entre paréntesis.** En el caso completo del cliente, la Etapa 3 escribió «(60 + 420 + 60 =
+  540 min)», que está bien, y la revisión leyó «420 + 60 = 540» (saltaba el primer número tras «(») y pidió una
+  corrección que no hacía falta. Ahora la suma se lee completa; un factor de multiplicación o división («2 × (30 + 15)»)
+  sigue sin verificarse (`diseno::arithmetic_expression_issues()`). Sin cambios en la base.
+
 ## M1-v1.29.0 (2026-11-23)
 
 **Módulo 2: auditoría automática determinística, Reglas 14 a 17, prompt desfragmentado por etapa y anexo obligatorio en Etapa 7** (a partir del análisis de inconsistencias de Interfases del 23-11-2026). Interruptor `auditoriam2` (encendido). Prompt `M2-F2-etapas-v15`. Sin cambios en la base.

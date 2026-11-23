@@ -2213,7 +2213,9 @@ class diseno {
             ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $problemas = [];
         $vistos = [];
-        $patron = '/(?<![\d.,×*÷\/(-])(\d+(?:[.,]\d+)?(?:\s*(?:min(?:utos?)?|pts?|puntos?|%|h))?'
+        // Una suma entre parentesis («(60 + 420 + 60 = 540 min)») se lee completa: antes se saltaba el primer numero y
+        // daba un falso error (visto en la Etapa 3 del cliente el 23-11-2026).
+        $patron = '/(?<![\d.,×*÷\/-])(\d+(?:[.,]\d+)?(?:\s*(?:min(?:utos?)?|pts?|puntos?|%|h))?'
             . '(?:\s*\+\s*\d+(?:[.,]\d+)?(?:\s*(?:min(?:utos?)?|pts?|puntos?|%|h))?)+)\s*=\s*'
             . '(\d+(?:[.,]\d+)?)\s*(min(?:utos?)?|pts?|puntos?|%|h)?(?![\d×*÷\/])/iu';
         foreach (preg_split('/\R/u', $texto) as $linea) {
@@ -2226,7 +2228,8 @@ class diseno {
             foreach ($matches as $m) {
                 $offset = $m[0][1];
                 $antes = substr($linea, 0, $offset);
-                if (preg_match('/[×*÷\/(-]\s*$/u', $antes)) {
+                // Factor de una multiplicacion o division («2 × (30 + 15)»): no es una suma que verificar.
+                if (preg_match('/[×*÷\/-]\s*\(?\s*$/u', $antes)) {
                     continue;
                 }
                 $izq = $m[1][0];
