@@ -1,5 +1,9 @@
 # Changelog
 
+## M1-v1.30.1 (2026-11-24)
+
+- **Botón «Ir al Centro de producción de recursos» al final de la página** (pedido del 23-11-2026, tras revisar la pestaña del Centro en el curso 4). Como los textos de esa pestaña (*Presentación del Centro*, *Cómo Trabajar con el Centro*, *Repositorio de Recursos*) están en etiquetas («Texto y medios») dentro de la sección y no en su resumen, poner el botón en el resumen lo mostraba arriba de todo. Ahora `modulo2_setup::remove_center_button()`, `center_button_html()` y `center_button_plan()` + `cli/configurar_modulo2.php` quitan el botón del resumen superior cuando la sección tiene actividades visibles y lo ubican como etiqueta propia al final de la sección (debajo de todos los recursos, igual que en el Módulo 3), moviéndolo al final si quedara arriba. Idempotente; sin cambios en la base. Al desplegar, volver a correr `cli/configurar_modulo2.php --curso=ID` (primero con `--simular`).
+
 ## M1-v1.30.0 (2026-11-24)
 
 **Módulo 3: tablero de indicadores, vistas y uso** (documento de Interfases «Propuesta Dashboard Módulo 3 - Indicadores, Vistas y

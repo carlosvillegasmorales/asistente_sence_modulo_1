@@ -828,6 +828,27 @@ local_chatbot_verificar(
     && modulo2_setup::add_center_button($tabHtml, 'https://ej.cl/local/chatbot/centro_recursos.php?courseid=4') === $tabHtml,
     'center_tab_html y add_center_button son válidos e idempotentes'
 );
+$urlCentro = 'https://ej.cl/local/chatbot/centro_recursos.php?courseid=4';
+$btnSolo = modulo2_setup::center_button_html($urlCentro);
+local_chatbot_verificar(
+    modulo2_setup::remove_center_button($btnSolo) === ''
+    && modulo2_setup::remove_center_button('<p>Intro</p>' . $btnSolo) === '<p>Intro</p>'
+    && modulo2_setup::remove_center_button('<div style="text-align:center;"><a href="' . $urlCentro . '">Ir al Centro</a></div>') === '',
+    'remove_center_button quita el botón del resumen (con o sin comentario HTML) y conserva cualquier otro texto'
+);
+$planCrear = modulo2_setup::center_button_plan([['id' => 10, 'html' => '<p>Presentación</p>']], $urlCentro, 12);
+$planOk = modulo2_setup::center_button_plan([['id' => 10, 'html' => '<p>Presentación</p>'], ['id' => 12, 'html' => $btnSolo]], $urlCentro, 12);
+$planMover = modulo2_setup::center_button_plan([['id' => 10, 'html' => $btnSolo], ['id' => 12, 'html' => '<p>Repositorio</p>']], $urlCentro, 12);
+$planAct = modulo2_setup::center_button_plan([['id' => 10, 'html' => modulo2_setup::center_button_html('https://otro.cl/local/chatbot/centro_recursos.php?courseid=4')]], $urlCentro, 12);
+$planEnl = modulo2_setup::center_button_plan([['id' => 15, 'html' => '<p><a href="#">' . modulo2_setup::BOTON_CENTRO . '</a></p>']], $urlCentro, 15);
+local_chatbot_verificar(
+    $planCrear['accion'] === 'crear' && $planCrear['html'] === $btnSolo
+    && $planOk['accion'] === 'ok' && !$planOk['mover']
+    && $planMover['accion'] === 'mover' && $planMover['id'] === 10 && $planMover['mover'] === true
+    && $planAct['accion'] === 'actualizar' && $planAct['mover'] === true && $planAct['html'] === $btnSolo
+    && $planEnl['accion'] === 'enlazar' && strpos((string) $planEnl['html'], 'href="' . $urlCentro . '"') !== false,
+    'center_button_plan crea la etiqueta al final, la mantiene idempotente, la mueve si quedó arriba y actualiza su enlace'
+);
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {

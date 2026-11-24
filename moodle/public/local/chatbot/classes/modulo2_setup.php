@@ -577,6 +577,78 @@ class modulo2_setup {
     }
 
     /**
+     * HTML independiente del boton del Centro de produccion (para su propia etiqueta «Texto y medios» al final de la
+     * seccion cuando el contenido de la pestana vive en actividades/etiquetas, igual que en el Modulo 3). Funcion pura.
+     *
+     * @param string $url
+     * @return string
+     */
+    public static function center_button_html(string $url): string {
+        return self::add_center_button('', $url);
+    }
+
+    /**
+     * Quita el boton del Centro de produccion del resumen de la seccion (para moverlo al final como etiqueta propia
+     * cuando la pestana tiene recursos/etiquetas debajo). Funciona aunque el editor de Moodle haya quitado el comentario
+     * HTML. Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function remove_center_button(string $html): string {
+        $limpio = preg_replace('/<!-- CENTRO PRODUCCION RECURSOS -->\s*<div\b[^>]*>\s*<a\b[^>]*>.*?<\/a>\s*<\/div>\s*/su',
+            '', $html);
+        $limpio = preg_replace('/<div\b[^>]*>\s*<a\b[^>]*href="[^"]*centro_recursos\.php[^"]*"[^>]*>.*?<\/a>\s*<\/div>\s*/su',
+            '', (string) $limpio);
+        return trim((string) $limpio) === '' ? '' : (string) $limpio;
+    }
+
+    /**
+     * Decide que hacer con la etiqueta propia del boton del Centro de produccion para que quede siempre al final de la
+     * seccion (debajo de todas las etiquetas/recursos del cliente). Idempotente. Funcion pura.
+     *
+     * @param array[] $etiquetas Etiquetas de la seccion: [['id' => cmid, 'html' => string], ...].
+     * @param string $url URL destino (centro_recursos.php?courseid=...).
+     * @param int $ultimocmid cmid de la ultima actividad visible de la seccion (0 si no hay).
+     * @return array ['accion' => 'crear'|'actualizar'|'enlazar'|'mover'|'ok', 'id' => int|null, 'html' => string|null, 'mover' => bool].
+     */
+    public static function center_button_plan(array $etiquetas, string $url, int $ultimocmid = 0): array {
+        $esperado = self::center_button_html($url);
+        foreach ($etiquetas as $et) {
+            $id = (int) ($et['id'] ?? 0);
+            $html = (string) ($et['html'] ?? '');
+            if (strpos($html, '<!-- CENTRO PRODUCCION RECURSOS -->') !== false
+                    || preg_match('/href="[^"]*centro_recursos\.php[^"]*"/i', $html)) {
+                $cambioHtml = trim($html) !== trim($esperado);
+                $mover = $ultimocmid > 0 && $id !== $ultimocmid;
+                if (!$cambioHtml && !$mover) {
+                    return ['accion' => 'ok', 'id' => $id, 'html' => null, 'mover' => false];
+                }
+                return [
+                    'accion' => $cambioHtml ? 'actualizar' : 'mover',
+                    'id' => $id,
+                    'html' => $cambioHtml ? $esperado : null,
+                    'mover' => $mover,
+                ];
+            }
+        }
+        foreach ($etiquetas as $et) {
+            $id = (int) ($et['id'] ?? 0);
+            $html = (string) ($et['html'] ?? '');
+            if (self::has_anchor($html, self::BOTON_CENTRO)) {
+                $nuevo = self::link_anchor($html, self::BOTON_CENTRO, $url);
+                return [
+                    'accion' => $nuevo === $html ? 'ok' : 'enlazar',
+                    'id' => $id,
+                    'html' => $nuevo === $html ? null : $nuevo,
+                    'mover' => false,
+                ];
+            }
+        }
+        return ['accion' => 'crear', 'id' => null, 'html' => $esperado, 'mover' => false];
+    }
+
+    /**
      * Contenido HTML institucional listo para la nueva pestana del Centro de produccion de recursos en el curso.
      *
      * @param string $url Enlace a centro_recursos.php?courseid=ID.

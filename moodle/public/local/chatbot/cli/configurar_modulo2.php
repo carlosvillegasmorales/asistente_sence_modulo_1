@@ -26,6 +26,7 @@ define('CLI_SCRIPT', true);
 require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/clilib.php');
 require_once($CFG->dirroot . '/course/lib.php');
+require_once($CFG->dirroot . '/course/modlib.php');
 
 use local_chatbot\modulo2_setup;
 
@@ -162,6 +163,16 @@ foreach ($modinfo->get_section_info_all() as $info) {
 $fase2 = modulo2_setup::tab_last_section($secciones, 2);
 $fase3 = modulo2_setup::tab_last_section($secciones, 3);
 $centro = modulo2_setup::center_last_section($secciones);
+$centrovisiblecmids = [];
+if ($centro !== null) {
+    foreach ((array) ($modinfo->sections[$centro] ?? []) as $cmid) {
+        $cm = $modinfo->get_cm($cmid);
+        if ((int) $cm->visible === 1 && (int) $cm->visibleoncoursepage === 1) {
+            $centrovisiblecmids[] = (int) $cmid;
+        }
+    }
+}
+$centroconactividades = !empty($centrovisiblecmids);
 $centrourl = (new moodle_url('/local/chatbot/centro_recursos.php', ['courseid' => $cursoid]))->out(false);
 $validacionurl = (new moodle_url('/local/chatbot/diseno.php', ['courseid' => $cursoid, 'etapa' => 7]))->out(false);
 // Al final de la bienvenida, el boton que lleva al comienzo de la pestana «Fase 1».
@@ -191,7 +202,11 @@ foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') 
     if ($centro !== null && (int) $seccion->section === $centro) {
         // Solo el boton de acceso directo: la presentacion y el «Cómo trabajar» los pone el cliente como recursos de la
         // pestana (pedido del 19-11-2026). center_tab_html() queda para un curso sin esos recursos.
-        $despues = modulo2_setup::add_center_button($despues, $centrourl);
+        // Si la pestana del Centro tiene actividades/etiquetas visibles (Presentacion, Como trabajar, Repositorio...),
+        // el resumen se muestra arriba de ellas: quitamos el boton del resumen para dejarlo como etiqueta propia al final.
+        $despues = $centroconactividades
+            ? modulo2_setup::remove_center_button($despues)
+            : modulo2_setup::add_center_button($despues, $centrourl);
     }
     if (strpos($antes, '<!-- MATERIAL 1 -->') !== false) {
         $despues = modulo2_setup::link_materials($despues, [1 => $url($recursos['material1']),
@@ -222,5 +237,42 @@ foreach ($DB->get_records('course_sections', ['course' => $cursoid], 'section') 
 }
 if (!$simular) {
     rebuild_course_cache($cursoid, true);
+}
+if ($centro !== null && $centroconactividades) {
+    // El boton del Centro va como actividad «Texto y medios» al final de la seccion (debajo de todos los recursos).
+    $etiquetascentro = [];
+    foreach ($modinfo->get_instances_of('label') as $cm) {
+        if ((int) $cm->sectionnum === $centro) {
+            $etiquetascentro[] = ['id' => (int) $cm->id,
+                'html' => (string) $DB->get_field('label', 'intro', ['id' => $cm->instance])];
+        }
+    }
+    $ultimocmid = (int) end($centrovisiblecmids);
+    $plancentro = modulo2_setup::center_button_plan($etiquetascentro, $centrourl, $ultimocmid);
+    if ($plancentro['accion'] !== 'ok') {
+        $cambios++;
+        $secinfo = $modinfo->get_section_info($centro);
+        echo "  seccion {$centro} «{$secciones[$centro]['name']}»: boton Centro ({$plancentro['accion']}"
+            . ($plancentro['mover'] && $plancentro['accion'] !== 'mover' ? ' + mover al final' : '') . ") -> {$centrourl}\n";
+        if (!$simular) {
+            if ($plancentro['accion'] === 'crear') {
+                create_module((object) ['modulename' => 'label', 'course' => $cursoid, 'section' => $centro,
+                    'name' => modulo2_setup::BOTON_CENTRO,
+                    'introeditor' => ['text' => $plancentro['html'], 'format' => FORMAT_HTML, 'itemid' => 0],
+                    'visible' => 1]);
+            } else {
+                if ($plancentro['html'] !== null) {
+                    $cm = $modinfo->get_cm((int) $plancentro['id']);
+                    $DB->update_record('label', (object) ['id' => $cm->instance, 'intro' => $plancentro['html'],
+                        'timemodified' => time()]);
+                }
+                if ($plancentro['mover'] && $secinfo) {
+                    \core_courseformat\formatactions::cm($course)->move_end_section((int) $plancentro['id'],
+                        (int) $secinfo->id);
+                }
+            }
+            rebuild_course_cache($cursoid, true);
+        }
+    }
 }
 echo $cambios ? "Listo.\n" : "Textos sin cambios.\n";
