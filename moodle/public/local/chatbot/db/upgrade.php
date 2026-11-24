@@ -1003,5 +1003,41 @@ function xmldb_local_chatbot_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026111902, 'local', 'chatbot');
     }
 
+    if ($oldversion < 2026112400) {
+        // Modulo 3: tablero (envios de las fichas al control de entrada y encuesta breve de calidad del agente).
+        $table = new xmldb_table('local_chatbot_m3_envio');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('implid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('tipo', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, 'impl');
+        $table->add_field('completo', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('faltantes', XMLDB_TYPE_TEXT);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('implid', XMLDB_INDEX_NOTUNIQUE, ['implid']);
+        $table->add_index('courseid', XMLDB_INDEX_NOTUNIQUE, ['courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        $table = new xmldb_table('local_chatbot_m3_encuesta');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('implid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('fase', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '3');
+        $table->add_field('respuestas', XMLDB_TYPE_TEXT);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('implid_fase', XMLDB_INDEX_UNIQUE, ['implid', 'fase']);
+        $table->add_index('courseid', XMLDB_INDEX_NOTUNIQUE, ['courseid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026112400, 'local', 'chatbot');
+    }
+
     return true;
 }

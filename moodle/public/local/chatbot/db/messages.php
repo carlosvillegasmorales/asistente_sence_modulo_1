@@ -26,4 +26,11 @@ $messageproviders = [
             'email' => MESSAGE_PERMITTED,
         ],
     ],
+    // Avisos automaticos del tablero del Modulo 3.
+    'avisom3' => [
+        'defaults' => [
+            'popup' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+            'email' => MESSAGE_PERMITTED,
+        ],
+    ],
 ];

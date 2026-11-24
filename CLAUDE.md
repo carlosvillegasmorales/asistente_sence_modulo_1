@@ -164,8 +164,15 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   los tres de referencia son los del Módulo 2 con las marcas de ruta reasignadas. Se enruta por tarea (`kb_router::TAREAS_M3`: `m3f1`
   y `m3e1`…`m3e7`) dentro del presupuesto de 220 mil caracteres por pedido y se carga con
   `cli/cargar_libreria.php --dir=... --ambito=m3` (idempotente, `--simular`); interruptor `libreriam3`. Guía de instalación y de
-  prueba: `docs/GUIA_INSTALAR_MODULO3.md`. Lo que **no** hay, porque no se pidió: tablero del Módulo 3 ni autorrevisión del checklist
-  en pantalla.
+  prueba: `docs/GUIA_INSTALAR_MODULO3.md`. Lo que **no** hay, porque no se pidió: autorrevisión del checklist en pantalla.
+- `classes/tablero_m3.php` + `tablero_m3.php?courseid=ID` — **tablero del Módulo 3** (v1.30.0, «Propuesta Dashboard Módulo 3» de Interfases;
+  mismo patrón que `tablero_m2`): vistas «Mi avance» (`use`), «Acumulado» (`viewanalytics`; filtros de cohorte —grupo—, organismo, plan,
+  módulo y período) y «Calidad del agente» (`managekb`; encuesta y alertas). Cálculo puro (`facts()` → `program()`, `agent()`,
+  `notices()`, `alerts()`; `cli/verificar_tablero_m3.php`, 72 casos); avisos por la tarea `send_m3_notices` (proveedor `avisom3`, plazos
+  `m3plazoregistro|correccion|cierre|detenido`). Datos propios: `local_chatbot_m3_envio` (envíos de las fichas al control de entrada,
+  registrados en `ficha_implementacion.php` y `ficha_expost.php`) y `local_chatbot_m3_encuesta` (una por evaluación y fase, 3 o 4; se invita
+  desde `calidad.php` y `expost.php`). Interruptores `tablerom3`, `avisosm3` y `fabm3`. Sin campo estructurado en el asistente, no se estima:
+  cambios por tipo y causa y «pendiente del desempeño central».
 - `classes/expost.php` + `ficha_expost.php?courseid=ID` + `expost.php?courseid=ID&etapa=N` — **Módulo 3, Fase 4: evaluación ex post** (v1.23.0, prompt
   complementario y documentos de Interfases del 07-11): cierra el ciclo con las etapas 9 a 15. **Activación** (`activation()`): Fases 1 a 3
   completas y consolidadas (`load()['fases']`: etapa 8 vigente) y experiencia de continuidad confirmada por la persona; si cambia una etapa

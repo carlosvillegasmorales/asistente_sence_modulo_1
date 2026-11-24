@@ -93,6 +93,10 @@ class ux {
         // Ajuste del Prompt Maestro del Modulo 2 de Interfases (21-11-2026): materiales producibles y economia de recursos IA (bloques 7 a 9).
         'reglasproduccion' => 1, // Modulo 2, Etapa 4 y Etapa 7: catalogo de capacidades, reglas 11 a 13, dos listas en 4.2, factibilidad IA en 4.3 y verificaciones (v1.28.4).
         // Mejora integral de consistencia del Modulo 2 (23-11-2026): reglas 14 a 17, prompt por etapa, validacion deterministica y auditoria independiente obligatoria en Etapa 7.
+        // Propuesta de dashboard del Modulo 3 de Interfases (2026).
+        'tablerom3' => 1,       // Modulo 3: tablero individual, acumulado y de calidad del agente, con encuesta breve (v1.30.0).
+        'avisosm3' => 1,        // Modulo 3: avisos automaticos del tablero por las notificaciones de Moodle (v1.30.0).
+        'fabm3' => 1,           // Modulo 3: el boton flotante de indicadores lleva al tablero del curso (v1.30.0).
         'auditoriam2' => 1,     // Modulo 2: reglas 14 a 17, prompt desfragmentado por etapa, controles aritmeticos/agrupamientos/formatos/aplicadores en codigo y auditoria obligatoria en Etapa 7 (v1.29.0).
     ];
 

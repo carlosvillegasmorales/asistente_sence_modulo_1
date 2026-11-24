@@ -1,5 +1,42 @@
 # Changelog
 
+## M1-v1.30.0 (2026-11-24)
+
+**Módulo 3: tablero de indicadores, vistas y uso** (documento de Interfases «Propuesta Dashboard Módulo 3 - Indicadores, Vistas y
+Uso»). Mismo patrón que el tablero del Módulo 2. Base: versión `2026112400` (dos tablas nuevas).
+
+- **Tres vistas** en `tablero_m3.php?courseid=ID`: **Mi avance** (cada persona, solo con su información; etapas 0 a 15, los dos
+  ciclos de validación, resultados, decisión y ajuste, cierre del ciclo y la encuesta), **Acumulado** (permiso
+  `viewanalytics`; sin nombres; filtros de cohorte —grupo del curso—, organismo ejecutor, plan formativo, módulo y período) y
+  **Calidad del agente** (permiso `managekb`; encuesta anónima y alertas).
+- **Indicadores A a G** (`classes/tablero_m3.php`, cálculo puro: `facts()` por evaluación → `program()`, `agent()`, `notices()`,
+  `alerts()`): uso y adopción (tasa de inicio, guía y ejemplo antes del primer envío, oportunidad del registro: la última fecha que
+  entiende `parse_date()` del campo «Fecha(s)»); registro y validación de la ficha de registro (Etapa 0) y de la ficha ex post
+  (Etapa 10) (completa al primer intento, campos faltantes, decisión, ciclos hasta aprobar, ítems CRÍTICO, logros recalculados);
+  resultados de la implementación (logro por criterio y promedio, cobertura, brechas por criticidad, nivelación, fidelidad);
+  decisión y ajuste (tipo, condición determinante, uso del tiempo restante, avance y duración por etapa); cierre del ciclo (logro
+  final y ganancia, nivelación, profundización, brechas persistentes, reacción y transferencia, buenas prácticas confirmadas);
+  relación con el Módulo 2 (puntaje del diseño y ganancia según el tipo de ajuste); calidad del agente.
+- **Ocho avisos automáticos** (registro pendiente, corrección pendiente, ítem CRÍTICO observado, brecha de criticidad alta,
+  tiempo restante insuficiente, cierre del ciclo pendiente, proceso detenido y encuesta pendiente) por las notificaciones de Moodle
+  (tarea `send_m3_notices` cada hora; proveedor `avisom3`). Los plazos «X» son ajustes: `m3plazoregistro`, `m3plazocorreccion`,
+  `m3plazocierre` y `m3plazodetenido` (7 días por defecto, los define el cliente antes de la puesta en producción). Cinco
+  alertas para la administración (calidad global baja, pregunta crítica baja, desacuerdo con la decisión, errores reportados y baja
+  representatividad).
+- **Encuesta breve** (preguntas 1 a 8 de la propuesta; la 4 solo en la Fase 3) al consolidar la Fase 3 (Etapa 8) y la Fase 4
+  (Etapa 15); `calidad.php` y `expost.php` invitan a responderla. **Registro de envíos** al control de entrada de las dos fichas
+  (`local_chatbot_m3_envio`, desde `ficha_implementacion.php` y `ficha_expost.php`). Botón flotante al tablero en los cursos del
+  Módulo 3 (`fabm3`). Interruptores `tablerom3`, `avisosm3` y `fabm3`.
+- **Lo que la propuesta pide y todavía no se puede calcular** (el asistente no lo entrega como campo estructurado; se informa como
+  «no disponible», sin estimarlo): n.º de cambios por tipo y por causa de la implementación, y el aviso por «pendiente vinculado
+  al desempeño central» (la brecha alta se avisa solo por logro inferior a 30 %). El criterio de desempeño central de las brechas
+  persistentes tampoco se identifica: se informan todas las situaciones bajo Adecuado y todas las personas en Insuficiente.
+- Aproximaciones documentadas: el aviso «Cierre del ciclo pendiente» parte de la fecha de la experiencia de continuidad de la ficha ex
+  post y, si aún no existe, de la consolidación de la Fase 3; el tiempo de la experiencia de continuidad se lee de la fila «Total» de
+  la Etapa 6 (si no la trae, no se estima); los diseños validados de la tasa de inicio son los diseños terminados del Módulo 2
+  (seis etapas y plan adjunto) de las personas inscritas.
+- `cli/verificar_tablero_m3.php`: 72 casos.
+
 ## M1-v1.29.1 (2026-11-23)
 
 - **Revisión aritmética: sumas entre paréntesis.** En el caso completo del cliente, la Etapa 3 escribió «(60 + 420 + 60 =

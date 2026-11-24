@@ -417,6 +417,14 @@ echo $OUTPUT->header();
                     <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
                         <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('exp_final_download', 'local_chatbot'); ?></a></div>
                 </div>
+                <?php if (\local_chatbot\ux::on('tablerom3')): ?>
+                    <div class="alert alert-info">
+                        <?php echo get_string('m3dash_survey_invite', 'local_chatbot', 4); ?>
+                        <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url('/local/chatbot/tablero_m3.php',
+                            ['courseid' => $courseid, 'vista' => 'persona', 'implid' => (int) $impl->id], 'encuesta-4'))->out(false); ?>"><?php
+                            echo get_string('m3dash_survey_go', 'local_chatbot'); ?></a></div>
+                    </div>
+                <?php endif; ?>
                 <div class="card border-0 bg-light mb-4">
                     <div class="card-body">
                         <p class="mb-2"><?php echo get_string('cal_another', 'local_chatbot'); ?></p>

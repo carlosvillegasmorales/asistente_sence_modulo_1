@@ -114,6 +114,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
     $destino = $pageurl;
     if ($action === 'validar') {
         $falta = $row->pre ? expost::missing_inputs($data, $row->pre, $row->etq) : [];
+        if ($row->pre && $row->etiq_estado === implementacion::LISTO) {
+            // Para los indicadores del tablero: cada envio al control de entrada, pase o no.
+            \local_chatbot\tablero_m3::log_submission($impl, 'expost', $falta);
+        }
         if (!$row->pre || $row->etiq_estado !== implementacion::LISTO) {
             $tipo = \core\output\notification::NOTIFY_WARNING;
             $mensaje = get_string('exp_labels_needed', 'local_chatbot');

@@ -93,8 +93,9 @@ las personas y su avance.
 
 ## Interruptores (Administración → Plugins → Plugins locales → Asistente IA)
 
-`fichaimpl`, `calidadfase2`, `libreriam3`, `bienvenidam3`, `consolidacionm3`, `avisosimpl` y `fichaexpost` (Fase 4), todos encendidos
-por defecto. Apagar uno
+`fichaimpl`, `calidadfase2`, `libreriam3`, `bienvenidam3`, `consolidacionm3`, `avisosimpl`, `fichaexpost` (Fase 4), `tablerom3`, `avisosm3` y
+`fabm3` (tablero del Módulo 3, v1.30.0), todos encendidos por defecto. Los plazos «X» de los avisos del tablero son los ajustes
+`m3plazoregistro`, `m3plazocorreccion`, `m3plazocierre` y `m3plazodetenido` (7 días), que define el cliente. Apagar uno
 es la forma de retroceder una mejora sin desplegar (bajar la versión del código no se puede con la base ya migrada).
 
 ## Lista de prueba con una cuenta de estudiante
@@ -123,7 +124,8 @@ es la forma de retroceder una mejora sin desplegar (bajar la versión del códig
 
 - Los movimientos de nivel de la etapa 11 son **estimaciones** hechas con los totales por nivel de cada criterio: la ficha no registra a cada
   persona.
-- **No hay tablero del Módulo 3** (el del Módulo 2, «Panorama integral», no lo incluye): el cliente no lo pidió.
+- El **tablero del Módulo 3** (`tablero_m3.php`, v1.30.0) no calcula todavía el n.º de cambios por tipo y por causa ni el aviso por
+  «pendiente vinculado al desempeño central»: el asistente no los entrega como campos estructurados.
 - **No hay checklist de autorrevisión en pantalla** (el del Módulo 2, `checklist_exante.php`, deja marcar el checklist antes de validar).
 - El contenido de las hojas del curso es del cliente. Sus enlaces «Abrir guía» y «Abrir ejemplo» (`URL_GUIA` y `URL_EJEMPLO`) quedan
   para cuando suba esos recursos; este guion solo pone los cinco botones.

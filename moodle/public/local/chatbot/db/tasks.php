@@ -40,4 +40,15 @@ $tasks = [
         'dayofweek' => '*',
         'month' => '*',
     ],
+    [
+        // Avisos del tablero del Modulo 3: cada hora; cada aviso se envia una vez (los de plazo se repiten cada tantos dias
+        // como su plazo).
+        'classname' => 'local_chatbot\task\send_m3_notices',
+        'blocking' => 0,
+        'minute' => '40',
+        'hour' => '*',
+        'day' => '*',
+        'dayofweek' => '*',
+        'month' => '*',
+    ],
 ];

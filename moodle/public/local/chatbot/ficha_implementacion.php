@@ -114,6 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
         $guardada = implementacion::get_ficha($USER->id, $courseid);
         $diseno = (int) $guardada->disenoid > 0 ? implementacion::get_design((int) $guardada->disenoid, $USER->id) : null;
         $falta = implementacion::missing_inputs($data, $diseno !== null && $diseno['disponible']);
+        // Para los indicadores del tablero: cada envio al control de entrada, pase o no.
+        \local_chatbot\tablero_m3::log_submission($guardada, 'impl', $falta);
         if ($diseno !== null && !$diseno['disponible']) {
             // Prompt Maestro: si el diseño no esta disponible o no tiene su plan formativo, se informa y no se inicia.
             $tipo = \core\output\notification::NOTIFY_WARNING;

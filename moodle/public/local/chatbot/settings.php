@@ -86,6 +86,18 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
+    // Plazos «X» de los avisos del tablero del Modulo 3: los define el cliente antes de la puesta en produccion.
+    foreach (['registro' => \local_chatbot\tablero_m3::PLAZO_REGISTRO, 'correccion' => \local_chatbot\tablero_m3::PLAZO_CORRECCION,
+            'cierre' => \local_chatbot\tablero_m3::PLAZO_CIERRE, 'detenido' => \local_chatbot\tablero_m3::PLAZO_DETENIDO] as $clave => $dias) {
+        $settings->add(new admin_setting_configtext(
+            'local_chatbot/m3plazo' . $clave,
+            get_string('m3plazo' . $clave, 'local_chatbot'),
+            get_string('m3plazo' . $clave . '_desc', 'local_chatbot'),
+            $dias,
+            PARAM_INT
+        ));
+    }
+
     // Cursos que se abren al cerrar el Modulo 1 (Modulos 2 y 3), por id, separados por coma.
     $settings->add(new admin_setting_configtext(
         'local_chatbot/nextmodules',

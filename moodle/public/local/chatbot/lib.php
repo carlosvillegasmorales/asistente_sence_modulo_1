@@ -160,6 +160,22 @@ function local_chatbot_get_analytics_button_html(): string {
             return local_chatbot_analytics_fab($url, $label);
         }
     }
+    // En un curso del Modulo 3 (con evaluaciones) el boton lleva a su tablero (acumulado o «Mi avance»).
+    if ($coursepage > (int) SITEID && \local_chatbot\ux::on('fabm3') && \local_chatbot\ux::on('tablerom3')) {
+        global $DB, $USER;
+        $cursom3 = $DB->record_exists('local_chatbot_impl', ['courseid' => $coursepage]);
+        $vista = \local_chatbot\tablero_m3::fab_view($cursom3,
+            has_capability('local/chatbot:viewanalytics', context_system::instance()),
+            $cursom3 && has_capability('local/chatbot:use', context_course::instance($coursepage))
+                && $DB->record_exists('local_chatbot_impl', ['courseid' => $coursepage, 'userid' => $USER->id]));
+        if ($cursom3) {
+            if ($vista === null || strpos($pageurl, '/local/chatbot/tablero_m3.php') !== false) {
+                return '';
+            }
+            $url = (new moodle_url('/local/chatbot/tablero_m3.php', ['courseid' => $coursepage, 'vista' => $vista]))->out();
+            return local_chatbot_analytics_fab($url, s(get_string('m3dash_fab', 'local_chatbot')));
+        }
+    }
     if (!has_capability('local/chatbot:viewanalytics', context_system::instance())) {
         return '';
     }

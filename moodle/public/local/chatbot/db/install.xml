@@ -738,6 +738,43 @@
         <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_chatbot_m3_envio" COMMENT="Modulo 3: cada envio de una ficha (de registro o ex post) al control de entrada, pase o no, para los indicadores del grupo B del tablero">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="implid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Ficha de implementacion (la evaluacion)"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="tipo" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="impl" SEQUENCE="false" COMMENT="impl (ficha de registro, Etapa 0) o expost (ficha ex post, Etapa 10)"/>
+        <FIELD NAME="completo" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 si paso el control de entrada"/>
+        <FIELD NAME="faltantes" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Campos que faltaron, en JSON"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="implid" UNIQUE="false" FIELDS="implid"/>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_chatbot_m3_encuesta" COMMENT="Modulo 3: encuesta breve de calidad del agente, al consolidar la Fase 3 (Etapa 8) y la Fase 4 (Etapa 15); una por evaluacion y fase">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="implid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="fase" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="3" SEQUENCE="false" COMMENT="3 o 4"/>
+        <FIELD NAME="respuestas" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Preguntas 1 a 8, en JSON"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="implid_fase" UNIQUE="true" FIELDS="implid, fase"/>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
     <TABLE NAME="local_chatbot_recurso_plan" COMMENT="Modulo 2, Centro de produccion de recursos (Etapas 9 a 12): plan de produccion y metadatos no de diseno por diseno validado">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
