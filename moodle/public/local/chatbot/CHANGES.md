@@ -1,5 +1,14 @@
 # Changelog
 
+## M1-v1.31.3 (2026-11-24)
+
+- **Documento operativo sin espacios en blanco en el guion.** Con el guion ya breve (v1.31.2), cada actividad (título,
+  tabla de tareas y «Aspecto | Detalle») seguía saltando entera a la página siguiente y dejaba un tercio de página en
+  blanco: el Word mantiene juntas las tablas de menos del 45 % de página. En el estilo operativo el límite baja a 20 %:
+  la tabla se parte entre filas (sin partir ninguna fila y repitiendo el encabezado). Con el caso del cliente: 28 → 27
+  páginas y las secciones 1 a 5 en 13 (la propuesta indica 8 a 12 «según el número de actividades»; este diseño tiene
+  540 minutos). No requiere regenerar: se aplica al descargar. Sin cambios en la base.
+
 ## M1-v1.31.2 (2026-11-24)
 
 Ajustes del documento operativo tras probarlo con el caso completo en el cliente (34/36, 30 páginas). Sin cambios en la base.

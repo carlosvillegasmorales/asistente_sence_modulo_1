@@ -1922,6 +1922,12 @@ class documento_final {
         // puede partirse: si no, salta entera a la pagina siguiente y deja media pagina en blanco. El encabezado se repite.
         $pagina = ($this->orient === 'h' ? 12240 : 15840) - 2500;
         $limiteJuntas = ($this->estiloRecurso && count($filas) <= 8) ? 0.60 : 0.45;
+        if ($this->estiloOperativo) {
+            // Documento operativo: el guion trae una tabla por actividad de ~40 % de pagina; si se mantiene entera, cada
+            // actividad salta a la pagina siguiente y deja un tercio en blanco (13-14 paginas en vez de 8 a 12, caso del
+            // cliente del 24-11-2026). Se parte entre filas, sin partir ninguna y repitiendo el encabezado.
+            $limiteJuntas = 0.20;
+        }
         $juntas = $diagrama || $tarjetas || array_sum($altos) <= $limiteJuntas * $pagina;
         foreach ($filas as $r => $celdas) {
             $esenc = $encabezado && $r === 0;
