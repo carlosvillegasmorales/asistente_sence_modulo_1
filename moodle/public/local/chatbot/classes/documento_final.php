@@ -58,6 +58,8 @@ class documento_final {
     private $desfase = 0;
     /** @var bool Si el documento usa el estilo editorial didactico del Centro de Produccion de Recursos. */
     private $estiloRecurso = false;
+    /** @var bool Si el documento usa el estilo operativo de conduccion en aula/taller (salida de la Etapa 8). */
+    private $estiloOperativo = false;
     /** @var int Contador de secciones numeradas en estilo recurso. */
     private $secRecurso = 0;
     /** @var bool Si el bloque inmediatamente anterior fue cabecera de seccion o apoyo visual (para no dejar la intro suelta). */
@@ -498,6 +500,7 @@ class documento_final {
      */
     private function escribir(string $ruta, array $meta, string $html, string $logo): bool {
         $this->estiloRecurso = ($meta['estilo'] ?? '') === 'recurso';
+        $this->estiloOperativo = ($meta['estilo'] ?? '') === 'operativo';
         $this->secRecurso = 0;
         $this->trasCabeceraSec = false;
         $png = ($logo !== '' && is_readable($logo)) ? (string) file_get_contents($logo) : '';
@@ -526,8 +529,10 @@ class documento_final {
             if (count($this->secciones) > 1 && $this->sin_contenido($this->secciones[0][1])) {
                 array_shift($this->secciones);
             }
-            $this->secciones[0][1] = preg_replace('/<w:pageBreakBefore\/>/', '', $this->secciones[0][1], 1);
-            if ($this->estiloRecurso) {
+            if (!$this->estiloOperativo) {
+                $this->secciones[0][1] = preg_replace('/<w:pageBreakBefore\/>/', '', $this->secciones[0][1], 1);
+            }
+            if ($this->estiloRecurso || $this->estiloOperativo) {
                 $this->secciones[0][1] = $this->recurso_cabecera($meta) . $this->secciones[0][1];
             }
         }
@@ -905,7 +910,7 @@ class documento_final {
      * @return string
      */
     private function run(string $texto, array $f = []): string {
-        if ($this->estiloRecurso && strpos($texto, '[REVISAR') !== false) {
+        if (($this->estiloRecurso || $this->estiloOperativo) && strpos($texto, '[REVISAR') !== false) {
             $partes = preg_split('/(\[REVISAR(?:\s*:\s*[^\]]+)?\])/u', $texto, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
             $xml = '';
             foreach ($partes as $p) {
@@ -1295,7 +1300,7 @@ class documento_final {
         if ($n === 1 && preg_match('/^documento\s+consolidado\b/iu', $texto)) {
             return;
         }
-        $etapa = $n <= 3 ? self::parse_stage_title($texto) : null;
+        $etapa = (!$this->estiloOperativo && $n <= 3) ? self::parse_stage_title($texto) : null;
         // Un producto de etapa trae su titulo como h2 y las secciones como h3: los niveles se corren para numerarlos como
         // en el documento final («2.1», «2.7.1»).
         if ($etapa !== null) {
@@ -1307,6 +1312,35 @@ class documento_final {
         }
         // Como en el ejemplo, los titulos van en minuscula normal y sin los dos puntos del final.
         $texto = preg_replace('/\s*:\s*$/u', '', self::sentence_case($texto));
+        if ($this->estiloOperativo && $n === 1) {
+            $this->etapa = 0;
+            $this->seccion = '';
+            $this->ultima = 0;
+            $marca = $this->marcador(1, $texto);
+            $id = $this->bmid;
+            $ini = '<w:bookmarkStart w:id="' . $id . '" w:name="' . $marca . '"/>';
+            $fin = '<w:bookmarkEnd w:id="' . $id . '"/>';
+            if (preg_match('/^(SECCI[ÓO]N\s+\d+|ANEXOS)\s*[·:\-–—]\s*(.+)$/iu', $texto, $m)) {
+                $etiq = \core_text::strtoupper(trim($m[1]));
+                $tit = trim($m[2]);
+                $esAnexo = stripos($etiq, 'ANEXO') === 0;
+                $base = ['style' => 'Heading1', 'keepNext' => 1, 'keepLines' => 1,
+                    'pBdr' => '<w:bottom w:val="single" w:sz="12" w:space="6" w:color="' . self::AZUL . '"/>',
+                    'spacing' => $esAnexo ? 'w:after="200"' : 'w:before="280" w:after="160"',
+                    'tabs' => '<w:tab w:val="left" w:pos="1550"/>', 'ind' => 'w:left="1550" w:hanging="1550"'];
+                if ($esAnexo) {
+                    $base['pageBreakBefore'] = 1;
+                }
+                $this->xml .= $this->p($ini . $this->run($etiq, ['b' => 1, 'color' => self::AZUL, 'spacing' => 16, 'sz' => 20])
+                    . '<w:r><w:tab/></w:r>' . $this->run($tit) . $fin, $base);
+            } else {
+                $this->xml .= $this->p($ini . $this->run($texto) . $fin,
+                    ['style' => 'Heading1', 'keepNext' => 1, 'keepLines' => 1,
+                        'pBdr' => '<w:bottom w:val="single" w:sz="12" w:space="6" w:color="' . self::AZUL . '"/>',
+                        'spacing' => 'w:before="280" w:after="160"']);
+            }
+            return;
+        }
         if ($etapa !== null || $n === 1) {
             $this->etapa = $etapa !== null ? (int) $etapa['numero'] : 0;
             $this->seccion = '';
@@ -1383,7 +1417,7 @@ class documento_final {
             $num = $this->etapa . '.' . $num;
         }
         $num = self::number_label($num);
-        if ($this->estiloRecurso && $n === 3) {
+        if (($this->estiloRecurso || $this->estiloOperativo) && $n === 3) {
             $this->xml .= $this->p(($num !== '' ? $this->run($num . '  ', ['b' => 1, 'color' => self::CYAN]) : '')
                 . $this->run($resto, ['b' => 1, 'color' => self::CYAN_OSCURO, 'sz' => 22]),
                 ['style' => 'Heading3', 'keepNext' => 1, 'keepLines' => 1,
@@ -1407,7 +1441,9 @@ class documento_final {
         $codigo = trim((string) ($meta['codigo'] ?? ''));
         $titulo = trim((string) ($meta['titulo'] ?? ''));
         $sub = trim((string) ($meta['subtitulo'] ?? ''));
-        $kicker = $codigo !== '' ? ('RECURSO DIDÁCTICO · ' . $codigo) : 'RECURSO DIDÁCTICO';
+        $etiqueta = trim((string) ($meta['etiqueta'] ?? ''));
+        $kicker = $etiqueta !== '' ? \core_text::strtoupper($etiqueta)
+            : ($codigo !== '' ? ('RECURSO DIDÁCTICO · ' . $codigo) : 'RECURSO DIDÁCTICO');
         $pCab = $this->p($this->run($kicker, ['b' => 1, 'color' => '7DD3FC', 'spacing' => 18, 'sz' => 16]),
                 ['spacing' => 'w:after="50"'])
             . $this->p($this->run($titulo, ['b' => 1, 'color' => 'FFFFFF', 'sz' => 32]),

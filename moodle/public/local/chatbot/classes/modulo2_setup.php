@@ -598,7 +598,7 @@ class modulo2_setup {
     public static function remove_center_button(string $html): string {
         $limpio = preg_replace('/<!-- CENTRO PRODUCCION RECURSOS -->\s*<div\b[^>]*>\s*<a\b[^>]*>.*?<\/a>\s*<\/div>\s*/su',
             '', $html);
-        $limpio = preg_replace('/<div\b[^>]*>\s*<a\b[^>]*href="[^"]*centro_recursos\.php[^"]*"[^>]*>.*?<\/a>\s*<\/div>\s*/su',
+        $limpio = preg_replace('/<(?:div|p)\b[^>]*>\s*<a\b[^>]*href="[^"]*centro_recursos\.php[^"]*"[^>]*>.*?<\/a>\s*<\/(?:div|p)>\s*/su',
             '', (string) $limpio);
         return trim((string) $limpio) === '' ? '' : (string) $limpio;
     }

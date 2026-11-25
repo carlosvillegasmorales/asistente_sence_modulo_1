@@ -98,6 +98,10 @@ class ux {
         'avisosm3' => 1,        // Modulo 3: avisos automaticos del tablero por las notificaciones de Moodle (v1.30.0).
         'fabm3' => 1,           // Modulo 3: el boton flotante de indicadores lleva al tablero del curso (v1.30.0).
         'auditoriam2' => 1,     // Modulo 2: reglas 14 a 17, prompt desfragmentado por etapa, controles aritmeticos/agrupamientos/formatos/aplicadores en codigo y auditoria obligatoria en Etapa 7 (v1.29.0).
+        // Propuesta de salida de la Etapa 8 de Interfases (24-11-2026): Documento operativo de la experiencia de aprendizaje.
+        'docoperativo' => 1,    // Modulo 2, Etapa 8: documento operativo sintetico en Word al aprobar el diseno (>= 25 puntos; v1.31.0).
+        // Pedido de Interfases del 23-11-2026: informe de validacion de la ficha descargable en PDF con logo de la consultora.
+        'pdfvalidacion' => 1,   // Modulos 2 y 3: descarga en PDF con logo Interfases del informe de validacion de la ficha (v1.31.0).
     ];
 
     /**

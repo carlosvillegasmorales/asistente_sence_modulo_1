@@ -11,6 +11,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 use local_chatbot\diseno;
+use local_chatbot\documento_operativo;
 use local_chatbot\exante;
 
 // Enlaces a las etapas de la Fase 2, para ajustar ahi.
@@ -181,13 +182,24 @@ foreach (diseno::etapas() as $n => $e) {
             <p class="small text-muted mb-0"><?php echo get_string('diseno_eval_note', 'local_chatbot'); ?></p>
         </div>
     </div>
-    <?php if ($aprobado): ?>
-        <?php // Con esto cierra el proceso del modulo: el documento final queda disponible. ?>
+    <?php if ($aprobado):
+        $opon = \local_chatbot\ux::on('docoperativo');
+        $filaop = $opon ? ($filas[diseno::OPERATIVO] ?? null) : null;
+        $huella7 = (string) ($filas[diseno::CONSOLIDACION]->huella ?? '');
+        $opgenerando = $filaop && in_array((string) $filaop->generacion, [exante::PENDIENTE, exante::PROCESANDO], true);
+        $opvigente = $opon && documento_operativo::is_current($filaop, $huella7);
+        $opver = $opvigente ? documento_operativo::version_number($filaop) : 0;
+        $opmarcas = $opvigente ? documento_operativo::review_marks_count((string) $filaop->contenido) : 0; ?>
+        <?php // Con esto cierra el proceso del modulo: el documento final y el documento operativo quedan disponibles. ?>
         <div class="alert alert-success">
             <strong><?php echo get_string('diseno_approved', 'local_chatbot'); ?></strong>
             <div class="mt-2 d-flex flex-wrap gap-2">
                 <a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
                     <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('diseno_final_download', 'local_chatbot'); ?></a>
+                <?php if ($opvigente): ?>
+                    <a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'operativo']))->out(false); ?>">
+                        <i class="fa fa-file-text-o me-1"></i> <?php echo get_string('diseno_operativo_download', 'local_chatbot', $opver); ?></a>
+                <?php endif; ?>
                 <?php if (\local_chatbot\ux::on('centrorecursos')): ?>
                     <a class="chatbot-gatebtn" href="<?php echo (new moodle_url('/local/chatbot/centro_recursos.php',
                         ['courseid' => $courseid, 'fichaid' => (int) (exante::get_ficha($USER->id, $courseid)->id ?? 0)]))->out(false); ?>">
@@ -195,6 +207,59 @@ foreach (diseno::etapas() as $n => $e) {
                 <?php endif; ?>
             </div>
         </div>
+        <?php if ($opon): ?>
+            <?php if ($opgenerando): ?>
+                <div class="card shadow-sm border-0 mb-4" id="diseno-generando" role="status"
+                     data-id="<?php echo (int) $filaop->id; ?>" data-estado="<?php echo s($filaop->generacion); ?>"
+                     data-url="<?php echo s((new moodle_url('/local/chatbot/diseno.php', ['courseid' => $courseid]))->out(false)); ?>"
+                     data-sesskey="<?php echo sesskey(); ?>"
+                     data-volver="<?php echo s((new moodle_url($pageurl, ['g' => time()], 'producto'))->out(false)); ?>">
+                    <div class="card-body">
+                        <h5 class="mb-2"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span><?php
+                            echo get_string('diseno_operativo_generating', 'local_chatbot'); ?></h5>
+                        <p class="small text-muted mb-0"><?php echo get_string('diseno_generating_long', 'local_chatbot'); ?></p>
+                    </div>
+                </div>
+            <?php elseif ($opvigente): ?>
+                <div class="card border mb-4">
+                    <div class="card-body py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <p class="small text-muted mb-0"><?php echo get_string('diseno_operativo_help', 'local_chatbot'); ?></p>
+                            <form method="post" action="<?php echo $pageurl->out(false); ?>" class="m-0">
+                                <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                <button type="submit" name="action" value="generaroperativo" class="btn btn-outline-secondary btn-sm"
+                                        data-espera="<?php echo s(get_string('diseno_operativo_generating', 'local_chatbot')); ?>">
+                                    <i class="fa fa-refresh me-1"></i> <?php echo get_string('diseno_operativo_regenerate', 'local_chatbot'); ?>
+                                </button>
+                            </form>
+                        </div>
+                        <?php if ($opmarcas > 0): ?>
+                            <div class="alert alert-warning small mt-2 mb-0 py-2">
+                                <?php echo get_string('diseno_operativo_revisar', 'local_chatbot', $opmarcas); ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="card border mb-4">
+                    <div class="card-body py-3">
+                        <?php if ($filaop && $filaop->generacion === exante::ERROR): ?>
+                            <div class="alert alert-warning small mb-2 py-2"><?php
+                                echo get_string('exante_error_' . ($filaop->error ?: 'servicio'), 'local_chatbot') . ' '
+                                    . get_string('diseno_error_retry', 'local_chatbot'); ?></div>
+                        <?php endif; ?>
+                        <p class="small text-muted mb-2"><?php echo get_string('diseno_operativo_help', 'local_chatbot'); ?></p>
+                        <form method="post" action="<?php echo $pageurl->out(false); ?>" class="m-0">
+                            <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                            <button type="submit" name="action" value="generaroperativo" class="btn btn-primary btn-sm"
+                                    data-espera="<?php echo s(get_string('diseno_operativo_generating', 'local_chatbot')); ?>">
+                                <i class="fa fa-file-text-o me-1"></i> <?php echo get_string('diseno_operativo_generate', 'local_chatbot'); ?>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
         <?php // El modulo se usa una y otra vez: se puede volver a las etapas y empezar otra experiencia. ?>
         <div class="card border-0 bg-light mb-4">
             <div class="card-body">

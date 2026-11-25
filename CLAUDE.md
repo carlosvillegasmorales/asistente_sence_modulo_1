@@ -104,6 +104,21 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   los dibujos de caracteres (│ ─ ▼) se vuelven lista. Se aplica en `diseno::product_html()` y en `html_to_docx()`.
   Para el documento final, `art_table_html()` rehace como tabla una tabla dibujada con cajas y `tree_items()` lee un árbol
   (├── └──) con sus niveles.
+- `classes/informe_ficha_pdf.php` — **informe de validación de la ficha descargable en PDF con logo institucional**
+  (v1.31.0, interruptor `pdfvalidacion`, sin cambios de tablas): exporta mediante TCPDF el informe de validación de
+  `ficha_exante.php` (Módulo 2, Fase 1), `ficha_implementacion.php` (Módulo 3, Fase 1) y `ficha_expost.php` (Módulo 3,
+  Fase 4) con `pix/logo_interfases.png` en la cabecera hero (página 1) y en el encabezado corrido (páginas 2+), tira de
+  conteos, checklist por sección con paginación limpia sin filas partidas, condición final, sugerencias y pie `Página X de Y`.
+- `classes/documento_operativo.php` — **Módulo 2, salida operativa al cierre de la Etapa 8** (v1.31.0, interruptor
+  `docoperativo`, prompt `M2-OP-v1`, sin cambios de tablas): cuando la Etapa 8 aprueba con `>= 25` puntos,
+  `diseno::evaluate()` encola la fila interna `etapa = diseno::OPERATIVO (9)` en `local_chatbot_diseno` (ignorada por
+  `diseno::accepted()` y los tableros, versionada en `rondas`). Extrae con IA las Secciones 1 a 5 (8–12 páginas
+  sintéticas, AE y criterios textuales, campos de implementación en blanco, sin Etapa 1 ni cierres y con marcas
+  `[REVISAR: diferencia entre etapas]`), adjunta determinísticamente en PHP los instrumentos completos de la Etapa 6
+  como `ANEXOS · Instrumentos de evaluación` (`extract_stage6_instruments()`), sincroniza en vivo el estado de los
+  materiales de la tabla 4.1 desde `local_chatbot_recurso` al descargar (`sync_repertoire_status()`) y arma el `.docx`
+  editable con `documento_final::build(..., ['estilo' => 'operativo', ...])` desde `diseno.php` (`action=operativo` /
+  `generaroperativo`) y `diseno_fase3.php`.
 - `classes/documento_final.php` — **documento final de la Fase 3** con el diseño del ejemplo del cliente («Diseño Final
   Validado - Ejemplo - Interfases»): portada con logo (`pix/logo_interfases.png`, distinto del ícono
   `interfases_logo.png`) y datos de `diseno::final_cover()`, índice con PAGEREF, encabezado y pie, una etapa por página,
@@ -202,7 +217,7 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
   Deben pasar sin fallos. Al 19-11-2026 (M1-v1.28.3): **44 celdas de la matriz de acceso y 2133 claves de idioma**;
-  `verificar_exante.php` 191 casos, `verificar_diseno.php` 307, `verificar_centro_recursos.php` 70, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99,
+  `verificar_exante.php` 191 casos, `verificar_diseno.php` 316, `verificar_centro_recursos.php` 70, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99,
   `verificar_documento_final.php` 111 y, del Módulo 3, `verificar_implementacion.php` 143, `verificar_calidad.php` 114,
   `verificar_libreria_m3.php` 129, `verificar_modulo3.php` 26 y, de la Fase 4, `verificar_expost.php` 95, entre otros, `verificar_perfiles_m2.php` 169, en 29 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:

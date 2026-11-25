@@ -833,7 +833,8 @@ $btnSolo = modulo2_setup::center_button_html($urlCentro);
 local_chatbot_verificar(
     modulo2_setup::remove_center_button($btnSolo) === ''
     && modulo2_setup::remove_center_button('<p>Intro</p>' . $btnSolo) === '<p>Intro</p>'
-    && modulo2_setup::remove_center_button('<div style="text-align:center;"><a href="' . $urlCentro . '">Ir al Centro</a></div>') === '',
+    && modulo2_setup::remove_center_button('<div style="text-align:center;"><a href="' . $urlCentro . '">Ir al Centro</a></div>') === ''
+    && modulo2_setup::remove_center_button('<p style="text-align:center;"><a href="' . $urlCentro . '">Ir al Centro</a></p>') === '',
     'remove_center_button quita el botón del resumen (con o sin comentario HTML) y conserva cualquier otro texto'
 );
 $planCrear = modulo2_setup::center_button_plan([['id' => 10, 'html' => '<p>Presentación</p>']], $urlCentro, 12);

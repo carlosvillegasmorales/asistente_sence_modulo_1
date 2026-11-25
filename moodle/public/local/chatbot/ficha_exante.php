@@ -162,6 +162,74 @@ $vigente = $val && $ficha && $val->huella === exante::ficha_fingerprint($ficha);
 $listo = $val && $val->estado === exante::LISTO && is_array($val->informe);
 $avanza = $listo && $vigente && exante::can_advance($val->condicion);
 
+// --- Descarga del informe de validacion en PDF con logo institucional ---
+if ($action === 'pdf' && $listo && \local_chatbot\ux::on('pdfvalidacion')) {
+    $inf = $val->informe;
+    $snap = exante::clean((array) json_decode((string) ($val->snapshot ?? ''), true));
+    $src = $snap ?: $data;
+    $det = [];
+    if (!empty($inf['regla']) && $val->condicion === exante::NO_APROBADO) {
+        $textos = exante::checklist_texts();
+        foreach (exante::critical_failures($inf['items'] ?? []) as $cid) {
+            $it = $inf['items'][$cid] ?? [];
+            $det[] = ['texto' => $textos[$cid] ?? $cid, 'observacion' => (string) ($it['observacion'] ?? ''),
+                'propuesta' => (string) ($it['propuesta'] ?? '')];
+        }
+    }
+    $mot = [];
+    if (!empty($inf['motivo'])) {
+        $mot = [
+            'titulo' => get_string('exante_reason_' . $inf['motivo']['codigo'], 'local_chatbot'),
+            'cita' => (string) ($inf['motivo']['cita'] ?? ''),
+            'corregir' => (string) ($inf['motivo']['corregir'] ?? ''),
+        ];
+    }
+    $adjtxt = empty($inf['adjuntos'])
+        ? get_string('exante_report_nodocs', 'local_chatbot')
+        : get_string('exante_report_docs', 'local_chatbot', implode(', ', array_map(
+            static fn($et, $nom) => $et . ' (' . $nom . ')',
+            array_keys($inf['adjuntos']),
+            $inf['adjuntos']
+        )));
+    $spec = [
+        'modulo' => get_string('ficha_report_pdf_mod2', 'local_chatbot'),
+        'titulo' => get_string('exante_report_title', 'local_chatbot'),
+        'curso' => format_string($course->fullname),
+        'fecha' => get_string('exante_report_date', 'local_chatbot',
+            userdate($val->timemodified, get_string('strftimedatetimeshort', 'langconfig'))),
+        'vigente' => $vigente,
+        'stale_text' => get_string('exante_report_stale', 'local_chatbot'),
+        'meta' => [
+            ['etiqueta' => 'Organismo ejecutor', 'valor' => (string) ($src['organismo'] ?? '')],
+            ['etiqueta' => 'Plan formativo', 'valor' => (string) ($src['plan'] ?? '')],
+            ['etiqueta' => 'Módulo', 'valor' => (string) ($src['modulo'] ?? '')],
+            ['etiqueta' => 'Aprendizaje esperado', 'valor' => (string) ($src['aprendizaje'] ?? '')],
+        ],
+        'checklist' => exante::checklist(),
+        'criticos' => exante::CRITICOS,
+        'items' => (array) ($inf['items'] ?? []),
+        'condicion' => (string) $val->condicion,
+        'condicion_titulo' => get_string('exante_cond_' . $val->condicion, 'local_chatbot'),
+        'condicion_desc' => get_string('exante_cond_' . $val->condicion . '_desc', 'local_chatbot'),
+        'regla_label' => get_string('exante_rule_label', 'local_chatbot'),
+        'regla_text' => !empty($inf['regla']) ? get_string('exante_rule_' . $inf['regla'], 'local_chatbot') : '',
+        'detienen' => $det,
+        'motivo' => $mot,
+        'debilidades' => (array) ($inf['debilidades'] ?? []),
+        'sugerencias' => (array) ($inf['sugerencias'] ?? []),
+        'pendientes' => exante::unresolved_items($inf['items'] ?? []),
+        'adjuntos_texto' => $adjtxt,
+        'fuentes_web' => (array) ($inf['fuentes_web'] ?? []),
+        'nota_pie' => get_string('exante_report_note', 'local_chatbot'),
+        'etiquetas' => \local_chatbot\informe_ficha_pdf::moodle_labels('exante'),
+    ];
+    $ruta = make_request_directory() . '/informe_validacion_exante.pdf';
+    if (\local_chatbot\informe_ficha_pdf::build_pdf($ruta, $spec, $CFG->dirroot . '/local/chatbot/pix/logo_interfases.png')) {
+        send_file($ruta, 'Informe_validacion_ficha_diagnostico.pdf', 0, 0, false, true, 'application/pdf');
+    }
+    throw new moodle_exception('ficha_report_pdf_error', 'local_chatbot');
+}
+
 // Las fases del Modulo 2 son secciones del curso que se llaman «Fase 1: ...», «Fase 2: ...».
 $nombres = [];
 foreach (get_fast_modinfo($course)->get_section_info_all() as $seccion) {
@@ -441,6 +509,10 @@ echo $OUTPUT->header();
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 border-bottom pb-2 mb-3">
                     <h4 class="mb-0"><?php echo get_string('exante_report_title', 'local_chatbot'); ?></h4>
+                    <?php if (\local_chatbot\ux::on('pdfvalidacion')): ?>
+                        <a class="btn btn-sm btn-outline-primary ms-auto" href="<?php echo (new moodle_url($pageurl, ['action' => 'pdf']))->out(false); ?>">
+                            <i class="fa fa-file-pdf-o me-1"></i><?php echo get_string('ficha_report_pdf_download', 'local_chatbot'); ?></a>
+                    <?php endif; ?>
                     <span class="small text-muted"><?php echo get_string('exante_report_date', 'local_chatbot',
                         userdate($val->timemodified, get_string('strftimedatetimeshort', 'langconfig'))); ?></span>
                 </div>

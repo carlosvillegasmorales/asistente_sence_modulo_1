@@ -126,8 +126,40 @@ if ($action === 'final' && $fase1 && $descargable) {
     throw new moodle_exception('diseno_word_error', 'local_chatbot');
 }
 
+// --- Documento operativo de la experiencia de aprendizaje (salida sintetica al aprobar la Etapa 8) ---
+if ($action === 'operativo' && $fase1 && $aprobado && \local_chatbot\ux::on('docoperativo')) {
+    $filaop = $filas[diseno::OPERATIVO] ?? null;
+    $huella7 = (string) ($filas[diseno::CONSOLIDACION]->huella ?? '');
+    if (!\local_chatbot\documento_operativo::is_current($filaop, $huella7)) {
+        redirect(new moodle_url($pageurl, ['etapa' => diseno::EVALUACION], 'producto'));
+    }
+    $ruta = make_request_directory() . '/operativo.docx';
+    $nombre = diseno::experience_name(html_to_text((string) ($filas[2]->contenido ?? ''), 0, false));
+    $titulo = $nombre !== '' ? $nombre : get_string('diseno_final_title', 'local_chatbot');
+    $fichaop = exante::get_ficha($USER->id, $courseid);
+    $fichaid = $fichaop ? (int) $fichaop->id : (int) $filaop->fichaid;
+    $estados = \local_chatbot\documento_operativo::repertoire_status_map(
+        \local_chatbot\centro_recursos::get_resources($fichaid)
+    );
+    $html = \local_chatbot\documento_operativo::sync_repertoire_status((string) $filaop->contenido, $estados);
+    $version = \local_chatbot\documento_operativo::version_number($filaop);
+    $meta = \local_chatbot\documento_operativo::word_meta(
+        $fichadata ?: ($fichaop ? (array) $fichaop->data : []),
+        $titulo,
+        $evaluacion,
+        userdate($evaluacion['fecha'], get_string('strftimedate', 'langconfig')),
+        $version
+    );
+    if (\local_chatbot\documento_operativo::build_docx($ruta, $meta, $html,
+            $CFG->dirroot . '/local/chatbot/pix/logo_interfases.png')) {
+        send_file($ruta, \local_chatbot\documento_operativo::ARCHIVO . '_v' . $version . '.docx', 0, 0, false, true,
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+    throw new moodle_exception('diseno_word_error', 'local_chatbot');
+}
+
 // --- Fase 3: confirmar la consolidacion y pedir la evaluacion ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $fase3 && in_array($action, ['confirmar', 'evaluar', 'consolidar'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $fase3 && in_array($action, ['confirmar', 'evaluar', 'consolidar', 'generaroperativo'], true)) {
     require_sesskey();
     $destino = new moodle_url($pageurl, [], 'producto');
     if ($action === 'consolidar' && $etapa === diseno::CONSOLIDACION && \local_chatbot\ux::on('consolidacionia')) {
@@ -162,6 +194,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $fase3 && in_array($act
                 \core\output\notification::NOTIFY_ERROR);
         }
         diseno::request($USER->id, $courseid, diseno::EVALUACION, (int) $fase1->id);
+    }
+    if ($action === 'generaroperativo' && $etapa === diseno::EVALUACION && $aprobado && \local_chatbot\ux::on('docoperativo')) {
+        if (!\local_chatbot\ai\provider_factory::is_configured()) {
+            redirect($destino, get_string('exante_error_sinclave', 'local_chatbot'), null,
+                \core\output\notification::NOTIFY_ERROR);
+        }
+        diseno::request($USER->id, $courseid, diseno::OPERATIVO, (int) $fase1->id);
     }
     redirect($destino);
 }

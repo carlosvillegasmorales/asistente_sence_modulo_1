@@ -166,6 +166,66 @@ $listo = $val && $val->estado === implementacion::LISTO && is_array($val->inform
 $vigente = $s['vigente'];
 $avanza = $listo && $s['ok'];
 
+// --- Descarga del informe de validacion ex-post en PDF con logo institucional ---
+if ($action === 'pdf' && $listo && \local_chatbot\ux::on('pdfvalidacion')) {
+    $inf = $val->informe;
+    $s1 = is_array($pre) ? (array) ($pre['s1'] ?? []) : [];
+    $det = [];
+    if (!empty($inf['regla']) && $val->condicion === implementacion::NO_APROBADO) {
+        $textos = expost::checklist_texts();
+        foreach (expost::critical_failures($inf['items'] ?? []) as $cid) {
+            $it = $inf['items'][$cid] ?? [];
+            $det[] = ['texto' => $textos[$cid] ?? $cid, 'observacion' => (string) ($it['observacion'] ?? ''),
+                'propuesta' => (string) ($it['propuesta'] ?? '')];
+        }
+    }
+    $adjtxt = empty($inf['adjuntos'])
+        ? get_string('impl_report_nodocs', 'local_chatbot')
+        : get_string('exante_report_docs', 'local_chatbot', implode(', ', array_map(
+            static fn($et, $nom) => $et . ' (' . $nom . ')',
+            array_keys($inf['adjuntos']),
+            $inf['adjuntos']
+        )));
+    $spec = [
+        'modulo' => get_string('ficha_report_pdf_mod3_expost', 'local_chatbot'),
+        'titulo' => get_string('exp_report_title', 'local_chatbot'),
+        'curso' => format_string($course->fullname),
+        'fecha' => get_string('exante_report_date', 'local_chatbot',
+            userdate($val->timemodified, get_string('strftimedatetimeshort', 'langconfig'))),
+        'vigente' => $vigente,
+        'stale_text' => get_string('exp_report_stale', 'local_chatbot'),
+        'meta' => [
+            ['etiqueta' => 'Plan formativo', 'valor' => (string) ($s1['plan'] ?? '')],
+            ['etiqueta' => 'Módulo', 'valor' => (string) ($s1['modulo'] ?? '')],
+            ['etiqueta' => 'Experiencia inicial', 'valor' => (string) ($s1['exp_inicial'] ?? '')],
+            ['etiqueta' => 'Experiencia de continuidad', 'valor' => (string) ($s1['exp_continuidad'] ?? ($data['exp_continuidad'] ?? ''))],
+            ['etiqueta' => 'Persona facilitadora', 'valor' => (string) ($s1['facilitador'] ?? '')],
+        ],
+        'checklist' => expost::checklist(),
+        'criticos' => expost::CRITICOS,
+        'items' => (array) ($inf['items'] ?? []),
+        'condicion' => (string) $val->condicion,
+        'condicion_titulo' => get_string('exante_cond_' . $val->condicion, 'local_chatbot'),
+        'condicion_desc' => get_string('exp_cond_' . $val->condicion . '_desc', 'local_chatbot'),
+        'regla_label' => get_string('exante_rule_label', 'local_chatbot'),
+        'regla_text' => !empty($inf['regla']) ? get_string('exante_rule_' . $inf['regla'], 'local_chatbot') : '',
+        'detienen' => $det,
+        'debilidades' => (array) ($inf['debilidades'] ?? []),
+        'sugerencias' => (array) ($inf['sugerencias'] ?? []),
+        'pendientes' => expost::unresolved_items($inf['items'] ?? []),
+        'verificaciones' => (array) ($inf['verificaciones'] ?? []),
+        'adjuntos_texto' => $adjtxt,
+        'fuentes_web' => (array) ($inf['fuentes_web'] ?? []),
+        'nota_pie' => get_string('exp_report_note', 'local_chatbot'),
+        'etiquetas' => \local_chatbot\informe_ficha_pdf::moodle_labels('exp'),
+    ];
+    $ruta = make_request_directory() . '/informe_validacion_expost.pdf';
+    if (\local_chatbot\informe_ficha_pdf::build_pdf($ruta, $spec, $CFG->dirroot . '/local/chatbot/pix/logo_interfases.png')) {
+        send_file($ruta, 'Informe_validacion_ficha_expost.pdf', 0, 0, false, true, 'application/pdf');
+    }
+    throw new moodle_exception('ficha_report_pdf_error', 'local_chatbot');
+}
+
 // Secciones del curso: la Fase 3 (para volver) y la Fase 4.
 $nombres = [];
 foreach (get_fast_modinfo($course)->get_section_info_all() as $seccion) {
@@ -611,6 +671,10 @@ echo $OUTPUT->header();
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 border-bottom pb-2 mb-3">
                     <h4 class="mb-0"><?php echo get_string('exp_report_title', 'local_chatbot'); ?></h4>
+                    <?php if (\local_chatbot\ux::on('pdfvalidacion')): ?>
+                        <a class="btn btn-sm btn-outline-primary ms-auto" href="<?php echo (new moodle_url($pageurl, ['action' => 'pdf']))->out(false); ?>">
+                            <i class="fa fa-file-pdf-o me-1"></i><?php echo get_string('ficha_report_pdf_download', 'local_chatbot'); ?></a>
+                    <?php endif; ?>
                     <span class="small text-muted"><?php echo get_string('exante_report_date', 'local_chatbot',
                         userdate($val->timemodified, get_string('strftimedatetimeshort', 'langconfig'))); ?></span>
                 </div>

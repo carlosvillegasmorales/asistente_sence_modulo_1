@@ -1374,6 +1374,70 @@ local_chatbot_verificar(substr_count($reemplazado, 'Verificación de consistenci
     && strpos($reemplazado, 'M2 mezcla Modo B') === false && strpos($reemplazado, '<h2>Parte 1</h2>') !== false,
     'replace_consistency_annex() sustituye un anexo anterior sin duplicarlo ni tocar las 6 etapas');
 
+// 10. Falsos positivos reportados en campo (24-11-2026): formula con IN1/IN2/IN3, columna «Responsable» con tablas
+// auxiliares en Etapa 5 y fila «Total sumativo (100 %)» fuera de la primera columna.
+$formulaIn = '<p>Porcentaje Final de Logro (%) = (% Instrumento IN1 × 0.40) + (% Instrumento IN2 × 0.35) + (% Instrumento IN3 × 0.25)</p>'
+    . '<p>Se aplican los instrumentos IN1, IN2 e IN3 en el cierre del taller técnico.</p>';
+local_chatbot_verificar(diseno::english_paragraphs($formulaIn) === [],
+    'english_paragraphs() no confunde fórmulas ni códigos IN1/IN2/IN3 con párrafos en inglés');
+
+$etapa5Real = '<h3>5.1 Matriz de evaluación por criterio</h3>'
+    . '<table><tr><th>Criterio de evaluación</th><th>Instrumento</th><th>Puntaje máximo</th><th>Ponderación</th></tr>'
+    . '<tr><td>CE1</td><td>IN1</td><td>20 pts</td><td>40%</td></tr>'
+    . '<tr><td>CE2</td><td>IN1</td><td>20 pts</td><td>40%</td></tr>'
+    . '<tr><td>CE3</td><td>IN2</td><td>30 pts</td><td>35%</td></tr>'
+    . '<tr><td>CE4</td><td>IN3</td><td>20 pts</td><td>25%</td></tr></table>'
+    . '<h3>5.2 Registro de instrumentos</h3>'
+    . '<table><tr><th>Código</th><th>Instrumento</th><th>Tipo</th><th>Momento</th><th>Unidad evaluada</th>'
+    . '<th>Responsable</th><th>Puntaje máximo</th><th>Umbral</th><th>Ponderación</th></tr>'
+    . '<tr><td>IN0</td><td>Diagnóstico inicial</td><td>Diagnóstica</td><td>Inicio</td><td>Individual</td><td>Persona facilitadora</td><td>10 pts</td><td>7 pts (70%)</td><td>100% (solo diagnóstico)</td></tr>'
+    . '<tr><td>IN1</td><td>Lista de cotejo</td><td>Sumativa</td><td>Fase 2</td><td>Individual</td><td>Persona facilitadora</td><td>20 pts</td><td>15 pts (75%)</td><td>40%</td></tr>'
+    . '<tr><td>IN2</td><td>Rúbrica práctica</td><td>Sumativa</td><td>Fase 3</td><td>Individual</td><td>Persona facilitadora</td><td>30 pts</td><td>23 pts (75%)</td><td>35%</td></tr>'
+    . '<tr><td>IN3</td><td>Prueba aplicada</td><td>Sumativa</td><td>Cierre</td><td>Individual</td><td>Persona facilitadora</td><td>20 pts</td><td>15 pts (75%)</td><td>25%</td></tr>'
+    . '<tr><td>—</td><td>Total sumativo</td><td></td><td></td><td></td><td></td><td>70 pts</td><td></td><td>100%</td></tr></table>';
+local_chatbot_verificar(diseno::evaluation_plan_issues($etapa5Real, true) === [],
+    'evaluation_plan_issues() acepta «Responsable» con tablas auxiliares, omite fila «Total sumativo» en col. 2, filas diagnósticas y matrices por criterio');
+
+// Un instrumento en dos filas (una por aplicación, Regla 17) que repite su ponderación en cada fila: se cuenta una vez
+// por código. Antes sumaba 160 % (40 + 60 + 60).
+$cabPond = '<h3>Registro de instrumentos</h3><table><tr><th>N.º</th><th>Instrumento</th><th>Tipo</th><th>Criterios</th>'
+    . '<th>Momento</th><th>Unidad evaluada</th><th>Responsable</th><th>Puntaje máximo</th><th>Umbral</th><th>Ponderación</th></tr>';
+$filaPond = static function(string $cod, string $inst, string $mom, string $pond): string {
+    return '<tr><td>' . $cod . '</td><td>' . $inst . '</td><td>Sumativa</td><td>1.1</td><td>' . $mom
+        . '</td><td>Persona</td><td>Facilitadora</td><td>20</td><td>12</td><td>' . $pond . '</td></tr>';
+};
+$dobleFila = $cabPond . $filaPond('IN1', 'Prueba escrita', 'Fase 1', '40%')
+    . $filaPond('IN2', 'Lista de cotejo (aplicación 1)', 'Estación A', '60%')
+    . $filaPond('IN2', 'Lista de cotejo (aplicación 2)', 'Estación B', '60%') . '</table>';
+local_chatbot_verificar(diseno::evaluation_plan_issues($dobleFila, true) === [],
+    'evaluation_plan_issues() cuenta una vez la ponderación de un instrumento registrado en dos filas (IN2 × 2 → 100 %, no 160 %)');
+$dobleSinCodigo = $cabPond . $filaPond('1', 'Prueba escrita', 'Fase 1', '40%')
+    . $filaPond('2', 'Lista de cotejo (aplicación 1)', 'Estación A', '60%')
+    . $filaPond('3', 'Lista de cotejo (aplicación 2)', 'Estación B', '60%') . '</table>';
+local_chatbot_verificar(diseno::evaluation_plan_issues($dobleSinCodigo, true) === [],
+    'evaluation_plan_issues() sin código reconoce el instrumento por su nombre sin «(aplicación N)»');
+$repartida = $cabPond . $filaPond('IN1', 'Prueba escrita', 'Fase 1', '40%')
+    . $filaPond('IN2', 'Lista de cotejo (aplicación 1)', 'Estación A', '30%')
+    . $filaPond('IN2', 'Lista de cotejo (aplicación 2)', 'Estación B', '30%') . '</table>';
+local_chatbot_verificar(diseno::evaluation_plan_issues($repartida, true) === [],
+    'evaluation_plan_issues() acepta la ponderación repartida entre las filas de un instrumento (40 + 30 + 30)');
+$malSuma = $cabPond . $filaPond('IN1', 'Prueba escrita', 'Fase 1', '40%')
+    . $filaPond('IN2', 'Lista de cotejo (aplicación 1)', 'Estación A', '50%')
+    . $filaPond('IN2', 'Lista de cotejo (aplicación 2)', 'Estación B', '50%') . '</table>';
+$probMal = diseno::evaluation_plan_issues($malSuma, true);
+local_chatbot_verificar(count($probMal) === 1 && strpos($probMal[0], 'suman 90 % en lugar de 100 %') !== false,
+    'evaluation_plan_issues() sigue avisando si ninguna suma da 100 % e informa la suma por instrumento (40 + 50 = 90 %)');
+$malUnicos = $cabPond . $filaPond('IN1', 'Prueba escrita', 'Fase 1', '40%')
+    . $filaPond('IN2', 'Lista de cotejo', 'Estación A', '50%') . '</table>';
+local_chatbot_verificar(count(diseno::evaluation_plan_issues($malUnicos, true)) === 1,
+    'evaluation_plan_issues() avisa una suma errada sin filas repetidas (40 + 50)');
+local_chatbot_verificar(diseno::instrument_key(['n.º' => 'INS-01'], ['INS-01'], 'Rúbrica') === 'ins-01'
+    && diseno::instrument_key([], ['Rúbrica — estación 2'], 'Rúbrica — estación 2') === 'rubrica',
+    'instrument_key() toma el código de la fila o, sin él, el nombre sin la marca de aplicación');
+
+local_chatbot_verificar(strpos($pAudit, 'rótulo equivalente («Persona que aplica», «Responsable», «Evaluador/a» o «A cargo»)') !== false,
+    'build_audit_prompt() indica aceptar rótulos equivalentes a «Persona que aplica» (Regla 15)');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Fases 2 y 3 del Módulo 2 conformes: etapas del Prompt Maestro, sin saltos, rúbrica textual y Word válido.\n";

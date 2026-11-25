@@ -492,6 +492,8 @@ class diseno {
     /** Etapas de la Fase 3 (Prompt Maestro, etapas 7 y 8). */
     const CONSOLIDACION = 7;
     const EVALUACION = 8;
+    /** Salida operativa al cierre de la Etapa 8 (se guarda en local_chatbot_diseno fuera de todas() 1..8). */
+    const OPERATIVO = 9;
 
     /** @var int Puntaje desde el que el diseño queda aprobado (rubrica: 25 a 31 «Aprobado con ajustes menores»). */
     const APROBADO_DESDE = 25;
@@ -958,7 +960,13 @@ class diseno {
      * @return int
      */
     public static function max_seconds(int $etapa): int {
-        return $etapa === self::CONSOLIDACION ? self::CONSOLIDACION_MAX : exante::PROCESO_MAX;
+        if ($etapa === self::CONSOLIDACION) {
+            return self::CONSOLIDACION_MAX;
+        }
+        if ($etapa === self::OPERATIVO) {
+            return documento_operativo::MAX_SECONDS;
+        }
+        return exante::PROCESO_MAX;
     }
 
     /**
@@ -1113,9 +1121,11 @@ class diseno {
             . 'puntajes máximos de instrumentos, ponderaciones (deben sumar 100 %) y equivalencia de umbrales. No copies '
             . 'sumas declaradas en el texto sin recalcularlas.';
         $l[] = '- Quién aplica cada instrumento (Regla 15): verifica que cada instrumento —y cada parte o estación '
-            . 'evaluada— tenga una persona concreta que lo aplique en ese momento. «Acompañar» o «supervisar» no cuenta '
-            . 'como aplicar un instrumento: si una estación evaluada solo tiene acompañamiento sin aplicador, marca '
-            . '«Inconsistente» en «Agrupamientos y observación» y en «Registro de instrumentos».';
+            . 'evaluada— tenga una persona concreta que lo aplique en ese momento. Se acepta la columna con cualquier '
+            . 'rótulo equivalente («Persona que aplica», «Responsable», «Evaluador/a» o «A cargo») siempre que indique '
+            . 'quién aplica cada instrumento o estación. «Acompañar» o «supervisar» no cuenta como aplicar un instrumento: '
+            . 'si una estación evaluada solo tiene acompañamiento sin aplicador, marca «Inconsistente» en '
+            . '«Agrupamientos y observación» y en «Registro de instrumentos».';
         $l[] = '- Actividades con varias tareas (Regla 16): verifica que las actividades compuestas (traslado, visita, '
             . 'regreso, prueba) desglosen el tiempo de cada tarea y no superen la duración declarada.';
         $l[] = '- Una fila por aplicación (Regla 17): si un instrumento se aplica en dos momentos distintos en la misma '
@@ -2485,6 +2495,10 @@ class diseno {
      */
     public static function evaluation_plan_issues(string $html, bool $auditoria = true): array {
         $problemas = self::arithmetic_expression_issues($html);
+        $reAplicador = '/aplica|responsable|evaluador|quien|a\s*cargo|agente|facilitador/u';
+        $registros = [];
+        $algunoConDetalles = false;
+        $algunoConAplicador = false;
         foreach (self::parse_tables($html) as $tabla) {
             $cab = $tabla['cabecera'];
             $esRegistro = (bool) preg_grep('/instrumento|nombre/', $cab)
@@ -2492,29 +2506,58 @@ class diseno {
             if (!$esRegistro) {
                 continue;
             }
-            $tieneDetallesRegistro = (bool) preg_grep('/ponderacion|puntaje|umbral/', $cab);
-            $tieneAplicador = (bool) preg_grep('/aplica|responsable|evaluador|quien/', $cab);
-            if ($auditoria && $tieneDetallesRegistro && !$tieneAplicador) {
-                $problemas[] = 'Registro de instrumentos (Regla 15): falta la columna «Persona que aplica» indicando '
-                    . 'quién aplica cada instrumento o parte/estación evaluada («acompañar» no cuenta como aplicar).';
+            $esMatrizCriterios = isset($cab[0]) && preg_match('/criterio/', $cab[0])
+                && !preg_match('/codigo|instrumento|nombre/', $cab[0]);
+            $tieneDetalles = (bool) preg_grep('/ponderacion|puntaje|umbral/', $cab);
+            $tieneAplicador = (bool) preg_grep($reAplicador, $cab);
+            if ($tieneDetalles && !$esMatrizCriterios) {
+                $algunoConDetalles = true;
             }
+            if ($tieneAplicador) {
+                $algunoConAplicador = true;
+            }
+            $registros[] = ['tabla' => $tabla, 'esMatrizCriterios' => $esMatrizCriterios, 'tieneAplicador' => $tieneAplicador];
+        }
+        // Solo se exige la columna de aplicador si ninguna tabla de registro de la Etapa 5 la declara (evita falsos
+        // positivos en tablas resumen o matrices criterio x instrumento cuando el registro ya tiene «Responsable»).
+        if ($auditoria && $algunoConDetalles && !$algunoConAplicador) {
+            $problemas[] = 'Registro de instrumentos (Regla 15): falta la columna «Persona que aplica» indicando '
+                . 'quién aplica cada instrumento o parte/estación evaluada («acompañar» no cuenta como aplicar).';
+        }
+        foreach ($registros as $reg) {
+            $tabla = $reg['tabla'];
+            $cab = $tabla['cabecera'];
+            $esMatrizCriterios = $reg['esMatrizCriterios'];
+            $tieneAplicador = $reg['tieneAplicador'];
             $ponderaciones = [];
             foreach ($tabla['filas'] as $f) {
                 $row = $f['map'];
-                $primera = self::plain_lower($f['celdas'][0] ?? '');
-                if (preg_match('/^(?:total|suma)\b/u', $primera)) {
+                // Salta filas de cierre (Total, Subtotal, Suma) aunque el rotulo este en la segunda o tercera columna.
+                $esTotal = false;
+                foreach ($f['celdas'] as $celda) {
+                    $c = self::plain_lower($celda);
+                    if ($c !== '' && preg_match('/^(?:sub\s*total|subtotal|total(?:\s+(?:general|sumativ\w*|ponderac\w*|instrumentos?|experiencia|evaluacion))?|suma(?:\s+total)?)\b/u', $c)) {
+                        $esTotal = true;
+                        break;
+                    }
+                }
+                if ($esTotal) {
                     continue;
                 }
                 $inst = self::column($row, '/instrumento|nombre/') ?: ($f['celdas'][0] ?? 'Instrumento');
 
+                $tipo = self::plain_lower(self::column($row, '/^tipo\b|tipo\s+de\s+evaluacion|funcion/'));
+                $soloFormativa = $tipo !== '' && preg_match('/\b(formativ|diagnostic)/u', $tipo)
+                    && !preg_match('/\bsumativ/u', $tipo);
                 $pond = self::column($row, '/ponderacion/');
-                if ($pond !== '') {
+                if (!$esMatrizCriterios && !$soloFormativa && $pond !== '') {
                     $pb = self::plain_lower($pond);
                     if (!preg_match('/\b(formativ|diagnostic|no aplica|n\/a|sin ponder)\b/u', $pb)
                             && preg_match('/(\d+(?:[.,]\d+)?)\s*%/u', $pb, $mp)) {
                         $val = self::parse_number($mp[1]);
                         if ($val !== null && $val > 0) {
-                            $ponderaciones[] = $val;
+                            $ponderaciones[] = ['codigo' => self::instrument_key($row, $f['celdas'], $inst),
+                                'valor' => $val];
                         }
                     }
                 }
@@ -2531,7 +2574,7 @@ class diseno {
                 }
 
                 if ($auditoria && $tieneAplicador) {
-                    $apl = self::column($row, '/aplica|responsable|evaluador|quien/');
+                    $apl = self::column($row, $reAplicador);
                     $ab = self::plain_lower($apl);
                     if ($ab === '' || preg_match('/^(?:—|-|n\/a|sin asignar|sin definir|nadie|por definir)$/u', $ab)) {
                         $problemas[] = 'Quién aplica el instrumento (Regla 15): «' . $inst . '» no tiene persona '
@@ -2582,8 +2625,19 @@ class diseno {
                 }
             }
             if (count($ponderaciones) >= 2) {
-                $sumaPond = array_sum($ponderaciones);
-                if (abs($sumaPond - 100.0) > 0.5) {
+                // Un instrumento registrado en varias filas (una por aplicacion, Regla 17) puede repetir su ponderacion
+                // en cada fila: se suma tambien contando una vez cada instrumento por su codigo, y solo se avisa si
+                // ninguna de las dos sumas da 100 %.
+                $sumaTodas = array_sum(array_column($ponderaciones, 'valor'));
+                $porCodigo = [];
+                foreach ($ponderaciones as $pd) {
+                    if (!array_key_exists($pd['codigo'], $porCodigo)) {
+                        $porCodigo[$pd['codigo']] = $pd['valor'];
+                    }
+                }
+                $sumaUnica = array_sum($porCodigo);
+                $sumaPond = count($porCodigo) < count($ponderaciones) ? $sumaUnica : $sumaTodas;
+                if (abs($sumaTodas - 100.0) > 0.5 && abs($sumaUnica - 100.0) > 0.5) {
                     $problemas[] = 'Ponderaciones en la Etapa 5 (Regla 4): las ponderaciones sumativas del registro '
                         . 'suman ' . rtrim(rtrim(number_format($sumaPond, 1, ',', ''), '0'), ',')
                         . ' % en lugar de 100 %.';
@@ -2718,6 +2772,32 @@ class diseno {
             }
         }
         return array_values(array_unique($hallazgos));
+    }
+
+    /**
+     * Clave de un instrumento en una fila del registro de la Etapa 5: su codigo (columna «N.º», «Código» o «ID», o el
+     * primero que aparezca en la fila, p. ej. «IN2», «INS-01»); sin codigo, el nombre sin la marca de aplicacion
+     * («(aplicación 2)», «- estación B»). Sirve para no sumar dos veces la ponderacion de un instrumento registrado en
+     * varias filas. Funcion pura.
+     *
+     * @param array $row Fila por encabezado.
+     * @param string[] $celdas Celdas de la fila en orden.
+     * @param string $inst Nombre del instrumento.
+     * @return string
+     */
+    public static function instrument_key(array $row, array $celdas, string $inst): string {
+        $reCodigo = '/\b([a-z]{1,6}[-_.]?\d{1,3}(?:[-_.]\d{1,3})?)\b/u';
+        $col = self::column($row, '/^(?:n\W*[º°o]?\W*|nro\.?|numero|n\. ?de instrumento|id|cod\.?)$|codigo/u');
+        foreach ([$col, $celdas[0] ?? ''] as $c) {
+            if (preg_match($reCodigo, self::plain_lower((string) $c), $m)) {
+                return str_replace(['_', '.'], '-', $m[1]);
+            }
+        }
+        // Sin codigo (o con un numero correlativo por fila) se usa el nombre del instrumento.
+        $nombre = self::plain_lower($inst);
+        $nombre = preg_replace('/\s*[(\[][^)\]]*(aplicacion|estacion|momento|parte|fase)[^)\]]*[)\]]\s*/u', ' ', $nombre);
+        $nombre = preg_replace('/\s*[-–—:,]\s*(aplicacion|estacion|momento|parte|fase)\b.*$/u', '', $nombre);
+        return trim(preg_replace('/\s+/u', ' ', $nombre));
     }
 
     private static function column(array $fila, string $columna): string {
@@ -2989,17 +3069,28 @@ class diseno {
         preg_match_all('#<(p|li|td)\b[^>]*>(.*?)</\1>#isu', $html, $m);
         foreach ($m[2] as $trozo) {
             $texto = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($trozo), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-            $palabras = preg_split('/[^\p{L}]+/u', \core_text::strtolower($texto), -1, PREG_SPLIT_NO_EMPTY);
+            // Las formulas matematicas con codigos («Porcentaje Final de Logro (%) = (% Instrumento IN1 × 0.40) + ...»)
+            // no son prosa en ingles.
+            if (strpos($texto, '=') !== false && preg_match('/[×÷*+\/%]/u', $texto)) {
+                continue;
+            }
+            // Conserva digitos dentro de cada token para no partir codigos como IN1/IN2/IN3 en la preposicion «in».
+            $tokens = preg_split('/[^\p{L}\p{N}]+/u', \core_text::strtolower($texto), -1, PREG_SPLIT_NO_EMPTY);
+            $palabras = array_values(array_filter($tokens, static function(string $w): bool {
+                return preg_match('/^\p{L}+$/u', $w) === 1;
+            }));
             if (count($palabras) < 8) {
                 continue;
             }
-            $ningles = count(array_filter($palabras, static function(string $w) use ($en): bool {
+            $enEncontradas = array_filter($palabras, static function(string $w) use ($en): bool {
                 return isset($en[$w]);
-            }));
+            });
+            $ningles = count($enEncontradas);
+            $distintasEn = count(array_unique($enEncontradas));
             $nespanol = count(array_filter($palabras, static function(string $w) use ($es): bool {
                 return isset($es[$w]);
             }));
-            if ($ningles >= 0.2 * count($palabras) && $ningles > 2 * $nespanol) {
+            if ($distintasEn >= 3 && $ningles >= 0.2 * count($palabras) && $ningles > 2 * $nespanol) {
                 $salida[] = \core_text::substr($texto, 0, 60);
                 if (count($salida) === 3) {
                     break;
@@ -3555,7 +3646,7 @@ class diseno {
         $salida = [];
         $huella = self::stages_fingerprint($filas);
         foreach ($filas as $n => $fila) {
-            if ($fila->estado !== self::ACEPTADO) {
+            if (!isset(self::todas()[(int) $n]) || $fila->estado !== self::ACEPTADO) {
                 continue;
             }
             // La consolidacion cuenta solo si las etapas no cambiaron despues de confirmarla.
@@ -3838,6 +3929,9 @@ class diseno {
         if ((int) $fila->etapa === self::CONSOLIDACION) {
             return self::consolidate_ai($fila, $ficha);
         }
+        if ((int) $fila->etapa === self::OPERATIVO) {
+            return documento_operativo::generate_row($fila, $ficha, (int) $val->fichaid);
+        }
 
         $previas = [];
         $posteriores = [];
@@ -4014,6 +4108,10 @@ class diseno {
         $informe = $informe ?? $primero;
         if ($informe === null) {
             return [exante::ERROR, ['error' => 'ilegible']];
+        }
+        // Al aprobar el diseno (>= 25 puntos), se encola la generacion automatica del documento operativo (etapa 9).
+        if (ux::on('docoperativo') && documento_operativo::can_generate($informe)) {
+            documento_operativo::queue_after_eval($fila, $fichaid, $informe);
         }
         return [exante::LISTO, ['informe' => json_encode($informe, JSON_UNESCAPED_UNICODE), 'huella' => $c->huella,
             'modelo' => (string) $modelo, 'promptversion' => self::PROMPT_VERSION, 'error' => null]];
