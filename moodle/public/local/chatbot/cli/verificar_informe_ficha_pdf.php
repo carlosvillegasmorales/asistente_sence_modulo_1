@@ -66,6 +66,22 @@ local_chatbot_verificar(
     'badge_colors() asigna colores semanticos a cada condicion y estado'
 );
 
+// Las cadenas de idioma traen simbolos («✔ Cumple», «❌ No aprobado», «⚠ Cumple parcialmente») que freesans no tiene y
+// que el PDF dibujaba como un cuadro vacio (visto en el cliente el 24-11-2026): se quitan solo en el PDF.
+local_chatbot_verificar(
+    informe_ficha_pdf::pdf_text('✔ Cumple') === 'Cumple'
+        && informe_ficha_pdf::pdf_text('❌ No aprobado') === 'No aprobado'
+        && informe_ficha_pdf::pdf_text('⚠️ Cumple parcialmente') === 'Cumple parcialmente'
+        && informe_ficha_pdf::pdf_text('✅ Aprobado') === 'Aprobado'
+        && informe_ficha_pdf::pdf_text('Módulo 2 · Fase 1 — 40 % → 100 % «ñ»') === 'Módulo 2 · Fase 1 — 40 % → 100 % «ñ»',
+    'pdf_text() quita los símbolos que freesans no dibuja y conserva acentos, «·», «—», «→» y comillas'
+);
+$htmlSimbolos = informe_ficha_pdf::build_html(['checklist' => [1 => ['titulo' => 'Sección', 'items' => ['a' => 'Ítem']]],
+    'items' => ['a' => ['estado' => 'cumple', 'observacion' => 'Bien.']], 'condicion' => 'aprobado',
+    'condicion_titulo' => '✔ Aprobado', 'etiquetas' => ['estado_cumple' => '✔ Cumple']]);
+local_chatbot_verificar(strpos($htmlSimbolos, '✔') === false && strpos($htmlSimbolos, '>Aprobado<') !== false,
+    'build_html() no deja en el PDF los símbolos de las cadenas de idioma (estado y condición)');
+
 // --- 2. Bloques HTML con logo institucional y secciones completas (Modulo 2 + Modulo 3) ---
 $logo = __DIR__ . '/../pix/logo_interfases.png';
 $spec = [

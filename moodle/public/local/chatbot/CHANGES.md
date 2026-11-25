@@ -1,5 +1,12 @@
 # Changelog
 
+## M1-v1.31.1 (2026-11-24)
+
+- **Informe de validación en PDF: sin cuadros vacíos.** En el cliente, «✔ Cumple», «✔ Aprobado» y «❌ No cumple»
+  salían en el PDF con un cuadro vacío en lugar del símbolo: vienen de las cadenas de idioma y la fuente del PDF
+  (freesans) no los trae. `informe_ficha_pdf::pdf_text()` los quita solo en el PDF (el color de la insignia ya indica
+  el estado); la página web no cambia. Sin cambios en la base.
+
 ## M1-v1.31.0 (2026-11-24)
 
 **Módulo 2, cierre de la Etapa 8: Documento operativo de la experiencia de aprendizaje** (especificación de Interfases «Documento Operativo de la Experiencia de Aprendizaje - Propuesta Genérica», 24-11-2026). Interruptor `docoperativo` (encendido). Prompt `M2-OP-v1`. Sin cambios en la base de datos.

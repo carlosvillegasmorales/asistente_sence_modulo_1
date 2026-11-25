@@ -56,6 +56,22 @@ class informe_ficha_pdf {
     }
 
     /**
+     * Texto apto para la fuente del PDF (freesans): quita los simbolos y emojis de las cadenas de idioma («✔ Cumple»,
+     * «✅ Aprobado», «⚠»), que freesans no trae y TCPDF dibuja como un cuadro vacio. El color de la insignia ya indica
+     * el estado. Funcion pura.
+     *
+     * @param string $t
+     * @return string
+     */
+    public static function pdf_text(string $t): string {
+        $limpio = preg_replace('/[\x{2300}-\x{23FF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{1F000}-\x{1FAFF}\x{FE0F}\x{200D}]/u', '', $t);
+        if ($limpio === null || $limpio === $t) {
+            return $t;
+        }
+        return trim(preg_replace('/ {2,}/u', ' ', $limpio));
+    }
+
+    /**
      * Colores de insignia segun condicion o estado. Funcion pura.
      *
      * @param string $clave
@@ -82,7 +98,7 @@ class informe_ficha_pdf {
      * @return array[] Lista de ['html' => string, 'atomic' => bool, 'min_space_mm' => float].
      */
     public static function build_blocks(array $spec, string $logo = ''): array {
-        $e = static fn(string $t): string => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+        $e = static fn(string $t): string => htmlspecialchars(self::pdf_text($t), ENT_QUOTES, 'UTF-8');
         $spacer = '<div style="font-size:4pt;line-height:4pt;">&nbsp;</div>';
         $bloques = [];
         $push = static function(string $html, bool $atomic = true, float $minMm = 0.0) use (&$bloques): void {
@@ -453,7 +469,7 @@ class informe_ficha_pdf {
      * @return string
      */
     private static function section_heading(string $prefijo, string $titulo): string {
-        $e = static fn(string $t): string => htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+        $e = static fn(string $t): string => htmlspecialchars(self::pdf_text($t), ENT_QUOTES, 'UTF-8');
         return '<table width="100%" cellpadding="4" cellspacing="0"><tr>'
             . '<td style="background-color:' . self::CYAN_SUAVE . ';border-left:3.5px solid ' . self::CYAN
             . ';border-bottom:1px solid ' . self::CYAN . ';color:' . self::NAVY . ';font-size:9.5pt;font-weight:bold;">'
@@ -494,9 +510,9 @@ class informe_ficha_pdf {
         }
 
         $metaHdr = [
-            'titulo' => (string) ($spec['titulo'] ?? 'Informe de validación de la ficha'),
-            'modulo' => (string) ($spec['modulo'] ?? ''),
-            'pie' => (string) ($spec['nota_pie'] ?? 'Informe de validación técnica · Interfases Consultores'),
+            'titulo' => self::pdf_text((string) ($spec['titulo'] ?? 'Informe de validación de la ficha')),
+            'modulo' => self::pdf_text((string) ($spec['modulo'] ?? '')),
+            'pie' => self::pdf_text((string) ($spec['nota_pie'] ?? 'Informe de validación técnica · Interfases Consultores')),
             'logo' => ($logo !== '' && is_readable($logo) && extension_loaded('gd')) ? $logo : '',
         ];
 
