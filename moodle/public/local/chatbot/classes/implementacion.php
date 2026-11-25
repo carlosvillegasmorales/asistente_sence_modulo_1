@@ -1904,6 +1904,9 @@ class implementacion {
         $tx = $DB->start_delegated_transaction();
         expost::delete_for($fichaid);
         $DB->delete_records('local_chatbot_calidad', ['implid' => $fichaid]);
+        foreach (['local_chatbot_m3_envio', 'local_chatbot_m3_encuesta'] as $tabla) {
+            $DB->delete_records($tabla, ['implid' => $fichaid]);
+        }
         $DB->delete_records('local_chatbot_impl_val', ['fichaid' => $fichaid]);
         $DB->delete_records('local_chatbot_impl', ['id' => $fichaid]);
         $tx->allow_commit();

@@ -1,5 +1,14 @@
 # Changelog
 
+## M1-v1.31.4 (2026-11-24)
+
+Correcciones tras auditoría integral de código y prueba visual de los PDFs del Módulo 3 (sin cambios en el esquema de BD):
+
+- **PDF de validación sin frases cortadas al quitar símbolos (`classes/informe_ficha_pdf.php`):** `pdf_text()` ahora distingue entre prefijos decorativos (`✔ Cumple` → `Cumple`) y símbolos usados como sustantivo dentro de una oración (`Ítems en ⚠ o ❌.`, `Todos los ítems en ✔ → ✔ Aprobado.`, `pero con ⚠ o ❌ en ítems…`), reemplazándolos por `«Cumple»`, `«Cumple parcialmente»` y `«No cumple»` (y sus equivalentes en inglés) en lugar de dejar textos rotos como `Ítems en o .` o `pero con o en`.
+- **Título de la sección `c)` en los PDFs del Módulo 3 (`classes/informe_ficha_pdf.php`, `lang/es`, `lang/en`):** los informes de validación de implementación y ex-post usan ahora *«Observaciones y sugerencias de mejora»* (`ficha_report_pdf_suggest_m3`) en lugar de mencionar *«de la ficha de diagnóstico»*.
+- **Limpieza completa al borrar fichas (`classes/implementacion.php`, `classes/tablero_m3.php`, `classes/exante.php`):** `implementacion::delete_ficha()` elimina también `local_chatbot_m3_envio` y `local_chatbot_m3_encuesta` (y `tablero_m3::load_surveys()` ignora cualquier encuesta cuyo `implid` ya no esté en las fichas activas del curso); `exante::delete_ficha()` limpia `local_chatbot_recurso_ref`, `local_chatbot_recurso`, `local_chatbot_recurso_plan` y los archivos `centro_ref` del diseño borrado.
+- **Numeración compuesta en anexos del documento operativo (`classes/documento_operativo.php`):** `annex_per_instrument()` reconoce también encabezados compuestos como `### 6.2 Instrumento 1` o `### 2.1. Instrumento 1`.
+
 ## M1-v1.31.3 (2026-11-24)
 
 - **Documento operativo sin espacios en blanco en el guion.** Con el guion ya breve (v1.31.2), cada actividad (título,

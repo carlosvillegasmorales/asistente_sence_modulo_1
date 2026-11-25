@@ -1630,6 +1630,7 @@ $string['ficha_report_pdf_error'] = 'No se pudo generar el informe de validació
 $string['ficha_report_pdf_mod2'] = 'MÓDULO 2 · FASE 1 · VALIDACIÓN DE LA FICHA EX-ANTE';
 $string['ficha_report_pdf_mod3_impl'] = 'MÓDULO 3 · FASE 1 · VALIDACIÓN DE LA FICHA DE IMPLEMENTACIÓN';
 $string['ficha_report_pdf_mod3_expost'] = 'MÓDULO 3 · FASE 4 · VALIDACIÓN DE LA FICHA EX-POST';
+$string['ficha_report_pdf_suggest_m3'] = 'Observaciones y sugerencias de mejora';
 $string['ux_reglasproduccion_desc'] = 'Agrega al prompt de la Etapa 4 (y a la verificación de consistencia de la Etapa 7) los bloques 7, 8 y 9 del ajuste de Interfases del 21-11-2026: catálogo de capacidades de producción (Modos A, B y C y recursos físicos fuera del catálogo), reglas 11 a 13 (un solo modo por material, economía de recursos de IA, especificación lista para producir), registro obligatorio en 4.1, 4.2 (lista de producción y lista de recursos del entorno formativo) y 4.3 (factibilidad de producción con IA), verificaciones internas de Etapa 4 y fila «Producción de materiales» en la Etapa 7. No modifica las demás etapas ni la rúbrica.';
 $string['centro_title'] = 'Centro de producción de recursos de aprendizaje';
 $string['centro_subtitle'] = 'Módulo 2 · Etapas 9 a 12 · Producción de materiales a partir de diseños validados (uso opcional)';

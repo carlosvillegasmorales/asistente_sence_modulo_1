@@ -170,6 +170,15 @@ local_chatbot_verificar(
 );
 local_chatbot_verificar(documento_operativo::annex_per_instrument('<h3>Rúbrica final</h3><p>x</p>') === '<h3>Rúbrica final</h3><p>x</p>',
     'annex_per_instrument() no toca una Etapa 6 sin títulos «Instrumento N»');
+$anexosCompuestos = documento_operativo::annex_per_instrument(
+    '<h3>6.1 Matriz de alineación</h3><p>Previo.</p><h3>6.2 Instrumento 1: Rúbrica</h3><p>A</p><h3>6.3. Instrumento 2: Lista</h3><p>B</p>'
+);
+local_chatbot_verificar(
+    stripos($anexosCompuestos, 'Matriz de alineación') === false
+        && strpos($anexosCompuestos, '<h3>Anexo 1 · Instrumento 1: Rúbrica</h3>') !== false
+        && strpos($anexosCompuestos, '<h3>Anexo 2 · Instrumento 2: Lista</h3>') !== false,
+    'annex_per_instrument() reconoce numeración compuesta («6.2 Instrumento 1», «6.3. Instrumento 2»)'
+);
 
 // --- 3. Mapa de repertorio y sincronizacion en vivo de 4.1 / 4.2 ---
 $recursosDemo = [

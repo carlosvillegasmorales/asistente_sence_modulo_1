@@ -1400,6 +1400,9 @@ class tablero_m3 {
         }
         $ajustes = array_column($hechos, 'ajuste', 'implid');
         foreach ($DB->get_records('local_chatbot_m3_encuesta', ['courseid' => $courseid], 'id') as $e) {
+            if (!array_key_exists((int) $e->implid, $ajustes)) {
+                continue;
+            }
             $fila = ['fase' => (int) $e->fase, 'respuestas' => (array) json_decode((string) $e->respuestas, true),
                 'ajuste' => $ajustes[(int) $e->implid] ?? null];
             if ($desde <= 0 || (int) $e->timecreated >= $desde) {

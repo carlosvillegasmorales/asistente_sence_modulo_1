@@ -76,6 +76,17 @@ local_chatbot_verificar(
         && informe_ficha_pdf::pdf_text('Módulo 2 · Fase 1 — 40 % → 100 % «ñ»') === 'Módulo 2 · Fase 1 — 40 % → 100 % «ñ»',
     'pdf_text() quita los símbolos que freesans no dibuja y conserva acentos, «·», «—», «→» y comillas'
 );
+local_chatbot_verificar(
+    informe_ficha_pdf::pdf_text('Ítems en ⚠ o ❌. Si no los corriges en la ficha…')
+        === 'Ítems en «Cumple parcialmente» o «No cumple». Si no los corriges en la ficha…'
+        && informe_ficha_pdf::pdf_text('Sin problemas en ítems CRÍTICO, pero con ⚠ o ❌ en ítems no críticos → ⚠ Aprobado con observaciones.')
+            === 'Sin problemas en ítems CRÍTICO, pero con «Cumple parcialmente» o «No cumple» en ítems no críticos → Aprobado con observaciones.'
+        && informe_ficha_pdf::pdf_text('Todos los ítems en ✔ → ✔ Aprobado.')
+            === 'Todos los ítems en «Cumple» → Aprobado.'
+        && informe_ficha_pdf::pdf_text('Items marked ⚠ or ❌.')
+            === 'Items marked «Partially meets» or «Does not meet».',
+    'pdf_text() reemplaza ✔/⚠/❌ aislados en oraciones por su estado legible (sin dejar «Ítems en o .» ni «pero con o en»)'
+);
 $htmlSimbolos = informe_ficha_pdf::build_html(['checklist' => [1 => ['titulo' => 'Sección', 'items' => ['a' => 'Ítem']]],
     'items' => ['a' => ['estado' => 'cumple', 'observacion' => 'Bien.']], 'condicion' => 'aprobado',
     'condicion_titulo' => '✔ Aprobado', 'etiquetas' => ['estado_cumple' => '✔ Cumple']]);

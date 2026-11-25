@@ -1628,6 +1628,7 @@ $string['ficha_report_pdf_error'] = 'Could not generate the validation report PD
 $string['ficha_report_pdf_mod2'] = 'MODULE 2 · PHASE 1 · EX-ANTE FORM VALIDATION';
 $string['ficha_report_pdf_mod3_impl'] = 'MODULE 3 · PHASE 1 · IMPLEMENTATION FORM VALIDATION';
 $string['ficha_report_pdf_mod3_expost'] = 'MODULE 3 · PHASE 4 · EX-POST FORM VALIDATION';
+$string['ficha_report_pdf_suggest_m3'] = 'Observations and improvement suggestions';
 $string['ux_reglasproduccion_desc'] = 'Adds to the Stage 4 prompt (and Stage 7 consistency check) blocks 7, 8 and 9 of the Interfases adjustment of 21-11-2026: production capability catalog (Modes A, B and C and physical resources outside the catalog), rules 11 to 13 (single mode per material, AI resource economy, production-ready specification), mandatory recording in 4.1, 4.2 (production list and training-environment physical resources list) and 4.3 (AI production feasibility), Stage 4 internal quality checks and the «Producción de materiales» row in Stage 7. Does not modify other stages or the rubric.';
 $string['centro_title'] = 'Learning resource production center';
 $string['centro_subtitle'] = 'Module 2 · Stages 9 to 12 · Material production from validated designs (optional)';

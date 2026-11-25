@@ -180,7 +180,8 @@ class documento_operativo {
      * @return string
      */
     public static function annex_per_instrument(string $html): string {
-        $reTitulo = '#(<h([1-4])\b[^>]*>)(\s*(?:<[^>]+>\s*)*)(?:\d+[.)]\s*)?(instrumento\s+(?:n\.?\s*[º°o]\s*)?\d+[a-z]?\b)#iu';
+        $rePref = '(?:\d+(?:\.\d+)*[.)]?\s+)?';
+        $reTitulo = '#(<h([1-4])\b[^>]*>)(\s*(?:<[^>]+>\s*)*)' . $rePref . '(instrumento\s+(?:n\.?\s*[º°o]\s*)?\d+[a-z]?\b)#iu';
         if (!preg_match($reTitulo, $html, $m, PREG_OFFSET_CAPTURE)) {
             return $html;
         }
@@ -188,7 +189,7 @@ class documento_operativo {
         $html = substr($html, $m[0][1]);
         $n = 0;
         return (string) preg_replace_callback(
-            '#(<h' . $nivel . '\b[^>]*>)(\s*(?:<[^>]+>\s*)*)(?:\d+[.)]\s*)?(instrumento\s+(?:n\.?\s*[º°o]\s*)?\d+[a-z]?\b)#iu',
+            '#(<h' . $nivel . '\b[^>]*>)(\s*(?:<[^>]+>\s*)*)' . $rePref . '(instrumento\s+(?:n\.?\s*[º°o]\s*)?\d+[a-z]?\b)#iu',
             static function(array $x) use (&$n): string {
                 $n++;
                 return $x[1] . $x[2] . 'Anexo ' . $n . ' · ' . $x[3];

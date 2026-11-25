@@ -56,18 +56,35 @@ class informe_ficha_pdf {
     }
 
     /**
-     * Texto apto para la fuente del PDF (freesans): quita los simbolos y emojis de las cadenas de idioma («✔ Cumple»,
-     * «✅ Aprobado», «⚠»), que freesans no trae y TCPDF dibuja como un cuadro vacio. El color de la insignia ya indica
-     * el estado. Funcion pura.
+     * Texto apto para la fuente del PDF (freesans): quita los simbolos decorativos delante de etiquetas («✔ Cumple»,
+     * «✅ Aprobado», «❌ No cumple»), y cuando ✔/⚠/❌ aparecen solos como sustantivo dentro de una oracion («Ítems en ⚠ o ❌.»,
+     * «Todos los ítems en ✔ → ✔ Aprobado.») los reemplaza por su nombre legible para no dejar frases truncadas («Ítems en o .»).
+     * Funcion pura.
      *
      * @param string $t
      * @return string
      */
     public static function pdf_text(string $t): string {
-        $limpio = preg_replace('/[\x{2300}-\x{23FF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{1F000}-\x{1FAFF}\x{FE0F}\x{200D}]/u', '', $t);
-        if ($limpio === null || $limpio === $t) {
+        $esIngles = preg_match('/\b(items?|critical|approved|meets|until)\b/i', $t) === 1;
+        $nombres = $esIngles
+            ? ['ok' => '«Meets»', 'warn' => '«Partially meets»', 'fail' => '«Does not meet»']
+            : ['ok' => '«Cumple»', 'warn' => '«Cumple parcialmente»', 'fail' => '«No cumple»'];
+        // Simbolo no seguido de palabra con mayuscula inicial -> actua como sustantivo en la frase («en ⚠ o ❌», «en ✔ →»).
+        $sust = preg_replace(
+            [
+                '/[✔✅]\x{FE0F}?+(?!\s+\p{Lu})/u',
+                '/⚠\x{FE0F}?+(?!\s+\p{Lu})/u',
+                '/[❌✖]\x{FE0F}?+(?!\s+\p{Lu})/u',
+            ],
+            [$nombres['ok'], $nombres['warn'], $nombres['fail']],
+            $t
+        );
+        $base = $sust ?? $t;
+        $limpio = preg_replace('/[\x{2300}-\x{23FF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{1F000}-\x{1FAFF}\x{FE0F}\x{200D}]/u', '', $base);
+        if ($limpio === null || ($limpio === $t && $base === $t)) {
             return $t;
         }
+        $limpio = preg_replace('/\s+([.,;:!?)])/u', '$1', $limpio) ?? $limpio;
         return trim(preg_replace('/ {2,}/u', ' ', $limpio));
     }
 
@@ -658,7 +675,7 @@ class informe_ficha_pdf {
             'sec_checklist' => get_string($esExante ? 'exante_report_checklist' : 'impl_report_sections', 'local_chatbot'),
             'sec_condicion' => get_string($esExante ? 'exante_report_condition' : 'impl_report_decision', 'local_chatbot'),
             'sec_tiempo' => get_string('impl_report_time', 'local_chatbot'),
-            'sec_sugerencias' => get_string('exante_report_suggest', 'local_chatbot'),
+            'sec_sugerencias' => get_string($esExante ? 'exante_report_suggest' : 'ficha_report_pdf_suggest_m3', 'local_chatbot'),
             'sec_debilidades' => get_string('exante_report_weak', 'local_chatbot'),
             'sec_propuestas' => get_string($esExante ? 'exante_report_proposals' : 'impl_report_suggest', 'local_chatbot'),
             'sec_pendientes' => get_string('exante_report_unresolved', 'local_chatbot'),

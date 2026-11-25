@@ -1641,11 +1641,13 @@ class exante {
         $ids = array_keys($DB->get_records('local_chatbot_exante', ['userid' => $userid, 'courseid' => $courseid], '', 'id'));
         $siguiente = self::next_in_use($ids, $fichaid, (int) $ficha->activa === 1 ? $fichaid : 0);
 
+        $refids = array_keys($DB->get_records('local_chatbot_recurso_ref', ['fichaid' => $fichaid], '', 'id'));
         $tx = $DB->start_delegated_transaction();
         $DB->delete_records('local_chatbot_diseno', ['fichaid' => $fichaid]);
         $DB->delete_records('local_chatbot_exante_val', ['fichaid' => $fichaid]);
         // Registros del tablero del Modulo 2 (envios, encuesta y revision experta de ese diseno).
-        foreach (['local_chatbot_m2_envio', 'local_chatbot_m2_encuesta', 'local_chatbot_m2_revision'] as $tabla) {
+        foreach (['local_chatbot_m2_envio', 'local_chatbot_m2_encuesta', 'local_chatbot_m2_revision',
+                'local_chatbot_recurso_ref', 'local_chatbot_recurso', 'local_chatbot_recurso_plan'] as $tabla) {
             $DB->delete_records($tabla, ['fichaid' => $fichaid]);
         }
         $DB->delete_records('local_chatbot_exante', ['id' => $fichaid]);
@@ -1655,6 +1657,13 @@ class exante {
             self::set_attachment($fichaid, $area, null);
         }
         unset_user_preference('local_chatbot_autocheck_' . $courseid . '_' . $fichaid, $userid);
+        if ($refids) {
+            $fs = get_file_storage();
+            $sysid = \context_system::instance()->id;
+            foreach ($refids as $rid) {
+                $fs->delete_area_files($sysid, 'local_chatbot', centro_recursos::FILEAREA_REF, (int) $rid);
+            }
+        }
         if ($siguiente !== null && (int) $ficha->activa === 1) {
             self::activate($userid, $courseid, $siguiente);
         }
