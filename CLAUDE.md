@@ -110,7 +110,7 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   Fase 4) con `pix/logo_interfases.png` en la cabecera hero (página 1) y en el encabezado corrido (páginas 2+), tira de
   conteos, checklist por sección con paginación limpia sin filas partidas, condición final, sugerencias y pie `Página X de Y`.
 - `classes/documento_operativo.php` — **Módulo 2, salida operativa al cierre de la Etapa 8** (v1.31.0, interruptor
-  `docoperativo`, prompt `M2-OP-v1`, sin cambios de tablas): cuando la Etapa 8 aprueba con `>= 25` puntos,
+  `docoperativo`, prompt `M2-OP-v2`, sin cambios de tablas): cuando la Etapa 8 aprueba con `>= 25` puntos,
   `diseno::evaluate()` encola la fila interna `etapa = diseno::OPERATIVO (9)` en `local_chatbot_diseno` (ignorada por
   `diseno::accepted()` y los tableros, versionada en `rondas`). Extrae con IA las Secciones 1 a 5 (8–12 páginas
   sintéticas, AE y criterios textuales, campos de implementación en blanco, sin Etapa 1 ni cierres y con marcas

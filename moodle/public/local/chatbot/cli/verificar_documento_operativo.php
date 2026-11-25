@@ -138,10 +138,38 @@ local_chatbot_verificar(
 // Si la Etapa 6 traia instrumentos en <h1>, se bajan a <h2> para reservar <h1> al banner ANEXOS.
 $anexosH1 = documento_operativo::extract_stage6_instruments('<h1>Instrumento 1: Rúbrica</h1><p>Detalle.</p>');
 local_chatbot_verificar(
-    strpos($anexosH1, '<h2>Instrumento 1: Rúbrica</h2>') !== false
+    strpos($anexosH1, '<h2>Anexo 1 · Instrumento 1: Rúbrica</h2>') !== false
         && substr_count($anexosH1, '<h1>') === 1,
     'extract_stage6_instruments() baja <h1> internos a <h2> dejando un solo <h1> de ANEXOS'
 );
+
+// Un anexo por instrumento (propuesta generica del cliente): sin la presentacion ni la matriz de la Etapa 6, y con
+// «Anexo N · » en cada titulo de instrumento; los subtitulos internos no se numeran. Caso real del cliente (24-11-2026).
+$etapa6Real = '<h2>Etapa 6: Instrumentos evaluativos</h2>'
+    . '<h3>1. Presentación y matriz de alineación de instrumentos evaluativos</h3><p>En conformidad con el Plan de Evaluación…</p>'
+    . '<h4>Catálogo y matriz de alineación de instrumentos de evaluación</h4><table><tr><td>Inst. 1</td></tr></table>'
+    . '<h3>2. Instrumento 1: Prueba Aplicada Basada en Casos</h3><h4>Cuestionario e Instrumento Aplicado</h4><p>Caso 1…</p>'
+    . '<h4>Pauta de corrección (Instrumento 1)</h4><p>Alternativa correcta: B.</p>'
+    . '<h3>3. Instrumento 2: Lista de Cotejo de Desempeño</h3><p>Indicadores…</p>'
+    . '<h3>4. Instrumento 4a: Escala de Coevaluación</h3><p>Escala…</p>'
+    . '<h3>Registro de ajustes</h3><p>Sin ajustes.</p>';
+$anexosReal = documento_operativo::extract_stage6_instruments($etapa6Real);
+local_chatbot_verificar(
+    stripos($anexosReal, 'Presentación y matriz') === false && stripos($anexosReal, 'Catálogo y matriz') === false
+        && stripos($anexosReal, 'En conformidad con el Plan') === false,
+    'extract_stage6_instruments() quita la presentación y la matriz que la Etapa 6 trae antes del primer instrumento'
+);
+local_chatbot_verificar(
+    strpos($anexosReal, '<h3>Anexo 1 · Instrumento 1: Prueba Aplicada Basada en Casos</h3>') !== false
+        && strpos($anexosReal, '<h3>Anexo 2 · Instrumento 2: Lista de Cotejo de Desempeño</h3>') !== false
+        && strpos($anexosReal, '<h3>Anexo 3 · Instrumento 4a: Escala de Coevaluación</h3>') !== false
+        && strpos($anexosReal, '<h4>Pauta de corrección (Instrumento 1)</h4>') !== false
+        && strpos($anexosReal, 'Alternativa correcta: B.') !== false
+        && stripos($anexosReal, 'Registro de ajustes') === false,
+    'extract_stage6_instruments() titula «Anexo N · Instrumento…» cada instrumento, sin numerar subtítulos ni perder contenido'
+);
+local_chatbot_verificar(documento_operativo::annex_per_instrument('<h3>Rúbrica final</h3><p>x</p>') === '<h3>Rúbrica final</h3><p>x</p>',
+    'annex_per_instrument() no toca una Etapa 6 sin títulos «Instrumento N»');
 
 // --- 3. Mapa de repertorio y sincronizacion en vivo de 4.1 / 4.2 ---
 $recursosDemo = [
@@ -269,6 +297,14 @@ local_chatbot_verificar(
     'build_prompt() transcribe AE y criterios de la ficha, incluye estados del repertorio, omite Etapa 1 y exige marca [REVISAR]'
 );
 
+// Guion breve (propuesta generica: «acción breve», tarea por código), para no pasar de 12 paginas: en el caso del cliente
+// las secciones 1 a 5 ocuparon 13 paginas, 6 de ellas en el guion (24-11-2026).
+local_chatbot_verificar(
+    strpos($prompt, 'va solo el código de la tarea') !== false
+        && strpos($prompt, 'máximo 15 palabras') !== false
+        && strpos($prompt, 'No omitas tareas ni cambies minutos para acortar') !== false,
+    'build_prompt() pide el guion con código de tarea y acciones breves, sin omitir tareas ni cambiar minutos'
+);
 // --- 5. Generacion real del archivo Word (.docx) editable ---
 $meta = documento_operativo::word_meta(
     $fichaDemo,

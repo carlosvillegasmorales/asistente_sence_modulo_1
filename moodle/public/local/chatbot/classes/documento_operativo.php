@@ -29,7 +29,7 @@ class documento_operativo {
     const ETAPA = 9;
 
     /** @var string Version del prompt del documento operativo (RU-PRIV-006). */
-    const PROMPT_VERSION = 'M2-OP-v1';
+    const PROMPT_VERSION = 'M2-OP-v2';
 
     /** @var int Segundos maximos antes de dar por caida una generacion en curso. */
     const MAX_SECONDS = 360;
@@ -160,6 +160,7 @@ class documento_operativo {
         if (trim(strip_tags($limpio)) === '') {
             return '';
         }
+        $limpio = self::annex_per_instrument($limpio);
         // Si los instrumentos venian como <h1>, bajamos un nivel para que <h1> quede reservado al banner ANEXOS.
         if (preg_match('/<h1\b/i', $limpio)) {
             $limpio = (string) preg_replace_callback('#<(/?)h([1-5])\b#i', static function(array $m): string {
@@ -167,6 +168,33 @@ class documento_operativo {
             }, $limpio);
         }
         return '<h1>ANEXOS · Instrumentos de evaluación</h1>' . "\n" . $limpio;
+    }
+
+    /**
+     * Deja un anexo por instrumento, como pide la propuesta generica del cliente («Anexo 1 · [IN1]…», en el orden del
+     * registro): quita lo que la Etapa 6 trae antes del primer instrumento (presentacion, fundamentos y matriz de
+     * alineacion, que ya estan en el consolidado) y antepone «Anexo N · » a cada titulo de instrumento. Si no reconoce
+     * ningun titulo de instrumento deja el texto como esta. Funcion pura.
+     *
+     * @param string $html Etapa 6 sin titulo de etapa ni cierres.
+     * @return string
+     */
+    public static function annex_per_instrument(string $html): string {
+        $reTitulo = '#(<h([1-4])\b[^>]*>)(\s*(?:<[^>]+>\s*)*)(?:\d+[.)]\s*)?(instrumento\s+(?:n\.?\s*[º°o]\s*)?\d+[a-z]?\b)#iu';
+        if (!preg_match($reTitulo, $html, $m, PREG_OFFSET_CAPTURE)) {
+            return $html;
+        }
+        $nivel = $m[2][0];
+        $html = substr($html, $m[0][1]);
+        $n = 0;
+        return (string) preg_replace_callback(
+            '#(<h' . $nivel . '\b[^>]*>)(\s*(?:<[^>]+>\s*)*)(?:\d+[.)]\s*)?(instrumento\s+(?:n\.?\s*[º°o]\s*)?\d+[a-z]?\b)#iu',
+            static function(array $x) use (&$n): string {
+                $n++;
+                return $x[1] . $x[2] . 'Anexo ' . $n . ' · ' . $x[3];
+            },
+            $html
+        );
     }
 
     /**
@@ -455,6 +483,12 @@ class documento_operativo {
             . '(la suma de minutos de las tareas debe coincidir con los minutos de la actividad; cita materiales por código M1, M2… '
             . 'y recursos físicos) y una tabla breve `| Aspecto | Detalle |` con `Evidencia parcial`, `Seguridad` (si corresponde) '
             . 'y `Contingencia` (si corresponde).';
+        $l[] = 'Redacción del guion (es la sección más larga; cuida la extensión total de 8 a 12 páginas): en la columna `Tarea` '
+            . 'va solo el código de la tarea ([n.º fase].[n.º actividad].[n.º tarea], p. ej. `1.1.1`), no un título; cada celda '
+            . 'de `Persona facilitadora` y `Personas participantes` es una acción breve en una sola frase (máximo 15 palabras, '
+            . 'verbo en presente, sin explicar el porqué); `Materiales y recursos` lleva solo códigos y nombres cortos de '
+            . 'recursos; cada fila de `Aspecto | Detalle` es una frase breve (máximo 20 palabras). No omitas tareas ni cambies '
+            . 'minutos para acortar: acorta la redacción.';
         $l[] = '';
         $l[] = '# SECCIÓN 4 · Materiales y recursos';
         $l[] = '## 4.1 Materiales instruccionales';

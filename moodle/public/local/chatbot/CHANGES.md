@@ -1,5 +1,18 @@
 # Changelog
 
+## M1-v1.31.2 (2026-11-24)
+
+Ajustes del documento operativo tras probarlo con el caso completo en el cliente (34/36, 30 páginas). Sin cambios en la base.
+
+- **Un anexo por instrumento.** Los anexos empezaban con la presentación y la matriz de alineación de la Etapa 6, que
+  justifican el diseño y repiten el aprendizaje esperado y los criterios. Como pide la propuesta genérica del cliente,
+  ahora empiezan en el primer instrumento y cada uno se titula «Anexo N · Instrumento…», sin tocar su contenido
+  (`documento_operativo::annex_per_instrument()`).
+- **Guion de conducción breve.** Las secciones 1 a 5 ocupaban 13 páginas (se piden 8 a 12), 6 de ellas en el guion. El
+  prompt (`M2-OP-v2`) pide ahora, como la propuesta del cliente, el código de la tarea (`1.1.1`) en la columna «Tarea» y acciones
+  breves (una frase, máximo 15 palabras), sin omitir tareas ni cambiar minutos. Afecta a los documentos que se generen
+  o regeneren desde esta versión.
+
 ## M1-v1.31.1 (2026-11-24)
 
 - **Informe de validación en PDF: sin cuadros vacíos.** En el cliente, «✔ Cumple», «✔ Aprobado» y «❌ No cumple»
