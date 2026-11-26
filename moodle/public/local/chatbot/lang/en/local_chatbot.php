@@ -2512,3 +2512,4 @@ $string['centro_cur_moment'] = 'When to use';
 $string['centro_cur_reason'] = 'Rationale';
 $string['centro_cur_warnings'] = 'Warnings';
 $string['centro_cur_edited'] = 'Option updated.';
+$string['centro_web_platform'] = 'Video or document platform: confirm where the source comes from';

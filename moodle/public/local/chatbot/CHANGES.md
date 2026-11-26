@@ -7,7 +7,12 @@
   [REVISAR], la plataforma hace una consulta dirigida con búsqueda web obligatoria solo por esos datos y cada uno
   encontrado queda como fragmento web con su fuente («Editar» / «Aceptar»); los no encontrados siguen con [REVISAR]
   (`review_marks_context()`, `build_web_fill_prompt()`, `apply_web_fill()`). El prompt pide además buscar antes de
-  marcar. Sin cambios en la base. `verificar_centro_recursos.php`: 94 casos.
+  marcar.
+- **Origen de la fuente bien reconocido.** En la curaduría, videos de SENAMA e INDH Chile publicados en YouTube salían
+  como «Fuente extranjera» porque solo se miraba el dominio. Ahora una fuente es chilena si su dominio es .cl o si la
+  institución o el título nombran una institución chilena (`INSTITUCIONES_CHILE`); en YouTube, Vimeo y plataformas
+  similares sin institución reconocible se pide «confirma el origen» (`source_origin()`).
+- Sin cambios en la base. `verificar_centro_recursos.php`: 95 casos.
 
 ## M1-v1.32.0 (2026-11-25)
 

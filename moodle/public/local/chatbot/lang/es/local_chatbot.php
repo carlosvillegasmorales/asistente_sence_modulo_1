@@ -2514,3 +2514,4 @@ $string['centro_cur_moment'] = 'Momento de uso';
 $string['centro_cur_reason'] = 'Justificación';
 $string['centro_cur_warnings'] = 'Advertencias';
 $string['centro_cur_edited'] = 'Opción actualizada.';
+$string['centro_web_platform'] = 'Plataforma de videos o documentos: confirma el origen de la fuente';

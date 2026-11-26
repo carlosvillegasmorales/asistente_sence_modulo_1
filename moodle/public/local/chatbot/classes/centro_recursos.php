@@ -2245,18 +2245,35 @@ class centro_recursos {
         return self::apply_web_fill($raw, $datos['datos'], $json);
     }
 
+    /** Instituciones chilenas que publican en plataformas no .cl (YouTube, Vimeo...): bastan en la fuente o el titulo. */
+    const INSTITUCIONES_CHILE = '/\b(chile|chilen[ao]s?|senama|indh|minsal|mineduc|mintrab|sence|chilevalora|bcn|ley\s*chile|isp|sec|'
+        . 'suseso|achs|mutual\s+de\s+seguridad|ist|direcci[oó]n\s+del\s+trabajo|senadis|senapred|onemi|conaf|inn|'
+        . 'superintendencia\s+de\s+salud|subsecretar[ií]a|gob\.cl|fonasa|junji|integra|senda|sernac|sernameg)\b/iu';
+
     /**
-     * Origen de una fuente web por su dominio: «chile» (.cl), «extranjera» u «sin_enlace». Funcion pura.
+     * Origen de una fuente web: «chile» si el dominio es .cl o si la fuente o el titulo nombran una institucion chilena
+     * (un video de SENAMA en YouTube es fuente chilena, visto en el cliente el 25-11-2026); «plataforma» si el enlace es
+     * de una plataforma de videos o documentos (YouTube, Vimeo...) sin institucion reconocible; si no, «extranjera»; sin
+     * enlace, «sin_enlace». Funcion pura.
      *
      * @param string $url
+     * @param string $fuente Institucion o titulo de la fuente.
      * @return string
      */
-    public static function source_origin(string $url): string {
+    public static function source_origin(string $url, string $fuente = ''): string {
         $host = strtolower((string) parse_url(trim($url), PHP_URL_HOST));
         if ($host === '') {
             return 'sin_enlace';
         }
-        return preg_match('/(^|\.)cl$/', $host) === 1 ? 'chile' : 'extranjera';
+        if (preg_match('/(^|\.)cl$/', $host) === 1 || ($fuente !== '' && preg_match(self::INSTITUCIONES_CHILE, $fuente) === 1)) {
+            return 'chile';
+        }
+        if (preg_match('/(^|\.)(youtube\.com|youtu\.be|vimeo\.com|issuu\.com|scribd\.com|slideshare\.net|'
+                . 'drive\.google\.com|docs\.google\.com|facebook\.com|instagram\.com|tiktok\.com|x\.com|twitter\.com|'
+                . 'spotify\.com|soundcloud\.com|archive\.org)$/', $host) === 1) {
+            return 'plataforma';
+        }
+        return 'extranjera';
     }
 
     /**
@@ -2339,7 +2356,7 @@ class centro_recursos {
             }
             $titulo = trim($m[1]) !== '' ? trim($m[1]) : ($previas[$url] ?? '');
             $n = count($bloques) + 1;
-            $bloques[$n] = ['url' => $url, 'titulo' => $titulo, 'origen' => self::source_origin($url),
+            $bloques[$n] = ['url' => $url, 'titulo' => $titulo, 'origen' => self::source_origin($url, $titulo),
                 'verificado' => $verificar === null || $verificado];
             return 'WEBXA' . $n . 'XA' . $texto . 'WEBXC' . $n . 'XC';
         }, $md);
@@ -2381,7 +2398,8 @@ class centro_recursos {
                 $lineas[] = $titulo . ($b['url'] !== '' ? ' — ' . $b['url'] : '') . ' (enlace no verificado)';
             } else {
                 $lineas[] = $titulo . ' — ' . $b['url'] . ($b['origen'] === 'chile' ? ' (fuente chilena)'
-                    : ' (fuente extranjera: confirma que se aplica en Chile)');
+                    : ($b['origen'] === 'plataforma' ? ' (fuente chilena o extranjera: confirma su origen)'
+                        : ' (fuente extranjera: confirma que se aplica en Chile)'));
             }
         }
         return $lineas;
@@ -2433,7 +2451,8 @@ class centro_recursos {
                 }
                 $n = count($bloques) + 1;
                 $bloques[$n] = ['url' => $url, 'titulo' => trim($m[1]) !== '' ? trim($m[1]) : ($previas[$url] ?? ''),
-                    'origen' => self::source_origin($url), 'verificado' => $verificar === null || $verificado];
+                    'origen' => self::source_origin($url, trim($m[1]) !== '' ? trim($m[1]) : ($previas[$url] ?? '')),
+                    'verificado' => $verificar === null || $verificado];
                 return '[[WEB:' . $n . '|' . $url . ']]' . trim($m[3]) . '[[/WEB:' . $n . ']]';
             }, $valor);
             return (string) preg_replace('/\[\[\s*\/?\s*WEB(?![:]\d+\|[^\]]*\]\])(?![:]\d+\]\])[^\]]*\]\]/u', '', $valor);
@@ -2460,7 +2479,7 @@ class centro_recursos {
             }
             foreach ($m as $x) {
                 $out[(int) $x[1]] = ['texto' => trim($x[3]), 'url' => $x[2], 'titulo' => $titulos[$x[2]] ?? '',
-                    'origen' => self::source_origin($x[2])];
+                    'origen' => self::source_origin($x[2], $titulos[$x[2]] ?? '')];
             }
         });
         ksort($out);
@@ -2541,7 +2560,7 @@ class centro_recursos {
                 $url = html_entity_decode($x[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $texto = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($x[3]), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
                 $out[(int) $x[1]] = ['texto' => $texto, 'url' => $url, 'titulo' => $titulos[$url] ?? '',
-                    'origen' => self::source_origin($url)];
+                    'origen' => self::source_origin($url, $titulos[$url] ?? '')];
             }
         }
         return $out;

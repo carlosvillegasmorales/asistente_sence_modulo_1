@@ -876,6 +876,15 @@ local_chatbot_verificar(
         && centro_recursos::source_origin('') === 'sin_enlace',
     'source_origin() reconoce las fuentes chilenas por su dominio .cl'
 );
+// Videos de instituciones chilenas en YouTube (SENAMA, INDH) salían como extranjeros (cliente, 25-11-2026).
+local_chatbot_verificar(
+    centro_recursos::source_origin('https://www.youtube.com/watch?v=abc', 'Senama Gob Campaña Buen Trato') === 'chile'
+        && centro_recursos::source_origin('https://youtu.be/abc', 'INDH Chile Voces Mayores') === 'chile'
+        && centro_recursos::source_origin('https://www.youtube.com/watch?v=abc', 'Canal de salud') === 'plataforma'
+        && centro_recursos::source_origin('https://www.who.int/es', 'OMS') === 'extranjera'
+        && centro_recursos::source_origin('https://www.who.int/es', 'Sección de ejemplos') === 'extranjera',
+    'source_origin() reconoce como chilena una institución chilena en YouTube y pide confirmar el origen en una plataforma'
+);
 $verifWeb = static function(string $url): array {
     if (strpos($url, 'roto') !== false) {
         return ['ok' => false, 'url' => $url];

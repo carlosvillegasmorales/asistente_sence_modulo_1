@@ -651,6 +651,8 @@ $estadoEtiqueta = [
                                                 <span class="badge bg-success"><?php echo get_string('centro_web_chile', 'local_chatbot'); ?></span>
                                             <?php elseif ($bw['origen'] === 'extranjera'): ?>
                                                 <span class="badge bg-warning text-dark"><?php echo get_string('centro_web_foreign', 'local_chatbot'); ?></span>
+                                            <?php elseif ($bw['origen'] === 'plataforma'): ?>
+                                                <span class="badge bg-secondary"><?php echo get_string('centro_web_platform', 'local_chatbot'); ?></span>
                                             <?php endif; ?>
                                         </div>
                                         <div class="d-flex flex-wrap gap-2 align-items-start">
@@ -703,7 +705,8 @@ $estadoEtiqueta = [
                                     <div class="fw-bold mb-2"><i class="fa fa-globe me-1"></i><?php echo get_string('centro_cur_pick', 'local_chatbot'); ?></div>
                                     <ol class="mb-0 ps-3">
                                     <?php foreach ($cur['opciones'] as $ci => $op): ?>
-                                        <?php $origenCur = centro_recursos::source_origin((string) ($op['enlace'] ?? '')); ?>
+                                        <?php $origenCur = centro_recursos::source_origin((string) ($op['enlace'] ?? ''),
+                                            (string) ($op['fuente'] ?? '') . ' ' . (string) ($op['titulo'] ?? '')); ?>
                                         <li class="mb-3">
                                             <strong><?php echo s($op['titulo']); ?></strong>
                                             (<?php echo s($op['fuente'] . ' · ' . $op['duracion']); ?>)
@@ -714,6 +717,8 @@ $estadoEtiqueta = [
                                                 <span class="badge bg-success-subtle text-success-emphasis"><?php echo get_string('centro_web_chile', 'local_chatbot'); ?></span>
                                             <?php elseif ($origenCur === 'extranjera'): ?>
                                                 <span class="badge bg-warning text-dark"><?php echo get_string('centro_web_foreign', 'local_chatbot'); ?></span>
+                                            <?php elseif ($origenCur === 'plataforma'): ?>
+                                                <span class="badge bg-secondary"><?php echo get_string('centro_web_platform', 'local_chatbot'); ?></span>
                                             <?php endif; ?>
                                             <div class="d-flex flex-wrap gap-2 align-items-start mt-1">
                                                 <a class="btn btn-outline-primary btn-sm" href="<?php echo s((string) $op['enlace']); ?>" target="_blank" rel="noopener"><i class="fa fa-external-link me-1"></i><?php
