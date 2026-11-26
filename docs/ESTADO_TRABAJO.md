@@ -1,5 +1,14 @@
 # Estado del trabajo — actualizado 25-11-2026
 
+> **25-11 (2) → `M1-v1.32.1` en GitHub y en los dos VPS (BD `2026112501`).** Probado en el cliente con `prueba.tablero`:
+> M4 (dossier) regenerado: el decreto que antes quedaba en [REVISAR] se buscó en la pasada dirigida y quedaron 2 fragmentos
+> web con fuente Ley Chile (BCN, fuente chilena) y «Referencias consultadas»; «Aceptar» y «Editar» funcionan, la edición
+> completa queda bloqueada mientras hay pendientes y se desbloquea al revisarlos; HTML, PDF y Word sin marcas. M2
+> (curaduría): «Aceptar»/«Quitar» y «Editar» por opción; los videos de SENAMA e INDH en YouTube salen como fuente chilena.
+> **Pendiente:** cuestionario, planilla y presentación sin prueba en vivo (el diseño de prueba no trae esos materiales;
+> cubiertos por el verificador). El contenido de los fragmentos lo valida la persona facilitadora (para eso son «Editar»
+> y «Aceptar»).
+
 > **25-11 → `M1-v1.32.0` en local (BD `2026112500`, sin cambios de tablas): pedido de Interfases del 25-11 (llamada a
 > Ivan).** (1) El Centro busca en internet los datos que faltan y los marca con su fuente;
 > «Referencias consultadas» al final, chilena o extranjera, en todos los tipos (texto, cuestionario, planilla,
