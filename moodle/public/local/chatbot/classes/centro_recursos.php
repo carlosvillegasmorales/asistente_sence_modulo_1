@@ -1903,6 +1903,12 @@ class centro_recursos {
             if (trim($raw) === '') {
                 return self::fail_resource($id, 'ilegible');
             }
+            // Datos que el material dejo con [REVISAR]: se buscan en internet en una pasada dirigida (con busqueda
+            // obligatoria) y cada uno encontrado queda como fragmento web con su fuente (visto en el cliente el 25-11:
+            // el asistente marcaba el dato en vez de buscarlo).
+            if ($webDatos && self::count_review_marks($raw) > 0) {
+                $raw = self::fill_marks_from_web($raw, $matArr, $modelo, $esJsonModoB);
+            }
             // Modo C: si ningun enlace existe, se busca una vez mas diciendo cuales fallaron.
             $cur = $modo === 'C' ? self::parse_curaduria_json($raw) : null;
             if ($cur !== null && $cur['opciones']
@@ -2116,8 +2122,127 @@ class centro_recursos {
                     . 'no la escribas tú.',
             '- La persona facilitadora revisará cada fragmento marcado (Editar o Aceptar): no marques texto que provenga del '
                 . 'diseño o de los materiales cargados.',
-            '- Si no encuentras el dato en una fuente confiable, no lo inventes: deja la marca [REVISAR: motivo] en el lugar exacto.',
+            '- Antes de dejar una marca [REVISAR] por un dato técnico o normativo (por ejemplo, el número de una ley, decreto o '
+                . 'norma, un valor límite o un procedimiento), búscalo en internet. Si no lo encuentras en una fuente confiable, '
+                . 'no lo inventes: deja la marca [REVISAR: motivo] en el lugar exacto; la plataforma intentará buscarlo de nuevo.',
         ];
+    }
+
+    /**
+     * Marcas [REVISAR] de un texto con lo que las rodea, para buscarlas en internet. Funcion pura.
+     *
+     * @param string $texto Markdown o JSON del material.
+     * @param int $tope Maximo de marcas.
+     * @return array n (desde 1) => ['marca' => string, 'contexto' => string]
+     */
+    public static function review_marks_context(string $texto, int $tope = 12): array {
+        $out = [];
+        if (!preg_match_all('/\[REVISAR(?:\s*:\s*[^\]]+)?\]/u', $texto, $m, PREG_OFFSET_CAPTURE)) {
+            return $out;
+        }
+        foreach (array_slice($m[0], 0, $tope) as $i => [$marca, $pos]) {
+            $antes = substr($texto, max(0, $pos - 350), min(350, $pos));
+            $despues = substr($texto, $pos + strlen($marca), 200);
+            $limpio = static fn(string $t): string => trim(preg_replace('/\s+/u', ' ', strip_tags(
+                mb_convert_encoding($t, 'UTF-8', 'UTF-8'))));
+            $out[$i + 1] = ['marca' => $marca, 'contexto' => $limpio($antes) . ' ▶' . $marca . '◀ ' . $limpio($despues)];
+        }
+        return $out;
+    }
+
+    /**
+     * Prompt de la pasada dirigida que busca en internet los datos marcados con [REVISAR]. Funcion pura.
+     *
+     * @param array $material ['codigo', 'nombre']
+     * @param array $marcas Salida de review_marks_context().
+     * @return string
+     */
+    public static function build_web_fill_prompt(array $material, array $marcas): string {
+        $l = [
+            'Eres el ' . exante::ROL . ' operando en el CENTRO DE PRODUCCIÓN DE RECURSOS. El material «' . $material['codigo']
+                . ' · ' . $material['nombre'] . '» dejó datos marcados con [REVISAR] porque no estaban en el diseño ni en '
+                . 'los materiales de referencia. Búscalos en internet ahora, uno por uno.',
+            '',
+            '- ' . exante::REGLA_FUENTES_CHILE,
+            '- Para cada marca redacta en español de Chile el texto breve que la reemplaza (una o dos frases, solo el dato '
+                . 'pedido, sin cambiar el sentido de la frase donde va) y entrega la fuente exacta: su título y el enlace que '
+                . 'aparece en los resultados de la búsqueda. Nunca construyas ni adivines un enlace.',
+            '- Si no encuentras el dato en una fuente confiable, chilena o de uso en Chile, responde «encontrado»: false: la '
+                . 'marca queda para que la persona facilitadora la complete.',
+            '- No uses comillas dobles, corchetes ni el carácter | dentro de «texto» ni de «titulo».',
+            '- Devuelve ÚNICAMENTE un objeto JSON válido, sin texto antes ni después y sin bloques de código:',
+            '{"datos": [{"n": 1, "encontrado": true, "texto": "...", "titulo": "...", "enlace": "https://..."}]}',
+            '',
+            'MARCAS (el dato va donde está ▶…◀):',
+        ];
+        foreach ($marcas as $n => $m) {
+            $l[] = $n . '. ' . guardrails::isolate_user_content($m['contexto']);
+        }
+        return implode("\n", $l);
+    }
+
+    /**
+     * Reemplaza cada marca [REVISAR] que la busqueda encontro por un fragmento web con su fuente («[[WEB n | titulo |
+     * enlace]] texto [[/WEB]]»); las no encontradas quedan igual. En un JSON el reemplazo va escapado. Funcion pura.
+     *
+     * @param string $texto
+     * @param array $datos Lista de ['n', 'encontrado', 'texto', 'titulo', 'enlace'].
+     * @param bool $json
+     * @return string
+     */
+    public static function apply_web_fill(string $texto, array $datos, bool $json = false): string {
+        $porN = [];
+        foreach ($datos as $d) {
+            if (!is_array($d) || empty($d['encontrado'])) {
+                continue;
+            }
+            $limpia = static fn($t): string => trim(preg_replace('/\s+/u', ' ', str_replace(['[', ']', '|', '"'], ['(', ')', '/', ''],
+                (string) $t)));
+            $enlace = trim((string) ($d['enlace'] ?? ''));
+            $txt = $limpia($d['texto'] ?? '');
+            if ($txt === '' || !preg_match('/^https?:\/\/[^\s\]|]+$/i', $enlace)) {
+                continue;
+            }
+            $porN[(int) ($d['n'] ?? 0)] = '[[WEB 1 | ' . $limpia($d['titulo'] ?? '') . ' | ' . $enlace . ']] ' . $txt . ' [[/WEB]]';
+        }
+        if (!$porN) {
+            return $texto;
+        }
+        $i = 0;
+        return (string) preg_replace_callback('/\[REVISAR(?:\s*:\s*[^\]]+)?\]/u', static function(array $m) use (&$i, $porN, $json): string {
+            $i++;
+            if (!isset($porN[$i])) {
+                return $m[0];
+            }
+            return $json ? substr(json_encode($porN[$i], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 1, -1) : $porN[$i];
+        }, $texto);
+    }
+
+    /**
+     * Pasada dirigida: busca en internet los datos marcados con [REVISAR] y los deja como fragmentos web. Si la busqueda
+     * falla o no se puede leer, el material queda como estaba.
+     *
+     * @param string $raw Respuesta del asistente (Markdown o JSON).
+     * @param array $material
+     * @param string|null $modelo
+     * @param bool $json
+     * @return string
+     */
+    private static function fill_marks_from_web(string $raw, array $material, ?string $modelo, bool $json): string {
+        $marcas = self::review_marks_context($raw);
+        if (!$marcas) {
+            return $raw;
+        }
+        $res = exante::generate_steady([['role' => 'user', 'parts' => [['text' => self::build_web_fill_prompt($material,
+            $marcas)]]]], 150, $modelo, true);
+        if (isset($res['error'])) {
+            return $raw;
+        }
+        $datos = exante::decode_json((string) gemini_client::extract_text($res));
+        if (!is_array($datos) || !is_array($datos['datos'] ?? null)) {
+            return $raw;
+        }
+        return self::apply_web_fill($raw, $datos['datos'], $json);
     }
 
     /**

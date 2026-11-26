@@ -1,5 +1,14 @@
 # Changelog
 
+## M1-v1.32.1 (2026-11-25)
+
+- **Los datos marcados con [REVISAR] se buscan en internet en una segunda pasada.** Al probar la v1.32.0 en el cliente,
+  el asistente dejó «[REVISAR: número de decreto del MINSAL…]» en vez de buscarlo. Ahora, si el material trae marcas
+  [REVISAR], la plataforma hace una consulta dirigida con búsqueda web obligatoria solo por esos datos y cada uno
+  encontrado queda como fragmento web con su fuente («Editar» / «Aceptar»); los no encontrados siguen con [REVISAR]
+  (`review_marks_context()`, `build_web_fill_prompt()`, `apply_web_fill()`). El prompt pide además buscar antes de
+  marcar. Sin cambios en la base. `verificar_centro_recursos.php`: 94 casos.
+
 ## M1-v1.32.0 (2026-11-25)
 
 **Centro de producción: datos que faltan buscados en internet, con referencia, «Editar» y «Aceptar», en todos los tipos

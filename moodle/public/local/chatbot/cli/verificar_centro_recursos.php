@@ -1013,6 +1013,36 @@ local_chatbot_verificar(
 local_chatbot_verificar(strpos($pC, 'Prioriza recursos de instituciones chilenas') !== false,
     'la curaduría (Modo C) prioriza recursos chilenos y advierte en qué difiere un recurso extranjero');
 
+// --- Pasada dirigida: lo que quedó con [REVISAR] se busca en internet (visto en el cliente el 25-11-2026) ---
+$mdRev = "## Perfil legal\n\nEl rol se rige por la UCL U-8890. [REVISAR: número de decreto del MINSAL sobre cuidadores]\n\n"
+    . "La escala se aplica cada [REVISAR: frecuencia de aplicación de Barthel] meses.\n";
+$marcasRev = centro_recursos::review_marks_context($mdRev);
+local_chatbot_verificar(
+    count($marcasRev) === 2 && strpos($marcasRev[1]['contexto'], 'El rol se rige por la UCL U-8890. ▶[REVISAR: número de decreto') !== false
+        && strpos(centro_recursos::build_web_fill_prompt(['codigo' => 'M4', 'nombre' => 'Dossier'], $marcasRev),
+            '{"datos": [{"n": 1, "encontrado": true') !== false
+        && strpos(centro_recursos::build_web_fill_prompt(['codigo' => 'M4', 'nombre' => 'Dossier'], $marcasRev), 'Fuentes chilenas') !== false,
+    'review_marks_context() y build_web_fill_prompt() piden buscar en internet cada dato marcado con [REVISAR]'
+);
+$mdLleno = centro_recursos::apply_web_fill($mdRev, [
+    ['n' => 1, 'encontrado' => true, 'texto' => 'Decreto [N.º] 14 | de 2024', 'titulo' => 'Ley Chile "BCN"', 'enlace' => 'https://www.bcn.cl/leychile/x'],
+    ['n' => 2, 'encontrado' => false],
+]);
+[$mdLlenoW, $bloquesLleno] = centro_recursos::prepare_web_markdown($mdLleno, $verifWeb);
+local_chatbot_verificar(
+    strpos($mdLleno, '[[WEB 1 | Ley Chile BCN | https://www.bcn.cl/leychile/x]] Decreto (N.º) 14 / de 2024 [[/WEB]]') !== false
+        && strpos($mdLleno, '[REVISAR: frecuencia de aplicación de Barthel]') !== false
+        && strpos($mdLleno, '[REVISAR: número de decreto') === false
+        && count($bloquesLleno) === 1 && $bloquesLleno[1]['origen'] === 'chile',
+    'apply_web_fill() cambia por un fragmento web solo las marcas encontradas y deja las demás para la persona'
+);
+$jsonRev = json_encode(['preguntas' => [['enunciado' => 'Dato: [REVISAR: valor]']]], JSON_UNESCAPED_UNICODE);
+$jsonLleno = json_decode(centro_recursos::apply_web_fill($jsonRev, [['n' => 1, 'encontrado' => true, 'texto' => '40 a 60 s',
+    'titulo' => 'OMS', 'enlace' => 'https://who.int/a']], true), true);
+local_chatbot_verificar(is_array($jsonLleno) && $jsonLleno['preguntas'][0]['enunciado'] === 'Dato: [[WEB 1 | OMS | https://who.int/a]] 40 a 60 s [[/WEB]]'
+        && centro_recursos::apply_web_fill($mdRev, [['n' => 1, 'encontrado' => true, 'texto' => 'x', 'enlace' => 'no-es-enlace']]) === $mdRev,
+    'apply_web_fill() mantiene válido el JSON y descarta respuestas sin enlace');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Centro de producción de recursos del Módulo 2 conforme.\n";
