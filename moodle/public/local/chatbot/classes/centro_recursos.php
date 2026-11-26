@@ -1153,6 +1153,8 @@ class centro_recursos {
             $l[] = '- Excluye recursos con procedimientos incorrectos o inseguros, información desactualizada o contenido '
                 . 'publicitario predominante. No completes 5 opciones si menos cumplen los criterios.';
             $l[] = '- En las advertencias indica, por ejemplo, tramos que no corresponden o diferencias con la normativa nacional.';
+            $l[] = '- Prioriza recursos de instituciones chilenas o que expliquen la normativa y la práctica en Chile; si un '
+                . 'recurso es extranjero, indica en las advertencias en qué difiere de lo que rige en Chile.';
             $l[] = '- No descargues ni reproduzcas los recursos: solo se enlazan. La persona facilitadora selecciona los '
                 . 'recursos que usará.';
             $l[] = '- Usa solo enlaces exactos que aparezcan en los resultados de la búsqueda. Nunca construyas, completes '
@@ -1172,6 +1174,11 @@ class centro_recursos {
             $l[] = '{"titulo": "...", "descripcion": "...", "preguntas": [{"enunciado": "...", "tipo": "multiple|vf|corta", '
                 . '"opciones": ["...", "...", "...", "..."], "correcta": 0, "puntaje": 1, "retroalimentacion": "..."}], '
                 . '"fuentes": ["..."]}';
+            if ($conWeb) {
+                foreach (self::web_prompt_rules(true) as $regla) {
+                    $l[] = $regla;
+                }
+            }
         } else if (in_array('xlsx', $formatos, true)) {
             $l[] = 'INSTRUCCIONES MODO B — PLANILLA EXCEL (.xlsx):';
             $l[] = '- Genera la planilla editable completa en JSON estructurado (la plataforma la convertirá a .xlsx real '
@@ -1179,6 +1186,11 @@ class centro_recursos {
             $l[] = '- Devuelve ÚNICAMENTE un objeto JSON válido, sin texto antes ni después y sin bloques de código:';
             $l[] = '{"titulo": "...", "introduccion": "...", "hojas": [{"nombre": "Hoja 1", "encabezados": ["Col 1", "Col 2"], '
                 . '"filas": [["...", "..."]]}], "fuentes": ["..."]}';
+            if ($conWeb) {
+                foreach (self::web_prompt_rules(true) as $regla) {
+                    $l[] = $regla;
+                }
+            }
         } else if (in_array('pptx', $formatos, true) && !in_array('docx', $formatos, true) && !in_array('pdf', $formatos, true)) {
             $l[] = 'INSTRUCCIONES MODO B — PRESENTACIÓN (.pptx):';
             $l[] = '- Genera la presentación completa diapositiva por diapositiva en JSON estructurado (la plataforma armará '
@@ -1187,6 +1199,11 @@ class centro_recursos {
             $l[] = '- Devuelve ÚNICAMENTE un objeto JSON válido, sin texto antes ni después y sin bloques de código:';
             $l[] = '{"titulo": "...", "subtitulo": "...", "diapositivas": [{"titulo": "...", "puntos": ["..."], "notas": "..."}], '
                 . '"fuentes": ["..."]}';
+            if ($conWeb) {
+                foreach (self::web_prompt_rules(true) as $regla) {
+                    $l[] = $regla;
+                }
+            }
         } else {
             $l[] = 'INSTRUCCIONES DE PRODUCCIÓN (Markdown estructurado para pantalla, HTML Moodle, Word y/o PDF):';
             $l[] = '- Entrega el material completo, redactado en español de Chile y listo para usar.';
@@ -1865,7 +1882,7 @@ class centro_recursos {
             $estructuraTxt = html_to_text((string) ($r->estructura ?? ''), 0, false);
             // Datos que faltan: en los materiales en Markdown (Modos A y B) el asistente los busca en la web y los marca
             // con su fuente para que la persona los edite o acepte (pedido de Interfases del 25-11-2026).
-            $webDatos = !$esJsonModoB && $modo !== 'C' && ux::on('webcentro') && exante::web_search_available();
+            $webDatos = $modo !== 'C' && ux::on('webcentro') && exante::web_search_available();
             $prompt = self::build_content_prompt($matArr, $estructuraTxt, $plan->datos_arr, $disenoTexto, $fichaTexto,
                 (string) ($r->plataforma_quiz ?? ''), $yaProducidos, $webDatos);
             $parts = array_merge([['text' => $prompt]], $adjuntos, $refParts);
@@ -1875,6 +1892,14 @@ class centro_recursos {
                 return self::fail_resource($id, 'servicio');
             }
             $raw = (string) gemini_client::extract_text($res);
+            // Con busqueda web la respuesta a veces no viene como JSON limpio: se repite una vez sin busqueda.
+            if ($webDatos && $esJsonModoB && !is_array(exante::decode_json($raw))) {
+                $prompt = self::build_content_prompt($matArr, $estructuraTxt, $plan->datos_arr, $disenoTexto, $fichaTexto,
+                    (string) ($r->plataforma_quiz ?? ''), $yaProducidos, false);
+                $res = exante::generate_steady([['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $adjuntos,
+                    $refParts)]], 240, $modelo, false);
+                $raw = isset($res['error']) ? '' : (string) gemini_client::extract_text($res);
+            }
             if (trim($raw) === '') {
                 return self::fail_resource($id, 'ilegible');
             }
@@ -1922,15 +1947,10 @@ class centro_recursos {
             if (!is_array($json)) {
                 return self::fail_resource((int) $r->id, 'ilegible');
             }
+            // Fragmentos obtenidos de la web dentro de los textos del JSON (v1.32.0).
+            [$json] = self::web_json_prepare($json, [self::class, 'verify_url']);
             $estructurado = json_encode($json, JSON_UNESCAPED_UNICODE);
-            $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
-            if ($esQuiz) {
-                $html = recurso_export::to_printable_quiz_html($json, (string) $r->nombre, $pie);
-            } else if (in_array('xlsx', $formatos, true)) {
-                $html = self::sheets_preview_html($json, $pie);
-            } else {
-                $html = self::slides_preview_html($json, $pie);
-            }
+            $html = self::json_preview_html($json, $r, $esQuiz, $formatos);
         } else if ($htmlListo !== '') {
             $html = $htmlListo;
         } else {
@@ -1960,6 +1980,20 @@ class centro_recursos {
             'timemodified' => time(),
         ]);
         return exante::LISTO;
+    }
+
+    /**
+     * Vista previa HTML de un material estructurado (cuestionario, planilla o presentacion).
+     */
+    private static function json_preview_html(array $json, \stdClass $r, bool $esQuiz, array $formatos): string {
+        $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
+        if ($esQuiz) {
+            return recurso_export::to_printable_quiz_html($json, (string) $r->nombre, $pie);
+        }
+        if (in_array('xlsx', $formatos, true)) {
+            return self::sheets_preview_html($json, $pie);
+        }
+        return self::slides_preview_html($json, $pie);
     }
 
     /**
@@ -2059,18 +2093,27 @@ class centro_recursos {
      *
      * @return string[]
      */
-    public static function web_prompt_rules(): array {
+    public static function web_prompt_rules(bool $json = false): array {
         return [
             'DATOS QUE FALTAN: BÚSQUEDA EN INTERNET CON REFERENCIA (amplía el principio 3):',
             '- Usa primero el diseño validado, la ficha y los materiales de referencia cargados. Solo si un dato técnico, '
                 . 'normativo o de seguridad que el material necesita no está en ellos, búscalo en internet.',
             '- ' . exante::REGLA_FUENTES_CHILE,
-            '- Envuelve cada fragmento redactado con información de internet así, dentro de un solo párrafo, viñeta o celda: '
-                . '[[WEB 1 | Título de la fuente | https://enlace-exacto]] texto obtenido [[/WEB]]. Numera los fragmentos 1, '
-                . '2, 3… en orden; si dos fragmentos usan la misma fuente, repite su título y su enlace.',
-            '- Usa solo enlaces exactos que aparezcan en los resultados de la búsqueda; nunca construyas ni adivines un enlace. '
-                . 'La plataforma comprueba cada enlace y arma la sección «' . self::WEB_REFERENCIAS . '» al final del material: '
-                . 'no la escribas tú.',
+            $json
+                ? '- Envuelve cada fragmento redactado con información de internet así, dentro del mismo valor de texto del '
+                    . 'JSON (enunciado, opción, retroalimentación, celda, punto o nota): [[WEB 1 | Título de la fuente | '
+                    . 'https://enlace-exacto]] texto obtenido [[/WEB]]. No uses comillas dobles en el título. Numera los '
+                    . 'fragmentos 1, 2, 3… en orden; si dos fragmentos usan la misma fuente, repite su título y su enlace. No '
+                    . 'marques los números de «correcta» ni de «puntaje».'
+                : '- Envuelve cada fragmento redactado con información de internet así, dentro de un solo párrafo, viñeta o celda: '
+                    . '[[WEB 1 | Título de la fuente | https://enlace-exacto]] texto obtenido [[/WEB]]. Numera los fragmentos 1, '
+                    . '2, 3… en orden; si dos fragmentos usan la misma fuente, repite su título y su enlace.',
+            $json
+                ? '- Usa solo enlaces exactos que aparezcan en los resultados de la búsqueda; nunca construyas ni adivines un '
+                    . 'enlace. No pongas en «fuentes» las fuentes de internet: la plataforma comprueba cada enlace y las agrega.'
+                : '- Usa solo enlaces exactos que aparezcan en los resultados de la búsqueda; nunca construyas ni adivines un enlace. '
+                    . 'La plataforma comprueba cada enlace y arma la sección «' . self::WEB_REFERENCIAS . '» al final del material: '
+                    . 'no la escribas tú.',
             '- La persona facilitadora revisará cada fragmento marcado (Editar o Aceptar): no marques texto que provenga del '
                 . 'diseño o de los materiales cargados.',
             '- Si no encuentras el dato en una fuente confiable, no lo inventes: deja la marca [REVISAR: motivo] en el lugar exacto.',
@@ -2178,22 +2221,7 @@ class centro_recursos {
         // Marcas sin cerrar o sin texto: se quitan para no dejar corchetes en el material.
         $md = (string) preg_replace('/\[\[\s*\/?\s*WEB[^\]]*\]\]/u', '', $md);
         if ($conReferencias && $bloques) {
-            $lineas = [];
-            $vistas = [];
-            foreach ($bloques as $b) {
-                $clave = $b['url'] !== '' ? $b['url'] : $b['titulo'];
-                if ($clave === '' || isset($vistas[$clave])) {
-                    continue;
-                }
-                $vistas[$clave] = true;
-                $titulo = $b['titulo'] !== '' ? $b['titulo'] : (string) parse_url($b['url'], PHP_URL_HOST);
-                if ($b['url'] === '' || !$b['verificado']) {
-                    $lineas[] = '- ' . $titulo . ($b['url'] !== '' ? ' — ' . $b['url'] : '') . ' (enlace no verificado)';
-                } else {
-                    $lineas[] = '- ' . $titulo . ' — ' . $b['url'] . ($b['origen'] === 'chile' ? ' (fuente chilena)'
-                        : ' (fuente extranjera: confirma que se aplica en Chile)');
-                }
-            }
+            $lineas = array_map(static fn(string $x): string => '- ' . $x, self::web_reference_lines($bloques));
             $seccion = "## " . self::WEB_REFERENCIAS . "\n\n" . implode("\n", $lineas) . "\n";
             $pos = strrpos($md, self::PIE_MATERIAL);
             if ($pos !== false) {
@@ -2205,6 +2233,156 @@ class centro_recursos {
             }
         }
         return [$md, $bloques];
+    }
+
+    /**
+     * Una linea por fuente web, sin repetir: «Título — enlace (fuente chilena)», «(fuente extranjera: confirma que se
+     * aplica en Chile)» o «(enlace no verificado)». Funcion pura.
+     *
+     * @param array $bloques n => ['url', 'titulo', 'origen', 'verificado']
+     * @return string[]
+     */
+    public static function web_reference_lines(array $bloques): array {
+        $lineas = [];
+        $vistas = [];
+        foreach ($bloques as $b) {
+            $clave = $b['url'] !== '' ? $b['url'] : $b['titulo'];
+            if ($clave === '' || isset($vistas[$clave])) {
+                continue;
+            }
+            $vistas[$clave] = true;
+            $titulo = $b['titulo'] !== '' ? $b['titulo'] : (string) parse_url($b['url'], PHP_URL_HOST);
+            if ($b['url'] === '' || !$b['verificado']) {
+                $lineas[] = $titulo . ($b['url'] !== '' ? ' — ' . $b['url'] : '') . ' (enlace no verificado)';
+            } else {
+                $lineas[] = $titulo . ' — ' . $b['url'] . ($b['origen'] === 'chile' ? ' (fuente chilena)'
+                    : ' (fuente extranjera: confirma que se aplica en Chile)');
+            }
+        }
+        return $lineas;
+    }
+
+    /**
+     * Marcas web en un material estructurado (cuestionario, planilla o presentacion): convierte las marcas del asistente
+     * de cada texto del JSON a «[[WEB:n|enlace]] texto [[/WEB:n]]», comprueba cada enlace y deja en «fuentes» las lineas
+     * de referencia (las de una version anterior se reemplazan). Funcion pura (el verificador se inyecta).
+     *
+     * @param array $json
+     * @param callable|null $verificar
+     * @return array [array $json, array $bloques]
+     */
+    public static function web_json_prepare(array $json, ?callable $verificar): array {
+        $fuentes = array_values(array_filter(array_map('strval', (array) ($json['fuentes'] ?? [])), static fn(string $f): bool
+            => !preg_match('/\((fuente chilena|fuente extranjera|enlace no verificado)/u', $f)));
+        $previas = self::reference_titles(implode("\n", array_map('strval', (array) ($json['fuentes'] ?? []))));
+        $bloques = [];
+        $cache = [];
+        $re = '/\[\[\s*WEB(?:\s+\d+\s*\|\s*([^|\]]*?)\s*\||\s*:\s*\d+\s*\|)\s*([^\]]*?)\s*\]\](.*?)\[\[\s*\/\s*WEB(?:\s*:\s*\d+)?\s*\]\]/su';
+        $recorrer = static function($valor, string $clave = '') use (&$recorrer, &$bloques, &$cache, $previas, $verificar, $re) {
+            if (is_array($valor)) {
+                foreach ($valor as $k => $v) {
+                    if ($clave === '' && $k === 'fuentes') {
+                        continue;
+                    }
+                    $valor[$k] = $recorrer($v, (string) $k . '.');
+                }
+                return $valor;
+            }
+            if (!is_string($valor) || strpos($valor, 'WEB') === false) {
+                return $valor;
+            }
+            $valor = (string) preg_replace_callback($re, static function(array $m) use (&$bloques, &$cache, $previas, $verificar): string {
+                if (trim($m[3]) === '') {
+                    return $m[3];
+                }
+                $url = trim($m[2]);
+                $url = preg_match('/^https?:\/\//i', $url) ? $url : '';
+                $verificado = false;
+                if ($url !== '' && $verificar !== null) {
+                    if (!array_key_exists($url, $cache)) {
+                        $v = (array) $verificar($url);
+                        $cache[$url] = !empty($v['ok']) ? (string) ($v['url'] ?? $url) : null;
+                    }
+                    $verificado = $cache[$url] !== null;
+                    $url = $verificado ? $cache[$url] : $url;
+                }
+                $n = count($bloques) + 1;
+                $bloques[$n] = ['url' => $url, 'titulo' => trim($m[1]) !== '' ? trim($m[1]) : ($previas[$url] ?? ''),
+                    'origen' => self::source_origin($url), 'verificado' => $verificar === null || $verificado];
+                return '[[WEB:' . $n . '|' . $url . ']]' . trim($m[3]) . '[[/WEB:' . $n . ']]';
+            }, $valor);
+            return (string) preg_replace('/\[\[\s*\/?\s*WEB(?![:]\d+\|[^\]]*\]\])(?![:]\d+\]\])[^\]]*\]\]/u', '', $valor);
+        };
+        $json = $recorrer($json);
+        if ($bloques) {
+            $json['fuentes'] = array_merge($fuentes, self::web_reference_lines($bloques));
+        }
+        return [$json, $bloques];
+    }
+
+    /**
+     * Fragmentos web pendientes de un material estructurado, con el mismo formato que web_blocks(). Funcion pura.
+     *
+     * @param array $json
+     * @return array
+     */
+    public static function web_blocks_json(array $json): array {
+        $titulos = self::reference_titles(implode("\n", array_map('strval', (array) ($json['fuentes'] ?? []))));
+        $out = [];
+        array_walk_recursive($json, static function($v) use (&$out, $titulos) {
+            if (!is_string($v) || !preg_match_all('/\[\[WEB:(\d+)\|([^\]]*)\]\](.*?)\[\[\/WEB:\1\]\]/su', $v, $m, PREG_SET_ORDER)) {
+                return;
+            }
+            foreach ($m as $x) {
+                $out[(int) $x[1]] = ['texto' => trim($x[3]), 'url' => $x[2], 'titulo' => $titulos[$x[2]] ?? '',
+                    'origen' => self::source_origin($x[2])];
+            }
+        });
+        ksort($out);
+        return $out;
+    }
+
+    /**
+     * resolve_web_block() para un material estructurado: busca el fragmento en los textos del JSON. Funcion pura.
+     *
+     * @param array $json
+     * @param int $n
+     * @param string|null $reemplazo Null = aceptar.
+     * @return array|null
+     */
+    public static function resolve_web_block_json(array $json, int $n, ?string $reemplazo = null): ?array {
+        $hecho = false;
+        $re = '/\[\[WEB:' . $n . '\|[^\]]*\]\](.*?)\[\[\/WEB:' . $n . '\]\]/su';
+        array_walk_recursive($json, static function(&$v) use (&$hecho, $re, $reemplazo) {
+            if ($hecho || !is_string($v) || !preg_match($re, $v, $m, PREG_OFFSET_CAPTURE)) {
+                return;
+            }
+            $nuevo = $reemplazo === null ? $m[1][0] : trim($reemplazo);
+            $v = substr($v, 0, $m[0][1]) . $nuevo . substr($v, $m[0][1] + strlen($m[0][0]));
+            $hecho = true;
+        });
+        return $hecho ? $json : null;
+    }
+
+    /**
+     * Modo C: cambia el momento de uso, la justificacion o las advertencias de una opcion de la ficha de recomendacion
+     * (el titulo, la fuente y el enlace verificado no se editan). Null si la opcion no existe. Funcion pura.
+     *
+     * @param array $cur JSON de la curaduria.
+     * @param int $indice Desde 0.
+     * @param array $campos ['momento' => ..., 'justificacion' => ..., 'advertencias' => ...]
+     * @return array|null
+     */
+    public static function edit_curated_option(array $cur, int $indice, array $campos): ?array {
+        if (!isset($cur['opciones'][$indice]) || !is_array($cur['opciones'][$indice])) {
+            return null;
+        }
+        foreach (['momento', 'justificacion', 'advertencias'] as $c) {
+            if (array_key_exists($c, $campos)) {
+                $cur['opciones'][$indice][$c] = trim((string) $campos[$c]);
+            }
+        }
+        return $cur;
     }
 
     /**
@@ -2269,7 +2447,8 @@ class centro_recursos {
      * @return string
      */
     public static function strip_web_marks(string $html): string {
-        return (string) preg_replace('/\[\[WEB:\d+\|[^\]]*\]\]|\[\[\/WEB:\d+\]\]/u', '', $html);
+        // En el JSON guardado la barra del cierre va escapada («[[\/WEB:n]]»).
+        return (string) preg_replace('/\[\[WEB:\d+\|[^\]]*\]\]|\[\[\\\\?\/WEB:\d+\]\]/u', '', $html);
     }
 
     /**
@@ -2299,16 +2478,29 @@ class centro_recursos {
     public static function save_web_block(int $id, int $userid, int $n, ?string $reemplazo = null): bool {
         global $DB;
         $r = self::get_resource($id, $userid);
-        if (!$r || !empty($r->estructurado)) {
+        if (!$r) {
             return false;
         }
-        $nuevo = self::resolve_web_block((string) $r->contenido, $n, $reemplazo);
+        $estructurado = null;
+        if (!empty($r->estructurado)) {
+            $json = self::resolve_web_block_json((array) json_decode((string) $r->estructurado, true), $n, $reemplazo);
+            if ($json === null || strtoupper((string) $r->modo) === 'C') {
+                return false;
+            }
+            $estructurado = json_encode($json, JSON_UNESCAPED_UNICODE);
+            $nuevo = self::json_preview_html($json, $r, self::is_quiz_material((string) $r->nombre, (string) $r->formato),
+                self::detect_formats(strtoupper((string) $r->modo), (string) $r->formato, (string) $r->nombre,
+                    (string) ($r->plataforma_quiz ?? '')));
+        } else {
+            $nuevo = self::resolve_web_block((string) $r->contenido, $n, $reemplazo);
+        }
         if ($nuevo === null) {
             return false;
         }
         $DB->update_record('local_chatbot_recurso', (object) [
             'id' => $r->id,
             'contenido' => $nuevo,
+            'estructurado' => $estructurado ?? $r->estructurado,
             'html_moodle' => recurso_export::to_moodle_html(self::strip_web_marks($nuevo), (string) $r->nombre, (string) $r->codigo),
             'revisar_count' => self::count_review_marks($nuevo),
             'estado' => self::state_after_change((string) $r->estado, $reemplazo !== null),
@@ -2391,6 +2583,34 @@ class centro_recursos {
     /**
      * Registra la seleccion de recursos curados (Modo C) elegidos por la persona facilitadora.
      */
+    /**
+     * Modo C: guarda la edicion de una opcion de la ficha de recomendacion (momento, justificacion y advertencias).
+     *
+     * @return bool
+     */
+    public static function save_curated_option(int $id, int $userid, int $indice, array $campos): bool {
+        global $DB;
+        $r = self::get_resource($id, $userid);
+        if (!$r || empty($r->estructurado) || strtoupper((string) $r->modo) !== 'C') {
+            return false;
+        }
+        $cur = self::edit_curated_option((array) json_decode((string) $r->estructurado, true), $indice, $campos);
+        if ($cur === null) {
+            return false;
+        }
+        $sel = array_map('intval', (array) (json_decode((string) ($r->seleccionados ?? '[]'), true) ?: []));
+        $html = self::curaduria_html((array) $cur['opciones'], (string) ($r->fecha_verificacion ?? ''), (string) $r->codigo, $sel);
+        $DB->update_record('local_chatbot_recurso', (object) [
+            'id' => $r->id,
+            'estructurado' => json_encode($cur, JSON_UNESCAPED_UNICODE),
+            'contenido' => $html,
+            'html_moodle' => recurso_export::to_moodle_html($html, (string) $r->nombre, (string) $r->codigo),
+            'estado' => self::state_after_change((string) $r->estado, true),
+            'timemodified' => time(),
+        ]);
+        return true;
+    }
+
     public static function select_curated(int $id, int $userid, array $indices): void {
         global $DB;
         $r = self::get_resource($id, $userid);
@@ -2587,7 +2807,7 @@ class centro_recursos {
         $base = preg_replace('/[^A-Za-z0-9_-]+/', '_', modulo2_setup::ascii_filename($r->codigo . '_' . $r->nombre));
         $base = trim(mb_substr((string) $base, 0, 60, 'UTF-8'), '_') ?: 'material';
         $ver = ((int) $r->version) > 0 ? ('_v' . (int) $r->version) : '';
-        $json = !empty($r->estructurado) ? json_decode((string) $r->estructurado, true) : null;
+        $json = !empty($r->estructurado) ? json_decode(self::strip_web_marks((string) $r->estructurado), true) : null;
         $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
 
         switch ($tipo) {

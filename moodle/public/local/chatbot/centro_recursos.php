@@ -235,6 +235,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $disenoSel) {
         redirect($recursourl, get_string('centro_edit_saved', 'local_chatbot'), null,
             \core\output\notification::NOTIFY_SUCCESS);
     }
+    if (($action === 'cur_aceptar' || $action === 'cur_quitar') && $recursoid > 0) {
+        // Modo C: «Aceptar» agrega la opcion a los recursos que se usaran; «Quitar» la saca.
+        $recSel = centro_recursos::get_resource($recursoid, $USER->id);
+        $selActual = $recSel ? array_map('intval', (array) (json_decode((string) ($recSel->seleccionados ?? '[]'), true) ?: [])) : [];
+        $op = required_param('opcion', PARAM_INT);
+        $selNueva = $action === 'cur_aceptar' ? array_merge($selActual, [$op]) : array_diff($selActual, [$op]);
+        sort($selNueva);
+        centro_recursos::select_curated($recursoid, $USER->id, array_values(array_unique($selNueva)));
+        redirect(new moodle_url($recursourl, [], 'cr-cur'), get_string('centro_cur_saved', 'local_chatbot'), null,
+            \core\output\notification::NOTIFY_SUCCESS);
+    }
+    if ($action === 'cur_editar' && $recursoid > 0) {
+        $ok = centro_recursos::save_curated_option($recursoid, $USER->id, required_param('opcion', PARAM_INT), [
+            'momento' => optional_param('momento', '', PARAM_TEXT),
+            'justificacion' => optional_param('justificacion', '', PARAM_TEXT),
+            'advertencias' => optional_param('advertencias', '', PARAM_TEXT),
+        ]);
+        redirect(new moodle_url($recursourl, [], 'cr-cur'), get_string($ok ? 'centro_cur_edited' : 'centro_web_missing',
+            'local_chatbot'), null, $ok ? \core\output\notification::NOTIFY_SUCCESS : \core\output\notification::NOTIFY_WARNING);
+    }
     if ($action === 'seleccionar_curaduria' && $recursoid > 0) {
         $sel = optional_param_array('cur_sel', [], PARAM_INT);
         centro_recursos::select_curated($recursoid, $USER->id, $sel);
@@ -608,8 +628,9 @@ $estadoEtiqueta = [
                             </div>
                         <?php endif; ?>
 
-                        <?php $bloquesweb = (\local_chatbot\ux::on('webcentro') && empty($recActual->estructurado))
-                            ? centro_recursos::web_blocks((string) $recActual->contenido) : []; ?>
+                        <?php $bloquesweb = !\local_chatbot\ux::on('webcentro') || $esModoC ? []
+                            : (empty($recActual->estructurado) ? centro_recursos::web_blocks((string) $recActual->contenido)
+                                : centro_recursos::web_blocks_json((array) json_decode((string) $recActual->estructurado, true))); ?>
                         <?php if ($bloquesweb): ?>
                             <div class="alert alert-info small py-2" id="cr-web">
                                 <div class="fw-bold"><i class="fa fa-globe me-1"></i><?php
@@ -678,22 +699,61 @@ $estadoEtiqueta = [
                             $selCur = json_decode((string) ($recActual->seleccionados ?? '[]'), true) ?: [];
                             ?>
                             <?php if (!empty($cur['opciones'])): ?>
-                                <form method="post" action="<?php echo $recursourl->out(false); ?>" class="border rounded p-3 bg-light mb-3">
-                                    <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
-                                    <input type="hidden" name="action" value="seleccionar_curaduria">
-                                    <div class="fw-bold small mb-2"><?php echo get_string('centro_cur_pick', 'local_chatbot'); ?></div>
+                                <div class="border rounded p-3 bg-light mb-3 small" id="cr-cur">
+                                    <div class="fw-bold mb-2"><i class="fa fa-globe me-1"></i><?php echo get_string('centro_cur_pick', 'local_chatbot'); ?></div>
+                                    <ol class="mb-0 ps-3">
                                     <?php foreach ($cur['opciones'] as $ci => $op): ?>
-                                        <div class="form-check small">
-                                            <input class="form-check-input" type="checkbox" name="cur_sel[]" id="cur_<?php echo $ci; ?>"
-                                                   value="<?php echo $ci; ?>" <?php echo in_array($ci, $selCur, true) ? 'checked' : ''; ?>>
-                                            <label class="form-check-label" for="cur_<?php echo $ci; ?>">
-                                                <strong><?php echo ($ci + 1) . '. ' . s($op['titulo']); ?></strong>
-                                                (<?php echo s($op['fuente'] . ' · ' . $op['duracion']); ?>)
-                                            </label>
-                                        </div>
+                                        <?php $origenCur = centro_recursos::source_origin((string) ($op['enlace'] ?? '')); ?>
+                                        <li class="mb-3">
+                                            <strong><?php echo s($op['titulo']); ?></strong>
+                                            (<?php echo s($op['fuente'] . ' · ' . $op['duracion']); ?>)
+                                            <?php if (in_array($ci, $selCur, true)): ?>
+                                                <span class="badge bg-success"><?php echo get_string('centro_cur_accepted', 'local_chatbot'); ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($origenCur === 'chile'): ?>
+                                                <span class="badge bg-success-subtle text-success-emphasis"><?php echo get_string('centro_web_chile', 'local_chatbot'); ?></span>
+                                            <?php elseif ($origenCur === 'extranjera'): ?>
+                                                <span class="badge bg-warning text-dark"><?php echo get_string('centro_web_foreign', 'local_chatbot'); ?></span>
+                                            <?php endif; ?>
+                                            <div class="d-flex flex-wrap gap-2 align-items-start mt-1">
+                                                <a class="btn btn-outline-primary btn-sm" href="<?php echo s((string) $op['enlace']); ?>" target="_blank" rel="noopener"><i class="fa fa-external-link me-1"></i><?php
+                                                    echo get_string('centro_cur_open', 'local_chatbot'); ?></a>
+                                                <form method="post" action="<?php echo $recursourl->out(false); ?>" class="d-inline">
+                                                    <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                                    <input type="hidden" name="opcion" value="<?php echo (int) $ci; ?>">
+                                                    <?php if (in_array($ci, $selCur, true)): ?>
+                                                        <input type="hidden" name="action" value="cur_quitar">
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm"><?php
+                                                            echo get_string('centro_cur_remove', 'local_chatbot'); ?></button>
+                                                    <?php else: ?>
+                                                        <input type="hidden" name="action" value="cur_aceptar">
+                                                        <button type="submit" class="btn btn-success btn-sm"><i class="fa fa-check me-1"></i><?php
+                                                            echo get_string('centro_web_accept', 'local_chatbot'); ?></button>
+                                                    <?php endif; ?>
+                                                </form>
+                                                <details class="flex-grow-1">
+                                                    <summary class="btn btn-outline-secondary btn-sm"><i class="fa fa-pencil me-1"></i><?php
+                                                        echo get_string('centro_web_edit', 'local_chatbot'); ?></summary>
+                                                    <form method="post" action="<?php echo $recursourl->out(false); ?>" class="mt-2">
+                                                        <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                                        <input type="hidden" name="action" value="cur_editar">
+                                                        <input type="hidden" name="opcion" value="<?php echo (int) $ci; ?>">
+                                                        <div class="text-muted mb-1"><?php echo get_string('centro_cur_edit_help', 'local_chatbot'); ?></div>
+                                                        <?php foreach (['momento' => 'centro_cur_moment', 'justificacion' => 'centro_cur_reason',
+                                                                'advertencias' => 'centro_cur_warnings'] as $campoCur => $etqCur): ?>
+                                                            <label class="form-label mb-0"><?php echo get_string($etqCur, 'local_chatbot'); ?></label>
+                                                            <textarea name="<?php echo $campoCur; ?>" rows="2" class="form-control form-control-sm mb-2"><?php
+                                                                echo s((string) ($op[$campoCur] ?? '')); ?></textarea>
+                                                        <?php endforeach; ?>
+                                                        <button type="submit" class="btn btn-primary btn-sm"><?php
+                                                            echo get_string('centro_web_save', 'local_chatbot'); ?></button>
+                                                    </form>
+                                                </details>
+                                            </div>
+                                        </li>
                                     <?php endforeach; ?>
-                                    <button type="submit" class="btn btn-outline-primary btn-sm mt-2"><?php echo get_string('centro_cur_save', 'local_chatbot'); ?></button>
-                                </form>
+                                    </ol>
+                                </div>
                             <?php endif; ?>
                         <?php endif; ?>
 
@@ -711,6 +771,12 @@ $estadoEtiqueta = [
                                 </form>
                             </div>
                             <div class="col-md-6">
+                                <?php if ($bloquesweb): ?>
+                                <div class="border rounded p-3 h-100 small text-muted">
+                                    <div class="fw-bold text-body mb-1"><?php echo get_string('centro_edit_title', 'local_chatbot'); ?></div>
+                                    <i class="fa fa-lock me-1"></i><?php echo get_string('centro_web_edit_locked', 'local_chatbot', count($bloquesweb)); ?>
+                                </div>
+                                <?php else: ?>
                                 <details class="border rounded p-3 h-100">
                                     <summary class="fw-bold small" style="cursor:pointer;"><?php echo get_string('centro_edit_title', 'local_chatbot'); ?></summary>
                                     <form method="post" action="<?php echo $recursourl->out(false); ?>" class="mt-2">
@@ -720,6 +786,7 @@ $estadoEtiqueta = [
                                         <button type="submit" class="btn btn-outline-secondary btn-sm"><?php echo get_string('centro_edit_save', 'local_chatbot'); ?></button>
                                     </form>
                                 </details>
+                                <?php endif; ?>
                             </div>
                         </div>
 

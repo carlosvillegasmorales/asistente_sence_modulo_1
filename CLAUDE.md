@@ -99,10 +99,13 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   HTML compatible con Moodle, Cuestionarios desde una sola fuente (GIFT validado + Google Apps Script `.gs` + Word impreso
   con pauta) y repertorio completo en `.zip` (Etapa 12). Modo C filtra enlaces por HTTP (`verify_url()`, protección SSRF).
   Enlazado desde Fase 3 cuando está aprobado y desde `modulo2_setup::add_center_button()` / `configurar_modulo2.php`.
-  Desde v1.32.0 (interruptor `webcentro`), en Markdown (Modos A y B) los datos que faltan se buscan en internet: el
-  fragmento va entre `[[WEB:n|enlace]]` y `[[/WEB:n]]` en `contenido` (`prepare_web_markdown()`/`web_restore()`), la
-  plataforma arma «Referencias consultadas» (chilena/extranjera) y la persona los acepta o edita uno por uno
-  (`resolve_web_block()`); toda salida usa `strip_web_marks()`. Toda norma citada debe ser chilena o de uso en Chile
+  Desde v1.32.0 (interruptor `webcentro`), los datos que faltan se buscan en internet: el fragmento va entre
+  `[[WEB:n|enlace]]` y `[[/WEB:n]]` en `contenido` (Markdown: `prepare_web_markdown()`/`web_restore()`) o dentro de
+  los textos de `estructurado` (cuestionario, planilla, presentación: `web_json_prepare()`; en el JSON guardado el
+  cierre va como `[[\/WEB:n]]`), la plataforma arma las referencias (chilena/extranjera) y la persona acepta o edita
+  cada fragmento (`resolve_web_block()`, `resolve_web_block_json()`); mientras haya pendientes, la edición completa
+  queda bloqueada. En el Modo C, «Aceptar»/«Quitar» y «Editar» por opción (`edit_curated_option()`). Toda salida usa
+  `strip_web_marks()`. Toda norma citada debe ser chilena o de uso en Chile
   (`exante::REGLA_FUENTES_CHILE`, también en las fuentes de conocimiento de los Módulos 2 y 3).
 - `classes/diagrama.php` — diagramas de cajas y flechas de los productos de las etapas: el modelo entrega un bloque
   «diagrama» (una línea por caja, `modo: ciclo` opcional) y se convierte en tabla con colores (editable y válida en Word);
@@ -222,7 +225,7 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   for f in local/chatbot/cli/verificar_*.php; do php $f; done
   ```
   Deben pasar sin fallos. Al 19-11-2026 (M1-v1.28.3): **44 celdas de la matriz de acceso y 2133 claves de idioma**;
-  `verificar_exante.php` 191 casos, `verificar_diseno.php` 316, `verificar_centro_recursos.php` 84, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99,
+  `verificar_exante.php` 191 casos, `verificar_diseno.php` 316, `verificar_centro_recursos.php` 91, `verificar_libreria_ruta.php` 84, `verificar_tablero.php` 99,
   `verificar_documento_final.php` 111 y, del Módulo 3, `verificar_implementacion.php` 143, `verificar_calidad.php` 114,
   `verificar_libreria_m3.php` 129, `verificar_modulo3.php` 26 y, de la Fase 4, `verificar_expost.php` 95, entre otros, `verificar_perfiles_m2.php` 169, en 29 scripts.
   `verificar_puente.php` y `verificar_versionado.php` necesitan base de datos:

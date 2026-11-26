@@ -956,6 +956,63 @@ local_chatbot_verificar(array_key_exists('webcentro', ux::DEFAULTS) && ux::DEFAU
         && centro_recursos::PROMPT_VERSION === 'M2-CR-v2',
     'la búsqueda de datos en el Centro tiene su interruptor (encendido) y sube la versión del prompt');
 
+// --- Materiales estructurados y Modo C: también con referencia, «Editar» y «Aceptar» (25-11-2026) ---
+$matQuizW = ['codigo' => 'M7', 'nombre' => 'Cuestionario de higiene', 'fase' => 'F2', 'modo' => 'B', 'formato' => 'Cuestionario Moodle',
+    'especificacion' => '', 'espec_detalle' => ''];
+$pQuizW = centro_recursos::build_content_prompt($matQuizW, 'E', [], 'D', 'F', 'moodle', [], true);
+local_chatbot_verificar(
+    strpos($pQuizW, 'INSTRUCCIONES PARA CUESTIONARIO') !== false
+        && strpos($pQuizW, 'dentro del mismo valor de texto del JSON') !== false
+        && strpos($pQuizW, 'No marques los números de «correcta» ni de «puntaje»') !== false
+        && strpos(centro_recursos::build_content_prompt($matQuizW, 'E', [], 'D', 'F', 'moodle'), 'DATOS QUE FALTAN') === false,
+    'build_content_prompt() de un cuestionario con búsqueda web pide las marcas dentro de los textos del JSON'
+);
+$jsonW = ['titulo' => 'Cuestionario', 'preguntas' => [
+    ['enunciado' => '¿Cuánto dura el lavado de manos? [[WEB 1 | Guía MINSAL de higiene | http://www.minsal.cl/manos]] Entre 40 y 60 segundos. [[/WEB]]',
+        'opciones' => ['20 s', '[[WEB 2 | Guía OMS | https://www.who.int/manos]] 40 a 60 s [[/WEB]]', '5 s', '2 min'],
+        'correcta' => 1, 'puntaje' => 1, 'retroalimentacion' => 'Sin marca. [[WEB 3 | Roto | https://roto.cl/a]] dato [[/WEB]]'],
+], 'fuentes' => ['Plan formativo PF0960', 'Vieja — https://viejo.cl (fuente chilena)']];
+[$jsonP, $bloquesJ] = centro_recursos::web_json_prepare($jsonW, $verifWeb);
+local_chatbot_verificar(
+    count($bloquesJ) === 3
+        && $jsonP['preguntas'][0]['opciones'][1] === '[[WEB:2|https://www.who.int/manos]]40 a 60 s[[/WEB:2]]'
+        && strpos($jsonP['preguntas'][0]['enunciado'], '[[WEB:1|https://www.minsal.cl/manos]]Entre 40 y 60 segundos.[[/WEB:1]]') !== false
+        && $jsonP['preguntas'][0]['correcta'] === 1
+        && $jsonP['fuentes'] === ['Plan formativo PF0960', 'Guía MINSAL de higiene — https://www.minsal.cl/manos (fuente chilena)',
+            'Guía OMS — https://www.who.int/manos (fuente extranjera: confirma que se aplica en Chile)', 'Roto — https://roto.cl/a (enlace no verificado)'],
+    'web_json_prepare() marca los fragmentos de cada texto del JSON, comprueba los enlaces y rehace las referencias en «fuentes»'
+);
+$bwJ = centro_recursos::web_blocks_json($jsonP);
+local_chatbot_verificar(
+    array_keys($bwJ) === [1, 2, 3] && $bwJ[1]['texto'] === 'Entre 40 y 60 segundos.' && $bwJ[1]['titulo'] === 'Guía MINSAL de higiene'
+        && $bwJ[2]['origen'] === 'extranjera',
+    'web_blocks_json() lista los fragmentos pendientes de un material estructurado con su fuente'
+);
+$jsonA = centro_recursos::resolve_web_block_json($jsonP, 2);
+$jsonE = centro_recursos::resolve_web_block_json($jsonP, 1, 'Al menos 40 segundos.');
+local_chatbot_verificar(
+    $jsonA !== null && $jsonA['preguntas'][0]['opciones'][1] === '40 a 60 s'
+        && $jsonE !== null && $jsonE['preguntas'][0]['enunciado'] === '¿Cuánto dura el lavado de manos? Al menos 40 segundos.'
+        && strpos($jsonE['preguntas'][0]['opciones'][1], '[[WEB:2|') === 0
+        && centro_recursos::resolve_web_block_json($jsonP, 8) === null,
+    'resolve_web_block_json(): «Aceptar» y «Editar» cambian solo ese fragmento del cuestionario'
+);
+$jsonLimpio = json_decode(centro_recursos::strip_web_marks(json_encode($jsonP, JSON_UNESCAPED_UNICODE)), true);
+local_chatbot_verificar(is_array($jsonLimpio) && $jsonLimpio['preguntas'][0]['opciones'][1] === '40 a 60 s'
+        && strpos(json_encode($jsonLimpio, JSON_UNESCAPED_UNICODE), '[[') === false,
+    'las descargas de un material estructurado salen sin marcas (strip_web_marks() sobre el JSON)');
+$curW = ['criterios_busqueda' => 'x', 'opciones' => [['titulo' => 'Video MINSAL', 'fuente' => 'MINSAL', 'enlace' => 'https://minsal.cl/v',
+    'momento' => 'Inicio', 'justificacion' => 'J', 'advertencias' => 'Ninguna.']]];
+$curE = centro_recursos::edit_curated_option($curW, 0, ['momento' => 'Cierre de la actividad 2.1', 'advertencias' => 'Usar hasta el minuto 4.']);
+local_chatbot_verificar(
+    $curE !== null && $curE['opciones'][0]['momento'] === 'Cierre de la actividad 2.1' && $curE['opciones'][0]['justificacion'] === 'J'
+        && $curE['opciones'][0]['enlace'] === 'https://minsal.cl/v' && $curE['opciones'][0]['titulo'] === 'Video MINSAL'
+        && centro_recursos::edit_curated_option($curW, 3, ['momento' => 'x']) === null,
+    'edit_curated_option() (Modo C) edita momento, justificación y advertencias sin tocar título, fuente ni enlace verificado'
+);
+local_chatbot_verificar(strpos($pC, 'Prioriza recursos de instituciones chilenas') !== false,
+    'la curaduría (Modo C) prioriza recursos chilenos y advierte en qué difiere un recurso extranjero');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Centro de producción de recursos del Módulo 2 conforme.\n";

@@ -2,10 +2,10 @@
 
 ## M1-v1.32.0 (2026-11-25)
 
-**Centro de producción: datos que faltan buscados en internet, con referencia, «Editar» y «Aceptar»** (pedido de
-Interfases del 25-11-2026). Interruptor `webcentro` (encendido). Prompt `M2-CR-v2`. Sin cambios en la base.
+**Centro de producción: datos que faltan buscados en internet, con referencia, «Editar» y «Aceptar», en todos los tipos
+de material** (pedido de Interfases del 25-11-2026). Interruptor `webcentro` (encendido). Prompt `M2-CR-v2`. Sin cambios en la base.
 
-- **Búsqueda con referencia.** En los materiales en Markdown (Modos A y B: pantalla, HTML, Word y PDF), cuando un dato
+- **Búsqueda con referencia.** En los materiales de texto (Modos A y B: pantalla, HTML, Word y PDF), cuando un dato
   técnico, normativo o de seguridad no está en el diseño ni en los materiales de referencia cargados, el asistente lo
   busca en internet y marca el fragmento con su fuente. La plataforma comprueba cada enlace (`verify_url()`) y arma al
   final la sección «Referencias consultadas», indicando si cada fuente es chilena (.cl), extranjera («confirma que se
@@ -19,8 +19,17 @@ Interfases del 25-11-2026). Interruptor `webcentro` (encendido). Prompt `M2-CR-v
 - **Biblioteca de referencias chilena.** Toda norma, ley, reglamento, norma técnica o guía que cite el asistente debe
   ser de Chile o de uso en Chile (`exante::REGLA_FUENTES_CHILE`), en el Centro (principio 3) y en las fuentes de
   conocimiento de los Módulos 2 y 3 (`exante::knowledge_rules()`, `implementacion::knowledge_rules()`).
-- Los cuestionarios, planillas, presentaciones y la curaduría (Modo C) no cambian: siguen con [REVISAR] y su lista de
-  fuentes. `verificar_centro_recursos.php`: 84 casos.
+- **También en cuestionarios, planillas y presentaciones.** Las marcas van dentro de cada texto del JSON (enunciado,
+  opción, retroalimentación, celda, punto o nota) y las fuentes web se agregan a «fuentes» (`web_json_prepare()`,
+  `web_blocks_json()`, `resolve_web_block_json()`); las descargas (GIFT, Google Forms, Word, Excel, PowerPoint) salen
+  sin marcas. Si la respuesta con búsqueda no viene como JSON, se repite una vez sin búsqueda.
+- **Curaduría (Modo C) con «Aceptar» y «Editar» por opción.** «Aceptar» agrega el recurso a los que se usarán (y
+  «Quitar» lo saca), en lugar de las casillas; «Editar» ajusta el momento de uso, la justificación y las advertencias
+  (`edit_curated_option()`); el título, la fuente y el enlace verificado no se editan. Cada opción indica si es fuente
+  chilena o extranjera, y el prompt prioriza recursos chilenos.
+- **Edición restringida.** Mientras haya fragmentos de internet por revisar, «Editar el material» completo queda
+  bloqueado: solo se edita cada fragmento con su botón. Al revisarlos todos, se habilita de nuevo.
+- `verificar_centro_recursos.php`: 91 casos.
 
 ## M1-v1.31.4 (2026-11-24)
 
