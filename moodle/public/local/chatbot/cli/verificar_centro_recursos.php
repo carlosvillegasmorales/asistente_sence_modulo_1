@@ -851,6 +851,111 @@ local_chatbot_verificar(
     'center_button_plan crea la etiqueta al final, la mantiene idempotente, la mueve si quedó arriba y actualiza su enlace'
 );
 
+// --- Datos que faltan: búsqueda en internet con referencia, «Editar» y «Aceptar» (pedido de Interfases del 25-11-2026) ---
+$pWeb = centro_recursos::build_content_prompt($matPrueba, 'Estructura aprobada', ['organismo' => 'OTEC Demo'], 'DISENO', 'FICHA',
+    '', [], true);
+local_chatbot_verificar(
+    strpos($pWeb, 'DATOS QUE FALTAN: BÚSQUEDA EN INTERNET CON REFERENCIA') !== false
+        && strpos($pWeb, '[[WEB 1 | Título de la fuente | https://enlace-exacto]] texto obtenido [[/WEB]]') !== false
+        && strpos($pWeb, 'Incluye [REVISAR: motivo] en el lugar exacto cuando un dato técnico/normativo no provenga') === false
+        && strpos($pWeb, 'deja la marca [REVISAR: motivo]') !== false
+        && strpos($p103, 'DATOS QUE FALTAN') === false,
+    'build_content_prompt() con búsqueda web pide marcar cada fragmento con su fuente; sin ella, sigue con [REVISAR]'
+);
+local_chatbot_verificar(
+    strpos(implode("\n", centro_recursos::PRINCIPIOS), 'Fuentes chilenas: toda norma, ley, reglamento') !== false
+        && strpos(implode("\n", \local_chatbot\exante::knowledge_rules(true, true)), 'Fuentes chilenas:') !== false
+        && strpos(implode("\n", \local_chatbot\exante::knowledge_rules(false, false)), 'No uses normativa de otro país') !== false,
+    'la regla de fuentes chilenas (o de uso en Chile) está en los principios del Centro y en las fuentes de conocimiento'
+);
+local_chatbot_verificar(
+    centro_recursos::source_origin('https://www.bcn.cl/leychile/navegar?idNorma=1') === 'chile'
+        && centro_recursos::source_origin('https://minsal.cl/x') === 'chile'
+        && centro_recursos::source_origin('https://www.who.int/es') === 'extranjera'
+        && centro_recursos::source_origin('https://ejemplo.cl.com/a') === 'extranjera'
+        && centro_recursos::source_origin('') === 'sin_enlace',
+    'source_origin() reconoce las fuentes chilenas por su dominio .cl'
+);
+$verifWeb = static function(string $url): array {
+    if (strpos($url, 'roto') !== false) {
+        return ['ok' => false, 'url' => $url];
+    }
+    return ['ok' => true, 'url' => str_replace('http://', 'https://', $url)];
+};
+$mdWeb = "## Uso seguro\n\nLa silla debe frenarse. [[WEB 1 | Norma técnica de ayudas técnicas | http://www.minsal.cl/ayudas]] "
+    . "La presión de los neumáticos se revisa cada semana. [[/WEB]]\n\n"
+    . "- Higiene: [[WEB 2 | Guía OMS de higiene de manos | https://www.who.int/manos]] lavado de 40 a 60 segundos [[/WEB]]\n"
+    . "- Otro: [[WEB 3 | Sitio roto | https://roto.cl/x]] dato dudoso [[/WEB]]\n"
+    . "- Repetida: [[WEB 4 | Norma técnica de ayudas técnicas | http://www.minsal.cl/ayudas]] frenos en ambas ruedas [[/WEB]]\n"
+    . "- Suelta: [[WEB 5 | Sin cierre | https://a.cl]] texto sin cerrar\n\n"
+    . "*M5 · " . centro_recursos::PIE_MATERIAL . "*";
+[$mdW, $bloquesW] = centro_recursos::prepare_web_markdown($mdWeb, $verifWeb);
+local_chatbot_verificar(
+    count($bloquesW) === 4
+        && $bloquesW[1]['url'] === 'https://www.minsal.cl/ayudas' && $bloquesW[1]['origen'] === 'chile' && $bloquesW[1]['verificado']
+        && $bloquesW[2]['origen'] === 'extranjera' && !$bloquesW[3]['verificado']
+        && strpos($mdW, 'WEBXA1XA La presión de los neumáticos se revisa cada semana. WEBXC1XC') !== false
+        && strpos($mdW, '[[') === false,
+    'prepare_web_markdown() numera los fragmentos, comprueba cada enlace y quita las marcas sin cerrar'
+);
+$posRefs = strpos($mdW, '## ' . centro_recursos::WEB_REFERENCIAS);
+local_chatbot_verificar(
+    $posRefs !== false && $posRefs < strpos($mdW, centro_recursos::PIE_MATERIAL)
+        && substr_count($mdW, 'Norma técnica de ayudas técnicas — https://www.minsal.cl/ayudas (fuente chilena)') === 1
+        && strpos($mdW, 'Guía OMS de higiene de manos — https://www.who.int/manos (fuente extranjera: confirma que se aplica en Chile)') !== false
+        && strpos($mdW, 'Sitio roto — https://roto.cl/x (enlace no verificado)') !== false,
+    'prepare_web_markdown() arma «Referencias consultadas» antes del cierre, sin repetir fuentes y diciendo si son chilenas'
+);
+// Al regenerar o ajustar: la sección se vuelve a armar (no se duplica) y las marcas ya guardadas conservan su título.
+[$mdW2] = centro_recursos::prepare_web_markdown(str_replace(['WEBXA1XA', 'WEBXC1XC'], ['[[WEB:1|https://www.minsal.cl/ayudas]]',
+    '[[/WEB:1]]'], $mdW), $verifWeb);
+local_chatbot_verificar(substr_count($mdW2, '## ' . centro_recursos::WEB_REFERENCIAS) === 1
+        && strpos($mdW2, 'Norma técnica de ayudas técnicas — https://www.minsal.cl/ayudas (fuente chilena)') !== false,
+    'prepare_web_markdown() lee también las marcas ya guardadas y no duplica «Referencias consultadas»');
+[$mdSin, $bloquesSin] = centro_recursos::prepare_web_markdown("## A\n\nTexto sin marcas.\n\n*M1 · cierre*", $verifWeb);
+local_chatbot_verificar($bloquesSin === [] && $mdSin === "## A\n\nTexto sin marcas.\n\n*M1 · cierre*",
+    'prepare_web_markdown() no toca un material sin fragmentos web');
+
+$htmlW = centro_recursos::web_restore('<h2>Uso seguro</h2><p>La silla debe frenarse. WEBXA1XA La presión se revisa cada '
+    . 'semana. WEBXC1XC</p><ul><li>Higiene: WEBXA2XA lavado de 40 a 60 segundos WEBXC2XC</li></ul>'
+    . '<h2>Referencias consultadas</h2><ul><li>Norma técnica de ayudas técnicas — https://www.minsal.cl/ayudas (fuente chilena)</li></ul>',
+    [1 => ['url' => 'https://www.minsal.cl/ayudas?a=1&b=2'], 2 => ['url' => 'https://www.who.int/manos']]);
+$bw = centro_recursos::web_blocks($htmlW);
+local_chatbot_verificar(
+    strpos($htmlW, '[[WEB:1|https://www.minsal.cl/ayudas?a=1&amp;b=2]]') !== false
+        && count($bw) === 2 && $bw[1]['texto'] === 'La presión se revisa cada semana.'
+        && $bw[1]['url'] === 'https://www.minsal.cl/ayudas?a=1&b=2' && $bw[1]['origen'] === 'chile'
+        && $bw[2]['texto'] === 'lavado de 40 a 60 segundos' && $bw[2]['origen'] === 'extranjera',
+    'web_restore() y web_blocks() devuelven cada fragmento pendiente con su texto, su enlace y su origen'
+);
+$aceptado = centro_recursos::resolve_web_block($htmlW, 1);
+$editado = centro_recursos::resolve_web_block($htmlW, 2, 'lavado de 40 a 60 segundos <según MINSAL>');
+local_chatbot_verificar(
+    $aceptado !== null && count(centro_recursos::web_blocks($aceptado)) === 1
+        && strpos($aceptado, '<p>La silla debe frenarse.  La presión se revisa cada semana. </p>') !== false
+        && $editado !== null && strpos($editado, '<li>Higiene: lavado de 40 a 60 segundos &lt;según MINSAL&gt;</li>') !== false
+        && strpos($editado, '<p>La silla debe frenarse. [[WEB:1|') !== false
+        && centro_recursos::resolve_web_block($htmlW, 9) === null,
+    'resolve_web_block(): «Aceptar» deja el texto y «Editar» cambia solo ese fragmento, sin tocar el resto del material'
+);
+local_chatbot_verificar(
+    strpos(centro_recursos::strip_web_marks($htmlW), '[[') === false
+        && strpos(centro_recursos::strip_web_marks($htmlW), 'La presión se revisa cada semana.') !== false
+        && substr_count(centro_recursos::render_web_marks($htmlW), 'fa-globe') === 2
+        && strpos(centro_recursos::render_web_marks($htmlW), '/Web 2</span>') !== false,
+    'strip_web_marks() limpia las descargas y render_web_marks() señala en pantalla dónde empieza y termina cada fragmento'
+);
+local_chatbot_verificar(
+    centro_recursos::reference_titles("* Guía MINSAL — https://minsal.cl/g (fuente chilena)\n- Otra — https://who.int/x")
+        === ['https://minsal.cl/g' => 'Guía MINSAL', 'https://who.int/x' => 'Otra']
+        && strpos(centro_recursos::remove_web_references("## A\n\nx\n\n## Referencias consultadas\n\n- R — https://a.cl\n\n*M1 · "
+            . centro_recursos::PIE_MATERIAL . "*"), 'Referencias consultadas') === false,
+    'reference_titles() lee las referencias escritas y remove_web_references() quita la sección para volver a armarla'
+);
+local_chatbot_verificar(array_key_exists('webcentro', ux::DEFAULTS) && ux::DEFAULTS['webcentro'] === 1
+        && centro_recursos::PROMPT_VERSION === 'M2-CR-v2',
+    'la búsqueda de datos en el Centro tiene su interruptor (encendido) y sube la versión del prompt');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Centro de producción de recursos del Módulo 2 conforme.\n";

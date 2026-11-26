@@ -1239,6 +1239,7 @@ class implementacion {
                 . 'y señala lo que la persona debe verificar en fuentes del sector.';
         $l[] = '- La librería y la web complementan la ficha de registro, el diseño instruccional validado y el plan formativo, '
             . 'que siguen siendo la fuente principal.';
+        $l[] = '- ' . exante::REGLA_FUENTES_CHILE;
         if ($conlibreria) {
             $l[] = '- Si la librería trae la guía de llenado, el formato de la ficha, el checklist o un ejemplo de llenado, '
                 . 'úsalos para interpretar cada campo y orientar tu evaluación. El ejemplo de llenado es ilustrativo y con '

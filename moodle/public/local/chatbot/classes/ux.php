@@ -101,6 +101,7 @@ class ux {
         // Propuesta de salida de la Etapa 8 de Interfases (24-11-2026): Documento operativo de la experiencia de aprendizaje.
         'docoperativo' => 1,    // Modulo 2, Etapa 8: documento operativo sintetico en Word al aprobar el diseno (>= 25 puntos; v1.31.0).
         // Pedido de Interfases del 23-11-2026: informe de validacion de la ficha descargable en PDF con logo de la consultora.
+        'webcentro' => 1,       // Modulo 2: el Centro busca en la web los datos que faltan, con referencia, Editar y Aceptar (v1.32.0).
         'pdfvalidacion' => 1,   // Modulos 2 y 3: descarga en PDF con logo Interfases del informe de validacion de la ficha (v1.31.0).
     ];
 

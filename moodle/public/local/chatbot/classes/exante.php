@@ -592,6 +592,16 @@ class exante {
      * @param bool $conbusqueda Si el modelo puede buscar en la web.
      * @return string[] Lineas de las reglas.
      */
+    /**
+     * Regla de la biblioteca de referencias (pedido de Interfases del 25-11-2026): toda norma, ley o reglamento que se
+     * cite debe ser de Chile o de uso en Chile.
+     */
+    const REGLA_FUENTES_CHILE = 'Fuentes chilenas: toda norma, ley, reglamento, decreto, norma técnica, protocolo o guía '
+        . 'que cites debe ser de Chile (por ejemplo, Ley Chile de la Biblioteca del Congreso Nacional, MINSAL, ISP, SEC, '
+        . 'Dirección del Trabajo, SUSESO, INN y sus normas NCh, MINEDUC, SENCE o ChileValora) o una norma internacional que '
+        . 'se use en Chile (por ejemplo, una ISO adoptada como NCh o una guía de la OMS/OPS que aplique el MINSAL); en ese '
+        . 'caso indica cómo se aplica en Chile. No uses normativa de otro país como si rigiera en Chile.';
+
     public static function knowledge_rules(bool $conlibreria, bool $conbusqueda): array {
         $l = ['FUENTES DE CONOCIMIENTO:'];
         $l[] = $conlibreria
@@ -611,6 +621,7 @@ class exante {
                 . 'técnicos y señala lo que la persona debe verificar en fuentes del sector.';
         $l[] = '- La librería y la web complementan la ficha de diagnóstico y el Plan Formativo, que siguen siendo la fuente '
             . 'principal.';
+        $l[] = '- ' . self::REGLA_FUENTES_CHILE;
         if ($conlibreria) {
             // La libreria trae el formato de la ficha, su guia, el checklist y un ejemplo de llenado (30-10-2026).
             $l[] = '- Si la librería trae la guía de llenado, el formato de la ficha, el checklist o un ejemplo de llenado, '

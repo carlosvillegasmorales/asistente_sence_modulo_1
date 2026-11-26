@@ -1,4 +1,12 @@
-# Estado del trabajo — actualizado 24-11-2026
+# Estado del trabajo — actualizado 25-11-2026
+
+> **25-11 → `M1-v1.32.0` en local (BD `2026112500`, sin cambios de tablas): pedido de Interfases del 25-11 (llamada a
+> Ivan).** (1) El Centro busca en internet los datos que faltan en los materiales en Markdown y los marca con su fuente;
+> «Referencias consultadas» al final, chilena o extranjera; (2) «Editar» y «Aceptar» por fragmento; (3) la edición de
+> un fragmento cambia solo ese fragmento; (4) biblioteca: toda norma citada, chilena o de uso en Chile (regla en el
+> Centro y en las fuentes de conocimiento de los Módulos 2 y 3). Interruptor `webcentro`. Verificadores 30/30. **Falta:**
+> probarlo en vivo generando un material (requiere la IA con búsqueda); la edición completa del material («Editar el
+> material») sigue disponible: confirmar con el cliente si debe bloquearse mientras haya fragmentos de internet.
 
 > **24-11 (4) → `M1-v1.31.4` en local (BD `2026112406`, sin cambios de tablas; pendiente de subir/desplegar): cierre de 4 hallazgos de auditoría y prueba visual de los PDFs del Módulo 3.** (1) `informe_ficha_pdf::pdf_text()` sustituye `✔`/`⚠`/`❌` por `«Cumple»`/`«Cumple parcialmente»`/`«No cumple»` cuando actúan como sustantivo dentro de una frase (corrigiendo `Ítems en o .` y `pero con o en ítems` en los PDFs de M2 y M3); (2) la sección `c)` de los PDFs de implementación y ex-post del Módulo 3 usa `ficha_report_pdf_suggest_m3` en vez de decir «ficha de diagnóstico»; (3) `implementacion::delete_ficha()` + `tablero_m3::load_surveys()` limpian y filtran `local_chatbot_m3_envio` y `local_chatbot_m3_encuesta`, y `exante::delete_ficha()` limpia `local_chatbot_recurso_*` + archivos `centro_ref`; (4) `documento_operativo::annex_per_instrument()` soporta también numeración compuesta (`6.2 Instrumento 1`). PDFs de `ficha_implementacion` y `ficha_expost` generados y comprobados visualmente página a página; 153/153 `php -l` y 30/30 verificadores puros en verde.
 

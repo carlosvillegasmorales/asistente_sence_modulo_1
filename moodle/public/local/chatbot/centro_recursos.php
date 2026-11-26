@@ -220,6 +220,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $disenoSel) {
         redirect(new moodle_url($recursourl, [], 'cr-marcas'), get_string($ok ? 'centro_mark_resolved' : 'centro_mark_missing',
             'local_chatbot'), null, $ok ? \core\output\notification::NOTIFY_SUCCESS : \core\output\notification::NOTIFY_WARNING);
     }
+    if ($action === 'web_bloque' && $recursoid > 0) {
+        // Fragmento obtenido de la web: «Aceptar» lo deja tal cual; «Editar» cambia solo ese fragmento.
+        $editar = optional_param('modo', 'aceptar', PARAM_ALPHA) === 'editar';
+        $reemplazo = $editar ? trim(optional_param('reemplazo', '', PARAM_TEXT)) : null;
+        $ok = !($editar && $reemplazo === '') && centro_recursos::save_web_block($recursoid, $USER->id,
+            required_param('bloque', PARAM_INT), $reemplazo);
+        redirect(new moodle_url($recursourl, [], 'cr-web'), get_string($ok ? 'centro_web_done' : 'centro_web_missing',
+            'local_chatbot'), null, $ok ? \core\output\notification::NOTIFY_SUCCESS : \core\output\notification::NOTIFY_WARNING);
+    }
     if ($action === 'guardar_edicion' && $recursoid > 0) {
         $htmlEdit = optional_param('contenido_edit', '', PARAM_RAW);
         centro_recursos::save_manual_edit($recursoid, $USER->id, $htmlEdit);
@@ -599,13 +608,69 @@ $estadoEtiqueta = [
                             </div>
                         <?php endif; ?>
 
+                        <?php $bloquesweb = (\local_chatbot\ux::on('webcentro') && empty($recActual->estructurado))
+                            ? centro_recursos::web_blocks((string) $recActual->contenido) : []; ?>
+                        <?php if ($bloquesweb): ?>
+                            <div class="alert alert-info small py-2" id="cr-web">
+                                <div class="fw-bold"><i class="fa fa-globe me-1"></i><?php
+                                    echo get_string('centro_web_title', 'local_chatbot', count($bloquesweb)); ?></div>
+                                <div class="mb-2"><?php echo get_string('centro_web_help', 'local_chatbot'); ?></div>
+                                <ol class="mb-0 ps-3">
+                                <?php foreach ($bloquesweb as $nb => $bw): ?>
+                                    <li class="mb-3" value="<?php echo (int) $nb; ?>">
+                                        <div class="border rounded bg-white p-2 mb-1"><?php echo s($bw['texto']); ?></div>
+                                        <div class="mb-1"><span class="text-muted"><?php echo get_string('centro_web_source', 'local_chatbot'); ?></span>
+                                            <?php if ($bw['url'] !== ''): ?>
+                                                <a href="<?php echo s($bw['url']); ?>" target="_blank" rel="noopener"><?php
+                                                    echo s($bw['titulo'] !== '' ? $bw['titulo'] : $bw['url']); ?></a>
+                                            <?php else: ?>
+                                                <?php echo get_string('centro_web_nolink', 'local_chatbot'); ?>
+                                            <?php endif; ?>
+                                            <?php if ($bw['origen'] === 'chile'): ?>
+                                                <span class="badge bg-success"><?php echo get_string('centro_web_chile', 'local_chatbot'); ?></span>
+                                            <?php elseif ($bw['origen'] === 'extranjera'): ?>
+                                                <span class="badge bg-warning text-dark"><?php echo get_string('centro_web_foreign', 'local_chatbot'); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-2 align-items-start">
+                                            <form method="post" action="<?php echo $recursourl->out(false); ?>" class="d-inline">
+                                                <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                                <input type="hidden" name="action" value="web_bloque">
+                                                <input type="hidden" name="bloque" value="<?php echo (int) $nb; ?>">
+                                                <input type="hidden" name="modo" value="aceptar">
+                                                <button type="submit" class="btn btn-success btn-sm"><i class="fa fa-check me-1"></i><?php
+                                                    echo get_string('centro_web_accept', 'local_chatbot'); ?></button>
+                                            </form>
+                                            <details class="flex-grow-1">
+                                                <summary class="btn btn-outline-secondary btn-sm"><i class="fa fa-pencil me-1"></i><?php
+                                                    echo get_string('centro_web_edit', 'local_chatbot'); ?></summary>
+                                                <form method="post" action="<?php echo $recursourl->out(false); ?>" class="mt-2">
+                                                    <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                                    <input type="hidden" name="action" value="web_bloque">
+                                                    <input type="hidden" name="bloque" value="<?php echo (int) $nb; ?>">
+                                                    <input type="hidden" name="modo" value="editar">
+                                                    <label class="form-label small text-muted mb-1"><?php
+                                                        echo get_string('centro_web_edit_help', 'local_chatbot'); ?></label>
+                                                    <textarea name="reemplazo" required rows="3" class="form-control form-control-sm mb-2"><?php
+                                                        echo s($bw['texto']); ?></textarea>
+                                                    <button type="submit" class="btn btn-primary btn-sm"><?php
+                                                        echo get_string('centro_web_save', 'local_chatbot'); ?></button>
+                                                </form>
+                                            </details>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                                </ol>
+                            </div>
+                        <?php endif; ?>
+
                         <div id="cr-material-vista" class="mb-3">
                             <?php
                             $htmlModerno = recurso_export::to_moodle_html(\local_chatbot\diagrama::list_flows((string) $recActual->contenido), (string) $recActual->nombre, (string) $recActual->codigo);
-                            echo $htmlModerno;
+                            echo $bloquesweb ? centro_recursos::render_web_marks($htmlModerno) : centro_recursos::strip_web_marks($htmlModerno);
                             ?>
                         </div>
-                        <textarea id="cr-html-fuente" class="d-none"><?php echo s($htmlModerno); ?></textarea>
+                        <textarea id="cr-html-fuente" class="d-none"><?php echo s(centro_recursos::strip_web_marks($htmlModerno)); ?></textarea>
 
                         <?php if ($esModoC && !empty($recActual->estructurado)): ?>
                             <?php

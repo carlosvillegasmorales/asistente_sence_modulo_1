@@ -272,7 +272,7 @@ local_chatbot_verificar(
 $reglalib = implode("\n", exante::knowledge_rules(true, false));
 local_chatbot_verificar(
     strpos($reglalib, 'que viene en este pedido') !== false
-    && stripos($reglalib, 'abajo') === false
+    && preg_match('/\babajo\b/iu', $reglalib) === 0 // palabra entera: «Dirección del Trabajo» no cuenta
     && stripos($reglalib, 'más adelante') === false,
     'la regla de fuentes refiere a la librería «que viene en este pedido» (válido al inicio o al final)'
 );

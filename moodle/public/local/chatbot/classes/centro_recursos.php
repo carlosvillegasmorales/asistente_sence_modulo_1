@@ -20,7 +20,10 @@ defined('MOODLE_INTERNAL') || die();
 class centro_recursos {
 
     /** @var string Version del prompt complementario del Centro de Produccion. */
-    const PROMPT_VERSION = 'M2-CR-v1';
+    const PROMPT_VERSION = 'M2-CR-v2';
+
+    /** Titulo de la seccion de referencias web que arma la plataforma al final del material. */
+    const WEB_REFERENCIAS = 'Referencias consultadas';
 
     /** @var string Area de archivos en Moodle File API para materiales tecnicos de referencia. */
     const FILEAREA_REF = 'centro_ref';
@@ -108,6 +111,7 @@ class centro_recursos {
         '- Si un contenido técnico, normativo o de seguridad no proviene de esas fuentes, márcalo en el lugar exacto con '
             . 'la marca: [REVISAR: motivo]. Ejemplo: [REVISAR: valor de capacidad de carga no informado en el diseño].',
         '- Nunca inventes normas, códigos, valores límite, capacidades ni procedimientos de seguridad.',
+        '- ' . exante::REGLA_FUENTES_CHILE,
         '- Los casos, nombres, empresas y datos que crees son ficticios y deben declararse como tales en el material.',
         '4. ECONOMÍA DE RECURSOS DE IA',
         '- Propón la estructura antes de producir el contenido completo.',
@@ -1110,7 +1114,8 @@ class centro_recursos {
      * @return string
      */
     public static function build_content_prompt(array $material, string $estructura, array $datosNoDiseno,
-            string $disenoTexto, string $fichaTexto, string $plataformaQuiz = '', array $yaProducidos = []): string {
+            string $disenoTexto, string $fichaTexto, string $plataformaQuiz = '', array $yaProducidos = [],
+            bool $conWeb = false): string {
         $modo = strtoupper(trim((string) ($material['modo'] ?? 'A')));
         $esQuiz = self::is_quiz_material((string) $material['nombre'], (string) $material['formato']);
         $formatos = self::detect_formats($modo, (string) $material['formato'], (string) $material['nombre'], $plataformaQuiz);
@@ -1199,7 +1204,13 @@ class centro_recursos {
                 . '«Título / detalle», sin líneas de flechas ni conectores entre ellas (│, ▼, ↓); la plataforma las dibuja '
                 . 'como tarjetas con flechas.';
             $l[] = diseno::REGLA_FORMULAS;
-            $l[] = '- Incluye [REVISAR: motivo] en el lugar exacto cuando un dato técnico/normativo no provenga de las fuentes autorizadas.';
+            if ($conWeb) {
+                foreach (self::web_prompt_rules() as $regla) {
+                    $l[] = $regla;
+                }
+            } else {
+                $l[] = '- Incluye [REVISAR: motivo] en el lugar exacto cuando un dato técnico/normativo no provenga de las fuentes autorizadas.';
+            }
             $l[] = '- Si usaste materiales de referencia cargados, agrega al final el título «Fuentes utilizadas:» seguido de '
                 . 'una lista con viñetas en líneas separadas (una fuente por línea).';
             $l[] = '- Cierra siempre con la línea exacta: «' . $material['codigo'] . ' · ' . self::PIE_MATERIAL . '»';
@@ -1242,6 +1253,8 @@ class centro_recursos {
                     : 'exactamente: "' . self::RESPUESTA_NO_MODIFICA . '"'),
             '- Si el ajuste corresponde a redacción, tono, ejemplos dentro de los contenidos especificados, nivel de lectura '
                 . 'o formato, modifica ÚNICAMENTE las secciones indicadas conservando intacto el resto del material.',
+            '- Conserva tal cual las marcas [[WEB:n|enlace]] y [[/WEB:n]] que rodean el texto obtenido de internet (la persona '
+                . 'facilitadora aún no lo revisa) y no escribas la sección «' . self::WEB_REFERENCIAS . '»: la arma la plataforma.',
             $esJson ? '- Entrega el JSON completo actualizado con exactamente la misma estructura.'
                 : '- Entrega solo las secciones modificadas, en Markdown, cada una precedida por su título exacto, con el '
                     . 'mismo nivel de encabezado (## o ###) con que aparece en el material actual: la plataforma las reemplaza '
@@ -1837,8 +1850,10 @@ class centro_recursos {
                 // (la persona lo pidio), se toma completo.
                 $md = diseno::clean_markdown($raw);
                 $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
+                [$mdWeb, $bloquesWeb] = self::prepare_web_markdown($md, null, false);
                 $fusion = strpos($md, self::PIE_MATERIAL) === false
-                    ? self::merge_sections((string) $r->contenido, diseno::product_html($md), $pie) : null;
+                    ? self::merge_sections((string) $r->contenido,
+                        self::web_restore(diseno::product_html($mdWeb), $bloquesWeb), $pie) : null;
                 if ($fusion === null && strpos($md, self::PIE_MATERIAL) === false) {
                     return self::fail_resource($id, 'seccion');
                 }
@@ -1848,10 +1863,13 @@ class centro_recursos {
 
             // GEN_CONTENIDO (Etapa 10.3).
             $estructuraTxt = html_to_text((string) ($r->estructura ?? ''), 0, false);
+            // Datos que faltan: en los materiales en Markdown (Modos A y B) el asistente los busca en la web y los marca
+            // con su fuente para que la persona los edite o acepte (pedido de Interfases del 25-11-2026).
+            $webDatos = !$esJsonModoB && $modo !== 'C' && ux::on('webcentro') && exante::web_search_available();
             $prompt = self::build_content_prompt($matArr, $estructuraTxt, $plan->datos_arr, $disenoTexto, $fichaTexto,
-                (string) ($r->plataforma_quiz ?? ''), $yaProducidos);
+                (string) ($r->plataforma_quiz ?? ''), $yaProducidos, $webDatos);
             $parts = array_merge([['text' => $prompt]], $adjuntos, $refParts);
-            $usarWeb = ($modo === 'C') && exante::web_search_available();
+            $usarWeb = (($modo === 'C') && exante::web_search_available()) || $webDatos;
             $res = exante::generate_steady([['role' => 'user', 'parts' => $parts]], 240, $modelo, $usarWeb);
             if (isset($res['error'])) {
                 return self::fail_resource($id, 'servicio');
@@ -1920,11 +1938,13 @@ class centro_recursos {
             if (strpos($md, self::PIE_MATERIAL) === false) {
                 $md .= "\n\n*" . $r->codigo . ' · ' . self::PIE_MATERIAL . '*';
             }
-            $html = diseno::product_html($md);
+            // Fragmentos obtenidos de la web: se comprueba cada enlace y se arma «Referencias consultadas».
+            [$md, $bloquesWeb] = self::prepare_web_markdown($md, [self::class, 'verify_url']);
+            $html = self::web_restore(diseno::product_html($md), $bloquesWeb);
         }
 
         $revisar = self::count_review_marks($html . ($estructurado ?? ''));
-        $htmlMoodle = recurso_export::to_moodle_html($html, (string) $r->nombre, (string) $r->codigo);
+        $htmlMoodle = recurso_export::to_moodle_html(self::strip_web_marks($html), (string) $r->nombre, (string) $r->codigo);
         $DB->update_record('local_chatbot_recurso', (object) [
             'id' => $r->id,
             'contenido' => $html,
@@ -2033,6 +2053,271 @@ class centro_recursos {
     }
 
     /**
+     * Reglas del prompt para buscar en la web los datos que faltan y marcarlos con su fuente (pedido de Interfases del
+     * 25-11-2026). Amplian el principio 3: lo que no esta en el diseno ni en los materiales cargados se busca en fuentes
+     * chilenas o de uso en Chile, y solo si no se encuentra se usa [REVISAR]. Funcion pura.
+     *
+     * @return string[]
+     */
+    public static function web_prompt_rules(): array {
+        return [
+            'DATOS QUE FALTAN: BÚSQUEDA EN INTERNET CON REFERENCIA (amplía el principio 3):',
+            '- Usa primero el diseño validado, la ficha y los materiales de referencia cargados. Solo si un dato técnico, '
+                . 'normativo o de seguridad que el material necesita no está en ellos, búscalo en internet.',
+            '- ' . exante::REGLA_FUENTES_CHILE,
+            '- Envuelve cada fragmento redactado con información de internet así, dentro de un solo párrafo, viñeta o celda: '
+                . '[[WEB 1 | Título de la fuente | https://enlace-exacto]] texto obtenido [[/WEB]]. Numera los fragmentos 1, '
+                . '2, 3… en orden; si dos fragmentos usan la misma fuente, repite su título y su enlace.',
+            '- Usa solo enlaces exactos que aparezcan en los resultados de la búsqueda; nunca construyas ni adivines un enlace. '
+                . 'La plataforma comprueba cada enlace y arma la sección «' . self::WEB_REFERENCIAS . '» al final del material: '
+                . 'no la escribas tú.',
+            '- La persona facilitadora revisará cada fragmento marcado (Editar o Aceptar): no marques texto que provenga del '
+                . 'diseño o de los materiales cargados.',
+            '- Si no encuentras el dato en una fuente confiable, no lo inventes: deja la marca [REVISAR: motivo] en el lugar exacto.',
+        ];
+    }
+
+    /**
+     * Origen de una fuente web por su dominio: «chile» (.cl), «extranjera» u «sin_enlace». Funcion pura.
+     *
+     * @param string $url
+     * @return string
+     */
+    public static function source_origin(string $url): string {
+        $host = strtolower((string) parse_url(trim($url), PHP_URL_HOST));
+        if ($host === '') {
+            return 'sin_enlace';
+        }
+        return preg_match('/(^|\.)cl$/', $host) === 1 ? 'chile' : 'extranjera';
+    }
+
+    /**
+     * Titulos de las referencias web ya escritas en un texto («Título — https://...»), por enlace. Funcion pura.
+     *
+     * @param string $texto Markdown o texto plano.
+     * @return array url => titulo.
+     */
+    public static function reference_titles(string $texto): array {
+        $out = [];
+        if (preg_match_all('/^\s*(?:[-*•]\s*)?(.+?)\s+—\s+(https?:\/\/[^\s)<>]+)/mu', $texto, $m, PREG_SET_ORDER)) {
+            foreach ($m as $x) {
+                $out[$x[2]] = trim($x[1]);
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Quita del Markdown la seccion «Referencias consultadas» que arma la plataforma (se vuelve a armar). Funcion pura.
+     *
+     * @param string $md
+     * @return string
+     */
+    public static function remove_web_references(string $md): string {
+        $lineas = explode("\n", $md);
+        $out = [];
+        $dentro = false;
+        foreach ($lineas as $linea) {
+            if (preg_match('/^\s*#{1,6}\s*\**\s*' . preg_quote(self::WEB_REFERENCIAS, '/') . '\s*\**\s*$/iu', $linea)) {
+                $dentro = true;
+                continue;
+            }
+            if ($dentro && (preg_match('/^\s*#{1,6}\s/u', $linea) || strpos($linea, self::PIE_MATERIAL) !== false)) {
+                $dentro = false;
+            }
+            if (!$dentro) {
+                $out[] = $linea;
+            }
+        }
+        return implode("\n", $out);
+    }
+
+    /**
+     * Prepara el Markdown de un material con fragmentos obtenidos de la web. Lee las marcas que escribe el asistente
+     * («[[WEB 1 | Título | enlace]] texto [[/WEB]]») y las de un material ya guardado («[[WEB:n|enlace]] texto
+     * [[/WEB:n]]»), las numera en orden, comprueba cada enlace con $verificar y las deja como marcadores de letras
+     * (WEBXA1XA / WEBXC1XC) que el Markdown no altera; web_restore() las devuelve en el HTML. Con $conReferencias, arma la
+     * seccion «Referencias consultadas» antes de la linea de cierre, indicando si cada fuente es chilena. Sin la mejora
+     * encendida o sin marcas, el texto sigue igual (las marcas sueltas se quitan). Funcion pura (el verificador se inyecta).
+     *
+     * @param string $md
+     * @param callable|null $verificar fn(string $url): array ['ok' => bool, 'url' => string]; null = no se comprueba.
+     * @param bool $conReferencias
+     * @return array [string $markdown, array $bloques n => ['url', 'titulo', 'origen', 'verificado']]
+     */
+    public static function prepare_web_markdown(string $md, ?callable $verificar, bool $conReferencias = true): array {
+        $previas = self::reference_titles($md);
+        if ($conReferencias) {
+            $md = self::remove_web_references($md);
+        }
+        $bloques = [];
+        $cache = [];
+        $re = '/\[\[\s*WEB(?:\s+\d+\s*\|\s*([^|\]]*?)\s*\||\s*:\s*\d+\s*\|)\s*([^\]]*?)\s*\]\](.*?)\[\[\s*\/\s*WEB(?:\s*:\s*\d+)?\s*\]\]/su';
+        $md = (string) preg_replace_callback($re, static function(array $m) use (&$bloques, &$cache, $previas, $verificar): string {
+            $texto = $m[3];
+            if (trim($texto) === '') {
+                return $texto;
+            }
+            $url = trim(html_entity_decode($m[2], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $url = preg_match('/^https?:\/\//i', $url) ? $url : '';
+            $verificado = false;
+            if ($url !== '' && $verificar !== null) {
+                if (!array_key_exists($url, $cache)) {
+                    $v = (array) $verificar($url);
+                    $cache[$url] = !empty($v['ok']) ? (string) ($v['url'] ?? $url) : null;
+                }
+                $verificado = $cache[$url] !== null;
+                $url = $verificado ? $cache[$url] : $url;
+            }
+            $titulo = trim($m[1]) !== '' ? trim($m[1]) : ($previas[$url] ?? '');
+            $n = count($bloques) + 1;
+            $bloques[$n] = ['url' => $url, 'titulo' => $titulo, 'origen' => self::source_origin($url),
+                'verificado' => $verificar === null || $verificado];
+            return 'WEBXA' . $n . 'XA' . $texto . 'WEBXC' . $n . 'XC';
+        }, $md);
+        // Marcas sin cerrar o sin texto: se quitan para no dejar corchetes en el material.
+        $md = (string) preg_replace('/\[\[\s*\/?\s*WEB[^\]]*\]\]/u', '', $md);
+        if ($conReferencias && $bloques) {
+            $lineas = [];
+            $vistas = [];
+            foreach ($bloques as $b) {
+                $clave = $b['url'] !== '' ? $b['url'] : $b['titulo'];
+                if ($clave === '' || isset($vistas[$clave])) {
+                    continue;
+                }
+                $vistas[$clave] = true;
+                $titulo = $b['titulo'] !== '' ? $b['titulo'] : (string) parse_url($b['url'], PHP_URL_HOST);
+                if ($b['url'] === '' || !$b['verificado']) {
+                    $lineas[] = '- ' . $titulo . ($b['url'] !== '' ? ' — ' . $b['url'] : '') . ' (enlace no verificado)';
+                } else {
+                    $lineas[] = '- ' . $titulo . ' — ' . $b['url'] . ($b['origen'] === 'chile' ? ' (fuente chilena)'
+                        : ' (fuente extranjera: confirma que se aplica en Chile)');
+                }
+            }
+            $seccion = "## " . self::WEB_REFERENCIAS . "\n\n" . implode("\n", $lineas) . "\n";
+            $pos = strrpos($md, self::PIE_MATERIAL);
+            if ($pos !== false) {
+                $inicio = strrpos(substr($md, 0, $pos), "\n");
+                $inicio = $inicio === false ? 0 : $inicio + 1;
+                $md = rtrim(substr($md, 0, $inicio)) . "\n\n" . $seccion . "\n" . substr($md, $inicio);
+            } else {
+                $md = rtrim($md) . "\n\n" . $seccion;
+            }
+        }
+        return [$md, $bloques];
+    }
+
+    /**
+     * Devuelve al HTML las marcas web de prepare_web_markdown(): «[[WEB:n|enlace]]» y «[[/WEB:n]]». Funcion pura.
+     *
+     * @param string $html
+     * @param array $bloques
+     * @return string
+     */
+    public static function web_restore(string $html, array $bloques): string {
+        $html = (string) preg_replace_callback('/WEBXA(\d+)XA/', static function(array $m) use ($bloques): string {
+            $url = (string) ($bloques[(int) $m[1]]['url'] ?? '');
+            return '[[WEB:' . (int) $m[1] . '|' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . ']]';
+        }, $html);
+        return (string) preg_replace('/WEBXC(\d+)XC/', '[[/WEB:$1]]', $html);
+    }
+
+    /**
+     * Fragmentos obtenidos de la web que la persona aun no revisa, en orden. Funcion pura.
+     *
+     * @param string $html Contenido guardado del material.
+     * @return array n => ['texto' => string, 'url' => string, 'titulo' => string, 'origen' => string]
+     */
+    public static function web_blocks(string $html): array {
+        $plano = html_entity_decode(strip_tags(preg_replace('#</(li|p|h[1-6]|tr|div)>|<br\s*/?>#i', "\n", $html)),
+            ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $titulos = self::reference_titles($plano);
+        $out = [];
+        if (preg_match_all('/\[\[WEB:(\d+)\|([^\]]*)\]\](.*?)\[\[\/WEB:\1\]\]/su', $html, $m, PREG_SET_ORDER)) {
+            foreach ($m as $x) {
+                $url = html_entity_decode($x[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $texto = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($x[3]), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+                $out[(int) $x[1]] = ['texto' => $texto, 'url' => $url, 'titulo' => $titulos[$url] ?? '',
+                    'origen' => self::source_origin($url)];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Revisa un fragmento web: sin reemplazo lo acepta (quita las marcas y deja el texto); con reemplazo cambia SOLO ese
+     * fragmento por el texto escrito. El resto del material no se toca. Null si el fragmento no existe. Funcion pura.
+     *
+     * @param string $html
+     * @param int $n
+     * @param string|null $reemplazo
+     * @return string|null
+     */
+    public static function resolve_web_block(string $html, int $n, ?string $reemplazo = null): ?string {
+        $re = '/\[\[WEB:' . $n . '\|[^\]]*\]\](.*?)\[\[\/WEB:' . $n . '\]\]/su';
+        if (!preg_match($re, $html, $m, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+        $nuevo = $reemplazo === null ? $m[1][0] : htmlspecialchars(trim($reemplazo), ENT_QUOTES, 'UTF-8');
+        return substr($html, 0, $m[0][1]) . $nuevo . substr($html, $m[0][1] + strlen($m[0][0]));
+    }
+
+    /**
+     * Quita las marcas web (para descargas, HTML de Moodle y copia). Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function strip_web_marks(string $html): string {
+        return (string) preg_replace('/\[\[WEB:\d+\|[^\]]*\]\]|\[\[\/WEB:\d+\]\]/u', '', $html);
+    }
+
+    /**
+     * Muestra en pantalla donde empieza y termina cada fragmento web pendiente. Funcion pura.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function render_web_marks(string $html): string {
+        $estilo = 'background:#e0f2fe;color:#075985;font-weight:600;';
+        $html = (string) preg_replace('/\[\[WEB:(\d+)\|[^\]]*\]\]/u',
+            '<span class="badge cr-web me-1" style="' . $estilo . '"><i class="fa fa-globe me-1"></i>Web $1</span>', $html);
+        return (string) preg_replace('/\[\[\/WEB:(\d+)\]\]/u',
+            '<span class="badge cr-web ms-1" style="' . $estilo . '">/Web $1</span>', $html);
+    }
+
+    /**
+     * Guarda la revision de un fragmento web (Aceptar o Editar) y recalcula el HTML para Moodle; un material entregado
+     * vuelve a borrador para registrar la version siguiente.
+     *
+     * @param int $id
+     * @param int $userid
+     * @param int $n
+     * @param string|null $reemplazo Null = aceptar.
+     * @return bool
+     */
+    public static function save_web_block(int $id, int $userid, int $n, ?string $reemplazo = null): bool {
+        global $DB;
+        $r = self::get_resource($id, $userid);
+        if (!$r || !empty($r->estructurado)) {
+            return false;
+        }
+        $nuevo = self::resolve_web_block((string) $r->contenido, $n, $reemplazo);
+        if ($nuevo === null) {
+            return false;
+        }
+        $DB->update_record('local_chatbot_recurso', (object) [
+            'id' => $r->id,
+            'contenido' => $nuevo,
+            'html_moodle' => recurso_export::to_moodle_html(self::strip_web_marks($nuevo), (string) $r->nombre, (string) $r->codigo),
+            'revisar_count' => self::count_review_marks($nuevo),
+            'estado' => self::state_after_change((string) $r->estado, $reemplazo !== null),
+            'timemodified' => time(),
+        ]);
+        return true;
+    }
+
+    /**
      * Resuelve la marca [REVISAR] numero $indice (desde 0, en el orden del material): con $reemplazo vacio la quita (el
      * dato se verifico y queda tal cual); si no, la cambia por el dato correcto. Lo demas no se toca. Null si no existe
      * esa marca. Funcion pura.
@@ -2075,7 +2360,7 @@ class centro_recursos {
         $DB->update_record('local_chatbot_recurso', (object) [
             'id' => $r->id,
             'contenido' => $nuevo,
-            'html_moodle' => recurso_export::to_moodle_html($nuevo, (string) $r->nombre, (string) $r->codigo),
+            'html_moodle' => recurso_export::to_moodle_html(self::strip_web_marks($nuevo), (string) $r->nombre, (string) $r->codigo),
             'revisar_count' => self::count_review_marks($nuevo),
             'estado' => self::state_after_change((string) $r->estado, true),
             'timemodified' => time(),
@@ -2096,7 +2381,7 @@ class centro_recursos {
         $DB->update_record('local_chatbot_recurso', (object) [
             'id' => $r->id,
             'contenido' => $limpio,
-            'html_moodle' => recurso_export::to_moodle_html($limpio, (string) $r->nombre, (string) $r->codigo),
+            'html_moodle' => recurso_export::to_moodle_html(self::strip_web_marks($limpio), (string) $r->nombre, (string) $r->codigo),
             'revisar_count' => self::count_review_marks($limpio),
             'estado' => self::state_after_change((string) $r->estado, $limpio !== (string) $r->contenido),
             'timemodified' => time(),
@@ -2297,7 +2582,7 @@ class centro_recursos {
             string $logo = ''): ?array {
         // Lo guardado antes del arreglo de diagramas: las listas con conectores salen como tarjetas con flechas.
         $r = clone $r;
-        $r->contenido = diagrama::list_flows((string) $r->contenido);
+        $r->contenido = diagrama::list_flows(self::strip_web_marks((string) $r->contenido));
         $r->html_moodle = !empty($r->html_moodle) ? diagrama::list_flows((string) $r->html_moodle) : '';
         $base = preg_replace('/[^A-Za-z0-9_-]+/', '_', modulo2_setup::ascii_filename($r->codigo . '_' . $r->nombre));
         $base = trim(mb_substr((string) $base, 0, 60, 'UTF-8'), '_') ?: 'material';

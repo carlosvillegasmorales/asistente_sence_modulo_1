@@ -1,5 +1,27 @@
 # Changelog
 
+## M1-v1.32.0 (2026-11-25)
+
+**Centro de producción: datos que faltan buscados en internet, con referencia, «Editar» y «Aceptar»** (pedido de
+Interfases del 25-11-2026). Interruptor `webcentro` (encendido). Prompt `M2-CR-v2`. Sin cambios en la base.
+
+- **Búsqueda con referencia.** En los materiales en Markdown (Modos A y B: pantalla, HTML, Word y PDF), cuando un dato
+  técnico, normativo o de seguridad no está en el diseño ni en los materiales de referencia cargados, el asistente lo
+  busca en internet y marca el fragmento con su fuente. La plataforma comprueba cada enlace (`verify_url()`) y arma al
+  final la sección «Referencias consultadas», indicando si cada fuente es chilena (.cl), extranjera («confirma que se
+  aplica en Chile») o sin enlace verificado (`centro_recursos::prepare_web_markdown()`, `web_restore()`). Si no
+  encuentra el dato en una fuente confiable, sigue la marca [REVISAR].
+- **«Editar» y «Aceptar» por fragmento.** La página del material lista los fragmentos obtenidos de internet con su
+  fuente: «Aceptar» los deja tal cual y «Editar» abre solo ese fragmento; el resto del material no se toca
+  (`web_blocks()`, `resolve_web_block()`, `save_web_block()`). En la vista previa se ve dónde empieza y termina cada
+  fragmento; las descargas, el HTML para Moodle y la copia no llevan las marcas (`strip_web_marks()`). Los ajustes con
+  IA conservan las marcas pendientes.
+- **Biblioteca de referencias chilena.** Toda norma, ley, reglamento, norma técnica o guía que cite el asistente debe
+  ser de Chile o de uso en Chile (`exante::REGLA_FUENTES_CHILE`), en el Centro (principio 3) y en las fuentes de
+  conocimiento de los Módulos 2 y 3 (`exante::knowledge_rules()`, `implementacion::knowledge_rules()`).
+- Los cuestionarios, planillas, presentaciones y la curaduría (Modo C) no cambian: siguen con [REVISAR] y su lista de
+  fuentes. `verificar_centro_recursos.php`: 84 casos.
+
 ## M1-v1.31.4 (2026-11-24)
 
 Correcciones tras auditoría integral de código y prueba visual de los PDFs del Módulo 3 (sin cambios en el esquema de BD):
