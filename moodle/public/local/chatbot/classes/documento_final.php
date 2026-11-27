@@ -1858,7 +1858,10 @@ class documento_final {
                 $caracteres += \core_text::strlen(trim(preg_replace('/\s+/u', ' ', $celda['td']->textContent)));
             }
         }
-        $ancha = !$diagrama && !$tarjetas && self::is_wide($cols, $caracteres / count($filas));
+        // Orientacion fijada por quien arma el HTML (data-orientacion="v" o "h"), como pide la plantilla del documento operativo
+        // de la continuidad; sin el atributo, la decide is_wide().
+        $fija = strtolower(trim($tabla->getAttribute('data-orientacion')));
+        $ancha = !$diagrama && !$tarjetas && ($fija === 'h' || ($fija !== 'v' && self::is_wide($cols, $caracteres / count($filas))));
         if ($ancha) {
             // El titulo de la tabla (por ejemplo «3.3 Matriz...») pasa a la pagina horizontal junto con ella.
             $titulo = $this->sacar_cola();
@@ -2108,6 +2111,16 @@ class documento_final {
             // Hasta 150: la columna de textos largos queda mas ancha que una de textos medianos (con 60 quedaban iguales).
             $pesos[] = max(8, min(150, $cuenta[$c] ? $suma[$c] / $cuenta[$c] : 8));
             $minimos[] = max(700, $palabra[$c] * 105 + 280);
+        }
+        // Peso minimo pedido por quien arma el HTML (data-peso en el encabezado): una columna en blanco para escribir a mano
+        // (documento de reflexion) no puede quedar angosta por estar vacia.
+        $col = 0;
+        foreach ($filas[0] ?? [] as $celda) {
+            $peso = trim((string) $celda['td']->getAttribute('data-peso'));
+            if ($peso !== '' && is_numeric($peso) && $col < $cols) {
+                $pesos[$col] = max($pesos[$col], (float) $peso);
+            }
+            $col += $celda['span'];
         }
         return [$pesos, $minimos];
     }

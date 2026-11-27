@@ -1,5 +1,111 @@
 # Changelog
 
+## M1-v1.35.0 (2026-11-27)
+
+**Módulo 3, Fase 4, salida de la Etapa 15: Documento operativo de reflexión sobre la práctica de facilitación** (propuesta de
+Interfases «Documento Operativo de Reflexión sobre la Práctica - Evaluación Ex Post - Propuesta Genérica»). Interruptor
+`docreflexionm3` (encendido). Prompt `M3-RX-v1`. Versión `2026112701`, sin cambios en la base de datos.
+
+- **Cuándo se genera.** Al confirmar la consolidación de la evaluación ex post (Etapa 15), en segundo plano; la página ofrece
+  «Descargar el documento de reflexión sobre la práctica (Word · vN)» y «Regenerar». Reconfirmar sin cambios en la ficha ex
+  post, las Etapas 11 a 14 o el tipo de ajuste mantiene la versión; si cambian, se genera una nueva. Se guarda como fila interna
+  `etapa = calidad::REFLEXION (17)` de `local_chatbot_calidad`, que no cuenta como etapa aceptada.
+- **Sección 1 («El ciclo en una página») por código**, con la ficha ex post validada y los cálculos de la plataforma: plan y
+  módulo, experiencias con fechas y presentes, tipo de ajuste, evaluados, logro inicial, final y variación por criterio y
+  promedio, cobertura, nivelación (p. ej. 14 de 18), profundización, brechas que persisten, reacción y transferencia. Así los
+  números son siempre los de la ficha, como pide la propuesta.
+- **Secciones 2 a 8** las extrae el asistente de las Etapas 11 a 14, sin juicios nuevos ni cambios de logros o valoraciones; si
+  el informe difiere de la ficha, marca `[REVISAR: diferencia con la ficha ex post]`. El código fija después lo que no es juicio:
+  columnas en blanco («Mi lectura», «Mi comentario», «¿Cómo la aplicaré…?», «¿La mantendré?»), «Considerar» con ☐, los textos
+  fijos de las secciones 6 a 8, un recuadro de respuesta bajo cada pregunta, la Sección 9 en blanco, sin notas «Origen» y todo
+  en páginas verticales. Las columnas para escribir a mano piden un ancho mínimo (`data-peso`, nuevo en
+  `documento_final::pesos()`, sin efecto en los demás documentos).
+- **Pruebas.** Nuevo `cli/verificar_documento_reflexion.php` (20 casos, con el ejemplo de llenado del cliente); 35 verificadores
+  en verde. En el Moodle local con IA simulada: generación al confirmar, misma versión al reconfirmar, v2 y v3 al regenerar,
+  Word revisado página a página y la Etapa 15 por HTTP (descarga y regeneración). Falta probar con la IA real.
+
+## M1-v1.34.0 (2026-11-27)
+
+**Módulo 3: materiales y producción de la experiencia de continuidad; Módulo 2: el repertorio del Centro se lee desde el
+Módulo 3** (documento de Interfases «Ajuste Prompt Maestro M3 - Producción de Materiales de la Experiencia de Continuidad», 26-11,
+con el pedido del 27-11: la regla 3 de los principios de producción igual que en el Módulo 2 y el bloque 6 en el Módulo 2).
+Versión `2026112700`: tres campos nuevos en `local_chatbot_recurso` (`entregado`, `categoria`, `origen`). Interruptores
+`materialesm3` y `produccionm3` (encendidos). Prompts `M3-PM-v1` y `M2-CR-v3`.
+
+- **Bloque 6 (Módulo 2, Centro de producción).** Al aprobar un material (Etapa 11) el repertorio guarda la versión final entregada
+  (`entregado`: texto, HTML, JSON, selección de Modo C, fecha de verificación, marcas), así un borrador posterior no cambia lo que
+  lee el Módulo 3 (`delivered_snapshot()`, `delivered_version()`; la actualización la rellena para lo ya entregado). La Etapa 12
+  dice ahora que el asistente del Módulo 3 lee el repertorio y el plan, sin modificarlos (`REPERTORIO_USO`, textual).
+- **Bloques 1, 2, 3 y 5 (Módulo 3, Etapa 6).** El prompt de la Etapa 6 trae, textuales, el catálogo de capacidades, la recuperación
+  de los materiales del Módulo 2 con el inventario obligatorio, las reglas 1 a 9 (reutilizado / ajustado / nuevo; códigos `M1`,
+  `M3-C`, `MC1`), el registro obligatorio y sus 7 verificaciones; «Materiales de apoyo» pasa a «…según las reglas para los
+  materiales de la experiencia de continuidad». La plataforma le entrega el plan y el repertorio del Centro del diseño elegido en
+  una línea por material, sin su contenido (lectura económica). Las Etapas 4 y 5 reciben las reglas 8 y 9.
+- **Bloque 4 (Etapas P1 a P4, `produccion_m3.php`, opcional).** Se habilita con la Etapa 8 consolidada (botón en la Etapa 8). P1:
+  el asistente recupera la lista de la Etapa 6 y la plataforma la cruza con el repertorio (origen, versión y fuente reales; regla 8;
+  reutilizado entregado → «Disponible en el repertorio»; Modo C con enlaces caídos → ajustado; datos que no son de diseño una sola
+  vez). P2: referencias propias o del diseño, propuesta (cuadro de cambios o estructura), contenido con las reglas de cada modo del
+  Módulo 2 y ajustes; en un ajustado el asistente entrega solo las secciones que cambian y la plataforma conserva textualmente las
+  demás desde la versión de origen (`merge_adjusted()`), con nota inicial y pie «código · categoría · origen». P3: aprobación
+  versionada. P4: repertorio de la continuidad (.zip), cuyo estado alimenta la columna «Estado» del documento operativo.
+- **Regla 3 modificada (pedido del 27-11).** Lo que no está en las fuentes se busca en internet, válido solo si está de acuerdo con
+  la normativa técnica, los códigos y la legislación vigentes en Chile (`REGLA_NORMATIVA_CHILE`); cada fragmento web y cada marca
+  [REVISAR] se acepta o edita en cada material. **También en el Módulo 2:** las marcas [REVISAR] de cuestionarios, planillas y
+  presentaciones ahora se aceptan o corrigen una por una (`json_review_marks()`, `resolve_mark_json()`).
+- **Motor y vista compartidos.** `centro_recursos::run_resource()` recibe el contexto de cada módulo (`resource_context()`); la
+  vista y las acciones de un material pasan a `classes/material_ui.php` (la página del Centro baja de 1085 a 530 líneas, sin cambios
+  visibles). El plan de la continuidad se guarda con `fichaid` = −id de la ficha de implementación; borrar la ficha lo borra.
+- **Pruebas.** Nuevo `cli/verificar_produccion_m3.php` (47 casos); `verificar_centro_recursos.php` 100. En el Moodle local con IA
+  simulada: actualización de la base, P1 a P4 completos (24 comprobaciones), prompt real de la Etapa 6 y páginas por HTTP. Falta
+  probar con la IA real.
+
+## M1-v1.33.0 (2026-11-26)
+
+**Módulo 3, salida de la Etapa 8: Documento operativo de la experiencia de continuidad** (propuesta de Interfases «Documento
+Operativo de la Experiencia de Continuidad - Propuesta Genérica», 26-11-2026). Interruptor `docoperativom3` (encendido). Prompt
+`M3-OP-v1`. Sin cambios en la base de datos.
+
+- **Cuándo se genera.** Siempre al confirmar la consolidación (Etapa 8), cualquiera sea el tipo de ajuste
+  (`documento_continuidad::after_confirm()` desde `calidad.php`). La página de la Etapa 8 lo genera en segundo plano y ofrece
+  «Descargar el documento operativo de la continuidad (Word · vN)» y «Regenerar el documento operativo». **Versiones:** si se
+  vuelve a confirmar la consolidación y no cambió lo que el documento extrae (validación de la ficha, Etapas 2, 4 y 6, tipo de
+  ajuste y diseño del Módulo 2), sigue valiendo la misma versión; si cambió (por ejemplo, se ajustó la continuidad), se genera
+  una versión nueva (`source_fingerprint()`). Se guarda como fila interna de `local_chatbot_calidad` (`etapa = 16`,
+  `calidad::OPERATIVO`), que `calidad::accepted()` no cuenta como etapa.
+- **Secciones 1 a 7** (6 a 10 páginas). Las extrae el asistente del informe consolidado, principalmente de la Etapa 6, con los
+  datos exactos de la plataforma: tiempo restante, tipo de ajuste, logro, criticidad y personas a nivelar o profundizar por
+  criterio, estado de los materiales en el repertorio del diseño e instrumentos del diseño. **Lo que no depende del juicio lo
+  fija el código** después de la extracción: las filas de datos generales que salen de la ficha (organismo ejecutor del diseño,
+  plan y módulo, experiencia inicial con sus fechas y tipo de ajuste; «Fechas y horario» en blanco), el aprendizaje esperado y
+  los criterios textuales del plan (con el rótulo que les da la Etapa 6), las tablas 4.2 y 5.2 en blanco, las dos filas fijas de
+  la tabla 7.2 y la nota de uso en la Fase 4, el tiempo restante exacto, las marcas [REVISAR] de tiempo (la secuencia supera el
+  tiempo restante, no coincide con la Etapa 6, o las Etapas 4 y 6 difieren) y el estado de los materiales (6.1) con sus casillas
+  ☐, que se actualiza al descargar.
+- **Anexos.** Un anexo por instrumento, sin cambios, desde la sección de instrumentos de la Etapa 6 (`instruments_section()`,
+  `split_instruments()`) y, para los que la tabla 7.1 marca como recuperativos, desde la Etapa 6 del diseño del Módulo 2, con la
+  nota «Instrumento del diseño validado del Módulo 2, transcrito sin cambios» (si no se encuentra, [REVISAR]).
+- **Word como la plantilla del cliente.** Cabecera «DOCUMENTO OPERATIVO · EXPERIENCIA DE CONTINUIDAD» con tipo de ajuste, fecha
+  del informe consolidado y versión; encabezado de página «Documento operativo · Experiencia de continuidad»; la Sección 5 en
+  páginas horizontales y las demás en verticales, también las tablas de siete y ocho columnas (6.1 y 7.1). Para eso
+  `documento_final` acepta `data-orientacion="v|h"` en una tabla; sin el atributo nada cambia (Módulo 2 igual).
+- **Correcciones encontradas al probar con un caso real del VPS propio:**
+  - **Fichas del Módulo 3 «desactualizadas» sin haber cambiado.** La v1.24.9 llevó los criterios de 15 a 20 y cambió la huella de
+    toda ficha validada antes: en el VPS propio, 3 de 4 evaluaciones tenían cerradas las Fases 2 y 3 hasta revalidar.
+    `implementacion::validation_current()` compara también con el juego de claves del momento de validar (el del snapshot),
+    si las claves nuevas están vacías; lo usan `fase1_ok()`, la ficha, la barra de fases y la activación de la Fase 4.
+  - **Tablero del Módulo 3.** Los minutos de la continuidad no se leían si la Etapa 6 rotula la columna «Duración» (y podían
+    tomar el total de un bloque). `calidad::sequence_minutes()`, que ahora usan el tablero y el documento, lee columnas de
+    minutos, duración o tiempo y toma el total mayor.
+  - **Documento operativo del Módulo 2.** El cierre «Detección de vacíos de información y medidas…» quedaba pegado al último
+    anexo: `strip_stage_closures()` lo reconoce.
+- **Pendiente de otra propuesta del cliente** (no incluida aquí): el repertorio de la continuidad (producción de materiales,
+  Etapas P1 a P4). Mientras no exista, el estado de 6.1 es el del repertorio del diseño del Módulo 2 para los reutilizados y
+  «Pendiente» para ajustados y nuevos, que es el estado inicial que fija esa propuesta. Para los materiales ajustados se usa el
+  sufijo «-C» (regla 8 de esa propuesta); la plantilla del documento muestra «M7C»: por confirmar con el cliente.
+- `cli/verificar_documento_continuidad.php`: 45 comprobaciones (con armado real del Word). Casos nuevos en
+  `verificar_implementacion.php` (146), `verificar_tablero_m3.php`, `verificar_documento_operativo.php` (32),
+  `verificar_documento_final.php` (112) y `verificar_experiencia.php`.
+
 ## M1-v1.32.1 (2026-11-25)
 
 - **Los datos marcados con [REVISAR] se buscan en internet en una segunda pasada.** Al probar la v1.32.0 en el cliente,

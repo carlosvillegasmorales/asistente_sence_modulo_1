@@ -146,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['guardar', 'vali
 $ficha = implementacion::get_ficha($USER->id, $courseid);
 $data = $ficha ? $ficha->data : implementacion::clean([]);
 $val = implementacion::latest_validation($USER->id, $courseid);
-$vigente = $val && $ficha && $val->huella === implementacion::ficha_fingerprint($ficha);
+$vigente = implementacion::validation_current($val, $ficha);
 $listo = $val && $val->estado === implementacion::LISTO && is_array($val->informe);
 $avanza = $listo && $vigente && implementacion::can_advance($val->condicion);
 $disenos = implementacion::list_designs($USER->id);

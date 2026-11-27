@@ -962,7 +962,7 @@ local_chatbot_verificar(
     'reference_titles() lee las referencias escritas y remove_web_references() quita la sección para volver a armarla'
 );
 local_chatbot_verificar(array_key_exists('webcentro', ux::DEFAULTS) && ux::DEFAULTS['webcentro'] === 1
-        && centro_recursos::PROMPT_VERSION === 'M2-CR-v2',
+        && in_array(centro_recursos::PROMPT_VERSION, ['M2-CR-v2', 'M2-CR-v3'], true),
     'la búsqueda de datos en el Centro tiene su interruptor (encendido) y sube la versión del prompt');
 
 // --- Materiales estructurados y Modo C: también con referencia, «Editar» y «Aceptar» (25-11-2026) ---
@@ -1051,6 +1051,45 @@ $jsonLleno = json_decode(centro_recursos::apply_web_fill($jsonRev, [['n' => 1, '
 local_chatbot_verificar(is_array($jsonLleno) && $jsonLleno['preguntas'][0]['enunciado'] === 'Dato: [[WEB 1 | OMS | https://who.int/a]] 40 a 60 s [[/WEB]]'
         && centro_recursos::apply_web_fill($mdRev, [['n' => 1, 'encontrado' => true, 'texto' => 'x', 'enlace' => 'no-es-enlace']]) === $mdRev,
     'apply_web_fill() mantiene válido el JSON y descarta respuestas sin enlace');
+
+// --- Bloque 6 del ajuste de Interfases del 26-11-2026: el repertorio se lee desde el Módulo 3 ---
+local_chatbot_verificar(centro_recursos::PROMPT_VERSION === 'M2-CR-v3'
+        && strpos(centro_recursos::REGISTRO_REPERTORIO, 'para que el asistente del Módulo 3 pueda leerlo y ajustarlo') !== false
+        && strpos(centro_recursos::REPERTORIO_USO, 'El asistente del Módulo 3 lo lee, junto con el plan de producción, sin '
+            . 'modificarlos') !== false,
+    'bloque 6: textos de las Etapas 11 y 12 del Centro y versión M2-CR-v3 del prompt');
+$repB6 = centro_recursos::repertory_html(['experiencia' => 'X'], [], []);
+local_chatbot_verificar(strpos($repB6, 'ni lo utiliza el Módulo 3') === false
+        && strpos($repB6, 'El asistente del Módulo 3 lo lee') !== false,
+    'bloque 6: el repertorio ya no dice que el Módulo 3 no lo utiliza');
+$recEnt = (object) ['id' => 7, 'codigo' => 'M3', 'nombre' => 'Guía', 'modo' => 'A', 'formato' => 'HTML', 'estado' => 'entregado',
+    'version' => 2, 'contenido' => '<p>Texto v2</p>', 'estructurado' => null, 'html_moodle' => '<p>Texto v2</p>',
+    'seleccionados' => null, 'fecha_verificacion' => '', 'refs_usadas' => '[]', 'revisar_count' => 0, 'timemodified' => 100];
+$snapB6 = json_decode(centro_recursos::delivered_snapshot($recEnt, 200), true);
+$recBorr = clone $recEnt;
+$recBorr->estado = 'borrador';
+$recBorr->contenido = '<p>Borrador v3 en curso</p>';
+$recBorr->entregado = centro_recursos::delivered_snapshot($recEnt, 200);
+$recSin = clone $recBorr;
+$recSin->entregado = null;
+local_chatbot_verificar($snapB6['version'] === 2 && $snapB6['contenido'] === '<p>Texto v2</p>' && $snapB6['fecha'] === 200
+        && centro_recursos::delivered_version($recBorr)['contenido'] === '<p>Texto v2</p>'
+        && centro_recursos::delivered_version($recEnt)['version'] === 2
+        && centro_recursos::delivered_version($recSin) === null
+        && centro_recursos::delivered_version((object) ['estado' => 'pendiente', 'version' => 0]) === null,
+    'bloque 6: la versión final entregada se conserva aunque el material pase a borrador para una versión nueva');
+$jsonMarcas = ['titulo' => 'Q', 'preguntas' => [['enunciado' => 'Carga máxima [REVISAR: valor de la ficha técnica]',
+    'opciones' => ['10 kg', 'otra [REVISAR: dato]'], 'correcta' => 0]]];
+$jsonAcep = centro_recursos::resolve_mark_json($jsonMarcas, 0);
+$jsonEdit = centro_recursos::resolve_mark_json($jsonMarcas, 1, 'según la NCh 2245');
+local_chatbot_verificar(centro_recursos::json_review_marks(json_encode($jsonMarcas, JSON_UNESCAPED_UNICODE))
+            === ['[REVISAR: valor de la ficha técnica]', '[REVISAR: dato]']
+        && $jsonAcep['preguntas'][0]['enunciado'] === 'Carga máxima' && $jsonAcep['preguntas'][0]['opciones'][1] === 'otra [REVISAR: dato]'
+        && $jsonEdit['preguntas'][0]['opciones'][1] === 'otra según la NCh 2245' && $jsonEdit['preguntas'][0]['correcta'] === 0
+        && centro_recursos::resolve_mark_json($jsonMarcas, 5) === null,
+    'las marcas [REVISAR] se aceptan o editan una por una también en cuestionarios, planillas y presentaciones');
+local_chatbot_verificar(centro_recursos::footer_prefix((object) ['codigo' => 'M4']) === 'M4',
+    'el pie de los materiales del Módulo 2 sigue llevando solo el código');
 
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {

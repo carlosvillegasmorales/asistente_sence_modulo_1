@@ -540,6 +540,31 @@ local_chatbot_verificar($partes[1]['text'] === 'PROMPT' && strpos($partes[0]['te
     && end($partes2)['text'] !== 'PROMPT' && count(implementacion::request_parts('P', [], '', true)) === 1,
     'la librería va primero (o al final) y solo si hay documentos');
 
+// --- Vigencia de la validacion cuando el formulario suma campos (v1.24.9: de 15 a 20 criterios) ---
+// La huella guardada se calculo con el juego de claves del momento de validar (el del snapshot); hoy clean() agrega las
+// claves nuevas vacias. Caso real del VPS propio (26-11-2026): 3 de 4 fichas quedaban «desactualizadas» sin haber cambiado.
+$hoy = implementacion::clean(local_chatbot_ejemplo());
+$antes = array_filter($hoy, static function($v, $k) {
+    return !preg_match('/^(?:criterio|ev|ins|bas|ade|ava|lg|cm)(?:1[6-9]|20)$/', $k);
+}, ARRAY_FILTER_USE_BOTH);
+$snap = json_encode($antes, JSON_UNESCAPED_UNICODE);
+$guardada = implementacion::fingerprint($antes, 10, 'd1');
+$conNuevo = $hoy;
+$conNuevo['criterio17'] = 'Criterio agregado después de validar';
+$cambiada = $hoy;
+$cambiada['presentes'] = (string) ((int) $hoy['presentes'] + 1);
+local_chatbot_verificar($guardada !== implementacion::fingerprint($hoy, 10, 'd1')
+    && implementacion::fingerprint_matches($guardada, $hoy, $snap, 10, 'd1'),
+    'una ficha validada antes de sumar campos sigue vigente si los campos nuevos están vacíos');
+local_chatbot_verificar(!implementacion::fingerprint_matches($guardada, $conNuevo, $snap, 10, 'd1')
+    && !implementacion::fingerprint_matches($guardada, $cambiada, $snap, 10, 'd1')
+    && !implementacion::fingerprint_matches($guardada, $hoy, $snap, 10, 'd2')
+    && !implementacion::fingerprint_matches($guardada, $hoy, '', 10, 'd1')
+    && !implementacion::fingerprint_matches('', $hoy, $snap, 10, 'd1'),
+    'pero queda desactualizada si cambió la ficha, se llenó un campo nuevo o cambió el diseño');
+local_chatbot_verificar(implementacion::fingerprint_matches(implementacion::fingerprint($hoy, 10, 'd1'), $hoy,
+    json_encode($hoy, JSON_UNESCAPED_UNICODE), 10, 'd1'), 'una validación hecha con el formulario de hoy coincide directo');
+
 printf("Casos verificados: %d | Fallidos: %d\n", $total, $fallidos);
 if ($fallidos === 0) {
     echo "Fase 1 del Módulo 3 conforme: ficha y checklist textuales, control de entrada, cálculos del código y regla de decisión.\n";

@@ -180,6 +180,11 @@ local_chatbot_verificar(tablero_m3::continuity_minutes('<table><tr><th>Momento</
     && tablero_m3::continuity_minutes('<p>El tiempo total de la experiencia es de 140 minutos.</p>') === 140
     && tablero_m3::continuity_minutes('<table><tr><th>Momento</th><th>Minutos</th></tr><tr><td>Inicio</td><td>30</td></tr></table>') === null
     && tablero_m3::continuity_minutes('') === null, 'los minutos de la continuidad salen de la fila «Total» o de la frase «tiempo total»; si no, no se estiman');
+// Caso real (26-11-2026): la tabla de balance de la Etapa 6 rotula la columna «Duración» y antes trae el total de un bloque.
+local_chatbot_verificar(tablero_m3::continuity_minutes('<table><tr><th>Sub-bloque</th><th>Duración</th></tr><tr><td>Total del desarrollo</td>'
+    . '<td>110 min</td></tr></table><table><tr><th>Fase / Momento</th><th>Duración</th></tr><tr><td>Fase 1: Inicio</td><td>30 min</td></tr>'
+    . '<tr><td>TOTAL DE LA EXPERIENCIA</td><td>180 min</td></tr></table>') === 180,
+    'los minutos de la continuidad se leen también de una columna «Duración», tomando el total mayor y no el de un bloque');
 
 // --- Hechos de una evaluacion completa ---
 $h = tablero_m3::facts(local_chatbot_datos());

@@ -76,6 +76,19 @@ las personas y su avance.
 - **Fase 3, etapas 4 a 8**: acciones remediales o plan de rediseño (según el ajuste decidido; la suma de la tabla «Distribución del
   tiempo restante» se revisa contra el tiempo restante), mejora del diseño y buenas prácticas, experiencia de continuidad (dos
   trayectorias, de nivelación y de profundización), síntesis y consolidación (la Etapa 0 más las etapas 1 a 7, en Word).
+  **Desde v1.34.0** (interruptor `materialesm3`), la Etapa 6 recibe el catálogo de producción, la recuperación de los materiales
+  del Módulo 2, las reglas 1 a 9 de los materiales de la continuidad (reutilizado `M1`, ajustado `M3-C`, nuevo `MC1`) y el
+  inventario del plan de producción y del repertorio del Centro del diseño (solo lectura, sin el contenido de los materiales).
+- **Producción de los materiales de la continuidad, Etapas P1 a P4** (`produccion_m3.php`, opcional, interruptor `produccionm3`,
+  v1.34.0): con la Etapa 8 consolidada aparece «Producir los materiales de la continuidad». **P1:** plan con la lista de la Etapa 6
+  y el estado de cada material de origen (reutilizado y entregado en el Módulo 2 → «Disponible en el repertorio», no se vuelve a
+  producir; Modo C con enlaces caídos → ajustado para reemplazar solo esos enlaces; el resto «Pendiente»); la plataforma revisa la
+  regla 8 de los códigos. **P2:** referencias (propias o las del repertorio del diseño), propuesta (cuadro de cambios en los
+  ajustados, estructura en los nuevos), contenido en los modos A, B y C del Módulo 2 y ajustes por sección. En un ajustado, el
+  asistente entrega solo las secciones que cambian y **la plataforma conserva textualmente las demás** desde la versión de origen.
+  Principio 3 modificado: lo que falta se busca en internet conforme a la normativa técnica, los códigos y la legislación vigentes en
+  Chile, y cada fragmento web y cada marca [REVISAR] se acepta o edita en cada material. **P3:** aprobación y registro versionado.
+  **P4:** cierre y repertorio de la continuidad (.zip), cuyo estado alimenta la columna «Estado» del documento operativo.
 - **Fase 4, evaluación ex post** (`ficha_expost.php` y `expost.php`): se abre con las Fases 1 a 3 consolidadas y la experiencia de
   continuidad implementada (la persona lo confirma al entrar; si no se cumple, la página dice el mensaje del prompt). **Etapa 9:** la
   plataforma precarga la identificación, la tabla 2.1 (todos los criterios del diseño con su logro inicial; en blanco los pendientes) y
@@ -93,8 +106,11 @@ las personas y su avance.
 
 ## Interruptores (Administración → Plugins → Plugins locales → Asistente IA)
 
-`fichaimpl`, `calidadfase2`, `libreriam3`, `bienvenidam3`, `consolidacionm3`, `avisosimpl`, `fichaexpost` (Fase 4), `tablerom3`, `avisosm3` y
-`fabm3` (tablero del Módulo 3, v1.30.0), todos encendidos por defecto. Los plazos «X» de los avisos del tablero son los ajustes
+`fichaimpl`, `calidadfase2`, `libreriam3`, `bienvenidam3`, `consolidacionm3`, `avisosimpl`, `fichaexpost` (Fase 4), `tablerom3`, `avisosm3`,
+`fabm3` (tablero del Módulo 3, v1.30.0), `docoperativom3` (documento operativo de la experiencia de continuidad, v1.33.0),
+`materialesm3` y `produccionm3` (materiales y producción de la continuidad, v1.34.0) y `docreflexionm3`
+(documento de reflexión sobre la práctica, v1.35.0), todos
+encendidos por defecto. Los plazos «X» de los avisos del tablero son los ajustes
 `m3plazoregistro`, `m3plazocorreccion`, `m3plazocierre` y `m3plazodetenido` (7 días), que define el cliente. Apagar uno
 es la forma de retroceder una mejora sin desplegar (bajar la versión del código no se puede con la base ya migrada).
 
@@ -109,7 +125,10 @@ es la forma de retroceder una mejora sin desplegar (bajar la versión del códig
 5. Cambiar una suma por nivel para que no coincida con los presentes y validar: debe quedar «No aprobado» por el ítem 4.3, aunque el
    modelo no lo haya visto.
 6. Recorrer las etapas 1 a 8 (con la IA real, cada una tarda unos minutos), aceptando cada una; descargar el Word de una etapa y el
-   informe final.
+   informe final. Al confirmar la consolidación, la Etapa 8 debe mostrar «Generando el documento operativo de la experiencia de
+   continuidad…» y luego «Descargar el documento operativo de la continuidad (Word · v1)»: revisar que el Word traiga las secciones 1
+   a 7 de la propuesta (la 5 en páginas horizontales), las fechas, jornadas y asignación en blanco, y un anexo por instrumento. Cambiar
+   la síntesis (Etapa 7) y reconfirmar no cambia la versión; ajustar la continuidad (Etapa 6) y reconfirmar genera la v2.
 7. Con la ficha ya validada, cambiar cualquier campo: la validación debe quedar «desactualizada» y la Fase 2 cerrada hasta validar de
    nuevo.
 8. **Fase 4:** con las etapas 1 a 8 consolidadas, abrir la hoja «Fase 4: Evaluación Ex-post» y pulsar «Ir a evaluación ex-post». Antes
@@ -120,12 +139,30 @@ es la forma de retroceder una mejora sin desplegar (bajar la versión del códig
 10. Bajar el número de personas en Adecuado o Avanzado de un criterio por debajo del inicial, o cambiar una suma por nivel: debe quedar
     «No aprobado» por los ítems CRÍTICO 2.1 o 2.2, calculados por la plataforma. Recorrer las etapas 11 a 15 y descargar el informe.
 
+11. **Producción de la continuidad (v1.34.0):** con la Etapa 8 consolidada, pulsar «Producir los materiales de la continuidad» y
+    «Preparar el plan de producción»: los reutilizados ya entregados en el Centro del Módulo 2 deben salir «Disponible en el
+    repertorio». Producir un ajustado: la propuesta trae el cuadro «Se conserva / Se modifica / Se agrega / Se elimina» y el
+    material, una nota inicial y las secciones conservadas idénticas a las de origen. Aceptar o editar los fragmentos web y las
+    marcas [REVISAR]; aprobar; cerrar la producción y descargar el repertorio. El documento operativo descargado después debe
+    mostrar «Entregado» en ese material.
+
+12. **Documento de reflexión (v1.35.0):** confirmar la consolidación de la Etapa 15: debe aparecer «Generando el documento
+    operativo de reflexión sobre la práctica…» y luego «Descargar el documento de reflexión sobre la práctica (Word · v1)». Revisar
+    que la Sección 1 traiga los logros de la ficha ex post, que «Mi lectura», «Mi comentario» y la Sección 9 estén en blanco y que
+    haya un recuadro bajo cada pregunta. Reconfirmar sin cambios mantiene la v1; «Regenerar» crea la v2.
+
 ## Limitaciones conocidas
 
 - Los movimientos de nivel de la etapa 11 son **estimaciones** hechas con los totales por nivel de cada criterio: la ficha no registra a cada
   persona.
 - El **tablero del Módulo 3** (`tablero_m3.php`, v1.30.0) no calcula todavía el n.º de cambios por tipo y por causa ni el aviso por
   «pendiente vinculado al desempeño central»: el asistente no los entrega como campos estructurados.
+- El **documento operativo de la continuidad** toma el «Estado» de los materiales (tabla 6.1) del repertorio de la producción de la
+  continuidad (P4) y, para los materiales que no están en él, del repertorio del Centro del Módulo 2. Las Etapas 6 generadas antes de
+  la v1.34.0 no traen códigos ni categorías: para usar la producción con ellas conviene regenerar la Etapa 6 (y reconfirmar la 8).
+- Las marcas [REVISAR] de un material **ajustado** que vienen de su versión de origen se mantienen
+  y cuentan en el repertorio hasta que la persona las acepte o las edite (aprobar no las borra).
+- La producción no se probó todavía con la IA real (Gemini con búsqueda web): solo con un proveedor simulado en el Moodle local.
 - **No hay checklist de autorrevisión en pantalla** (el del Módulo 2, `checklist_exante.php`, deja marcar el checklist antes de validar).
 - El contenido de las hojas del curso es del cliente. Sus enlaces «Abrir guía» y «Abrir ejemplo» (`URL_GUIA` y `URL_EJEMPLO`) quedan
   para cuando suba esos recursos; este guion solo pone los cinco botones.

@@ -2428,7 +2428,7 @@ class expost {
         $filas = calidad::get_by_impl((int) $impl->id);
         $a3 = calidad::accepted($filas, $fase1 ? (string) $fase1->huella : '');
         $fases = $fase1 && $fase1->estado === implementacion::LISTO && implementacion::can_advance($fase1->condicion)
-            && $fase1->huella === implementacion::ficha_fingerprint($impl) && count(array_intersect(range(1, 8), $a3)) === 8;
+            && implementacion::validation_current($fase1, $impl) && count(array_intersect(range(1, 8), $a3)) === 8;
         $row = self::get_row((int) $impl->id);
         if (!$row) {
             return ['fases' => (bool) $fases] + $vacio;

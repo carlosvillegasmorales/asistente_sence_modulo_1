@@ -17,6 +17,7 @@ require_once($CFG->libdir . '/editorlib.php');
 use local_chatbot\calidad;
 use local_chatbot\diseno;
 use local_chatbot\exante;
+use local_chatbot\documento_reflexion;
 use local_chatbot\expost;
 use local_chatbot\implementacion;
 
@@ -125,6 +126,35 @@ if ($action === 'final' && $impl && $row && $val && in_array(expost::CONSOLIDACI
     throw new moodle_exception('diseno_word_error', 'local_chatbot');
 }
 
+// --- Documento operativo de reflexion sobre la practica (salida de la Etapa 15, Word editable) ---
+$reflexionon = \local_chatbot\ux::on('docreflexionm3');
+if ($action === 'reflexion' && $reflexionon && $impl && $val && in_array(expost::CONSOLIDACION, $aceptadas, true)) {
+    $filarx = $filas[documento_reflexion::ETAPA] ?? null;
+    if (!documento_reflexion::is_current($filarx, (string) $filas[expost::CONSOLIDACION]->huella)) {
+        redirect(new moodle_url($pageurl, ['etapa' => expost::CONSOLIDACION], 'producto'));
+    }
+    $ruta = make_request_directory() . '/reflexion.docx';
+    $version = documento_reflexion::version_number($filarx);
+    $meta = documento_reflexion::word_meta($pre, $data,
+        userdate($filas[expost::CONSOLIDACION]->timeaccepted, get_string('strftimedate', 'langconfig')), $version);
+    if (documento_reflexion::build_docx($ruta, $meta, (string) $filarx->contenido,
+            $CFG->dirroot . '/local/chatbot/pix/logo_interfases.png')) {
+        send_file($ruta, documento_reflexion::ARCHIVO . '_v' . $version . '.docx', 0, 0, false, true,
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+    throw new moodle_exception('diseno_word_error', 'local_chatbot');
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'generarreflexion' && $reflexionon && $impl && $val
+        && in_array(expost::CONSOLIDACION, $aceptadas, true)) {
+    require_sesskey();
+    if (!\local_chatbot\ai\provider_factory::is_configured()) {
+        redirect(new moodle_url($pageurl, [], 'producto'), get_string('impl_error_sinclave', 'local_chatbot'), null,
+            \core\output\notification::NOTIFY_ERROR);
+    }
+    documento_reflexion::queue((int) $impl->id, $USER->id, $courseid, (int) $val->id);
+    redirect(new moodle_url($pageurl, [], 'producto'));
+}
+
 // --- Etapa 15: pedir la consolidacion al asistente o confirmarla ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $consolida && in_array($action, ['confirmar', 'consolidar'], true)) {
     require_sesskey();
@@ -147,6 +177,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $consolida && in_array(
         [$html, $porasistente] = expost::consolidation_shown($filas[expost::CONSOLIDACION] ?? null, $etapa10, $contenidos, $huellaetapas);
         expost::confirm_consolidation($impl, $html, $huellaetapas,
             $porasistente ? (string) $filas[expost::CONSOLIDACION]->promptversion : null);
+        // Documento operativo de reflexion sobre la practica: se genera al confirmar (version nueva si cambio lo que extrae).
+        if (\local_chatbot\ux::on('docreflexionm3')) {
+            documento_reflexion::after_confirm($impl, $val);
+        }
         redirect($destino, get_string('exp_confirmed', 'local_chatbot'), null, \core\output\notification::NOTIFY_SUCCESS);
     }
     redirect($destino);
@@ -417,6 +451,57 @@ echo $OUTPUT->header();
                     <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
                         <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('exp_final_download', 'local_chatbot'); ?></a></div>
                 </div>
+                <?php if ($reflexionon):
+                    $filarx = $filas[documento_reflexion::ETAPA] ?? null;
+                    $rxgenerando = !$generando && $filarx && in_array((string) $filarx->generacion, [implementacion::PENDIENTE,
+                        implementacion::PROCESANDO], true);
+                    $rxvigente = documento_reflexion::is_current($filarx, (string) $fila->huella);
+                    $rxmarcas = $rxvigente ? substr_count((string) $filarx->contenido, '[REVISAR') : 0; ?>
+                    <?php // Documento operativo de reflexion sobre la practica: se genera al confirmar; se puede regenerar. ?>
+                    <?php if ($rxgenerando): ?>
+                        <div class="card shadow-sm border-0 mb-4" id="expost-generando" role="status"
+                             data-id="<?php echo (int) $filarx->id; ?>" data-estado="<?php echo s($filarx->generacion); ?>"
+                             data-url="<?php echo s((new moodle_url('/local/chatbot/expost.php', ['courseid' => $courseid]))->out(false)); ?>"
+                             data-sesskey="<?php echo sesskey(); ?>"
+                             data-volver="<?php echo s((new moodle_url($pageurl, ['g' => time()], 'producto'))->out(false)); ?>">
+                            <div class="card-body">
+                                <h5 class="mb-2"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span><?php
+                                    echo get_string('exp_reflexion_generating', 'local_chatbot'); ?></h5>
+                                <p class="small text-muted mb-0"><?php echo get_string('diseno_generating_long', 'local_chatbot'); ?></p>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="card border mb-4">
+                            <div class="card-body py-3">
+                                <?php if ($filarx && $filarx->generacion === implementacion::ERROR): ?>
+                                    <div class="alert alert-warning small mb-2 py-2"><?php
+                                        echo get_string('impl_error_' . ($filarx->error ?: 'servicio'), 'local_chatbot') . ' '
+                                            . get_string('diseno_error_retry', 'local_chatbot'); ?></div>
+                                <?php endif; ?>
+                                <p class="small text-muted mb-2"><?php echo get_string('exp_reflexion_help', 'local_chatbot'); ?></p>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <?php if ($rxvigente): ?>
+                                        <a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'reflexion']))->out(false); ?>">
+                                            <i class="fa fa-file-text-o me-1"></i> <?php echo get_string('exp_reflexion_download', 'local_chatbot',
+                                                documento_reflexion::version_number($filarx)); ?></a>
+                                    <?php endif; ?>
+                                    <form method="post" action="<?php echo $pageurl->out(false); ?>" class="m-0">
+                                        <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                        <button type="submit" name="action" value="generarreflexion" class="btn btn-outline-secondary btn-sm"
+                                                data-espera="<?php echo s(get_string('exp_reflexion_generating', 'local_chatbot')); ?>">
+                                            <i class="fa fa-refresh me-1"></i> <?php echo get_string($rxvigente ? 'exp_reflexion_regenerate'
+                                                : 'exp_reflexion_generate', 'local_chatbot'); ?>
+                                        </button>
+                                    </form>
+                                </div>
+                                <?php if ($rxmarcas > 0): ?>
+                                    <div class="alert alert-warning small mt-2 mb-0 py-2"><?php
+                                        echo get_string('exp_reflexion_revisar', 'local_chatbot', $rxmarcas); ?></div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
                 <?php if (\local_chatbot\ux::on('tablerom3')): ?>
                     <div class="alert alert-info">
                         <?php echo get_string('m3dash_survey_invite', 'local_chatbot', 4); ?>

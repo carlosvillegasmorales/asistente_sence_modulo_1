@@ -1039,5 +1039,33 @@ function xmldb_local_chatbot_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026112400, 'local', 'chatbot');
     }
 
+    if ($oldversion < 2026112700) {
+        // Modulo 2, Centro de produccion (ajuste de Interfases del 26-11, bloque 6): el repertorio conserva el contenido de
+        // la version final de cada material entregado, para que el Modulo 3 lo lea. Modulo 3: produccion de los materiales
+        // de la experiencia de continuidad (Etapas P1 a P4) en las mismas tablas, con su categoria y su origen.
+        $table = new xmldb_table('local_chatbot_recurso');
+        foreach ([
+            new xmldb_field('entregado', XMLDB_TYPE_TEXT, null, null, null, null, null, 'fecha_verificacion'),
+            new xmldb_field('categoria', XMLDB_TYPE_CHAR, '20', null, null, null, null, 'entregado'),
+            new xmldb_field('origen', XMLDB_TYPE_TEXT, null, null, null, null, null, 'categoria'),
+        ] as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+        // Los materiales ya entregados guardan como version final lo que tienen hoy (un material entregado que cambia
+        // vuelve a borrador, asi que su contenido actual es el entregado).
+        $rs = $DB->get_recordset_select('local_chatbot_recurso', "estado IN ('entregado', 'entregado_parcial') AND version > 0",
+            null, '', 'id, estado, version, contenido, estructurado, html_moodle, seleccionados, fecha_verificacion, refs_usadas, '
+                . 'revisar_count, modo, formato, timemodified');
+        foreach ($rs as $r) {
+            $DB->set_field('local_chatbot_recurso', 'entregado',
+                \local_chatbot\centro_recursos::delivered_snapshot($r, (int) $r->timemodified), ['id' => $r->id]);
+        }
+        $rs->close();
+
+        upgrade_plugin_savepoint(true, 2026112700, 'local', 'chatbot');
+    }
+
     return true;
 }

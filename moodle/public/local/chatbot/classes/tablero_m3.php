@@ -314,57 +314,16 @@ class tablero_m3 {
     }
 
     /**
-     * Minutos de la experiencia de continuidad (etapa 6): el que declara su fila «Total» o su frase «tiempo total ... N
-     * minutos». Si la etapa no lo declara de una de esas dos formas no se estima (las trayectorias son simultaneas y sumar
-     * las filas contaria dos veces). Funcion pura.
+     * Minutos de la experiencia de continuidad (etapa 6): el que declara su fila «Total» (en una columna de minutos,
+     * duracion o tiempo) o su frase «tiempo total ... N minutos». Si la etapa no lo declara de una de esas dos formas no se
+     * estima (las trayectorias son simultaneas y sumar las filas contaria dos veces). Es calidad::sequence_minutes(), el
+     * mismo calculo del documento operativo de la continuidad. Funcion pura.
      *
      * @param string $html Producto de la etapa 6.
      * @return int|null
      */
     public static function continuity_minutes(string $html): ?int {
-        if (trim($html) === '') {
-            return null;
-        }
-        if (stripos($html, '<table') !== false) {
-            $dom = new \DOMDocument();
-            libxml_use_internal_errors(true);
-            $dom->loadHTML('<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>');
-            libxml_clear_errors();
-            foreach ($dom->getElementsByTagName('table') as $tabla) {
-                $columna = null;
-                foreach ($tabla->getElementsByTagName('tr') as $tr) {
-                    $celdas = [];
-                    $conth = false;
-                    foreach ($tr->childNodes as $nodo) {
-                        if ($nodo instanceof \DOMElement && in_array($nodo->nodeName, ['th', 'td'], true)) {
-                            $celdas[] = trim(preg_replace('/\s+/u', ' ', $nodo->textContent));
-                            $conth = $conth || $nodo->nodeName === 'th';
-                        }
-                    }
-                    if (!$celdas) {
-                        continue;
-                    }
-                    if ($columna === null) {
-                        foreach ($celdas as $k => $c) {
-                            if (stripos(diseno::plain_lower($c), 'minut') !== false) {
-                                $columna = $k;
-                                break;
-                            }
-                        }
-                        continue;
-                    }
-                    if (preg_match('/^\W*total\b/u', diseno::plain_lower($celdas[0])) && isset($celdas[$columna])
-                            && preg_match('/\d+/', $celdas[$columna], $n)) {
-                        return (int) $n[0];
-                    }
-                }
-            }
-        }
-        $texto = diseno::plain_lower(html_entity_decode(strip_tags(str_replace(['</p>', '</li>', '</td>', '<br>'], ' ', $html)), ENT_QUOTES, 'UTF-8'));
-        if (preg_match('/tiempo total[^0-9]{0,80}(\d{1,4})\s*min/u', $texto, $m)) {
-            return (int) $m[1];
-        }
-        return null;
+        return calidad::sequence_minutes($html);
     }
 
     // ------------------------------------------------------------------------------------------------------------

@@ -17,6 +17,8 @@ require_once($CFG->libdir . '/editorlib.php');
 
 use local_chatbot\calidad;
 use local_chatbot\diseno;
+use local_chatbot\documento_continuidad;
+use local_chatbot\documento_operativo;
 use local_chatbot\exante;
 use local_chatbot\implementacion;
 
@@ -125,8 +127,37 @@ if ($action === 'final' && $fase1 && $ficha && in_array(calidad::CONSOLIDACION, 
     throw new moodle_exception('diseno_word_error', 'local_chatbot');
 }
 
+// --- Documento operativo de la experiencia de continuidad (salida de la Etapa 8, Word editable) ---
+if ($action === 'operativo' && $fase1 && $ficha && \local_chatbot\ux::on('docoperativom3')
+        && in_array(calidad::CONSOLIDACION, $aceptadas, true)) {
+    $filaop = $filas[calidad::OPERATIVO] ?? null;
+    if (!documento_continuidad::is_current($filaop, (string) $filas[calidad::CONSOLIDACION]->huella)) {
+        redirect(new moodle_url($pageurl, ['etapa' => calidad::CONSOLIDACION], 'producto'));
+    }
+    $ruta = make_request_directory() . '/operativo.docx';
+    // El estado de los materiales (tabla 6.1) se toma al descargar del repertorio del Centro de produccion del diseño.
+    $estados = (int) $ficha->disenoid > 0 ? documento_operativo::repertoire_status_map(
+        \local_chatbot\centro_recursos::get_resources((int) $ficha->disenoid)) : [];
+    // Con la produccion de la continuidad (P4), su repertorio manda en la columna «Estado» de sus materiales.
+    $estados = array_merge($estados, \local_chatbot\produccion_m3::status_map(\local_chatbot\centro_recursos::get_resources(
+        \local_chatbot\produccion_m3::plan_key((int) $ficha->id))));
+    $html = documento_operativo::sync_repertoire_status((string) $filaop->contenido, $estados);
+    $version = documento_continuidad::version_number($filaop);
+    $meta = documento_continuidad::word_meta(
+        documento_continuidad::general_data($ficha->data, (array) ($diseno['ficha']->data ?? []), $ajuste),
+        documento_continuidad::general_value($html, 'Experiencia de continuidad'), $ajuste,
+        userdate($filas[calidad::CONSOLIDACION]->timeaccepted, get_string('strftimedate', 'langconfig')), $version,
+        $restante, documento_continuidad::sequence_total($html));
+    if (documento_continuidad::build_docx($ruta, $meta, $html, $CFG->dirroot . '/local/chatbot/pix/logo_interfases.png')) {
+        send_file($ruta, documento_continuidad::ARCHIVO . '_v' . $version . '.docx', 0, 0, false, true,
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+    throw new moodle_exception('diseno_word_error', 'local_chatbot');
+}
+
 // --- Etapa 8: pedir la consolidacion al asistente o confirmarla ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $consolida && in_array($action, ['confirmar', 'consolidar'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $consolida
+        && in_array($action, ['confirmar', 'consolidar', 'generaroperativo'], true)) {
     require_sesskey();
     $destino = new moodle_url($pageurl, [], 'producto');
     if ($action === 'consolidar' && \local_chatbot\ux::on('consolidacionm3')) {
@@ -147,7 +178,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $abierta && $consolida && in_array(
         [$html, $porasistente] = calidad::consolidation_shown($filas[calidad::CONSOLIDACION] ?? null, $etapa0, $contenidos, $huellaetapas);
         calidad::confirm_consolidation($USER->id, $courseid, $html, $huellaetapas,
             $porasistente ? (string) $filas[calidad::CONSOLIDACION]->promptversion : null);
+        // Salida de la Etapa 8: el documento operativo de la continuidad (version nueva solo si cambio lo que extrae).
+        if (\local_chatbot\ux::on('docoperativom3')) {
+            documento_continuidad::after_confirm($USER->id, $courseid, $fase1);
+        }
         redirect($destino, get_string('cal_confirmed', 'local_chatbot'), null, \core\output\notification::NOTIFY_SUCCESS);
+    }
+    if ($action === 'generaroperativo' && $ficha && \local_chatbot\ux::on('docoperativom3')
+            && in_array(calidad::CONSOLIDACION, $aceptadas, true)) {
+        if (!\local_chatbot\ai\provider_factory::is_configured()) {
+            redirect($destino, get_string('impl_error_sinclave', 'local_chatbot'), null, \core\output\notification::NOTIFY_ERROR);
+        }
+        documento_continuidad::queue((int) $ficha->id, $USER->id, $courseid, (int) $fase1->id);
     }
     redirect($destino);
 }
@@ -456,13 +498,94 @@ echo $OUTPUT->header();
                     <p class="small text-muted"><?php echo get_string('cal_consolidate_ai_help', 'local_chatbot'); ?></p>
                 <?php endif; ?>
             <?php endif; ?>
-            <?php if ($vigente): ?>
-                <?php // Con esto cierra el proceso del modulo: el documento final queda disponible. ?>
+            <?php if ($vigente):
+                $opon = \local_chatbot\ux::on('docoperativom3');
+                $filaop = $opon ? ($filas[calidad::OPERATIVO] ?? null) : null;
+                $opgenerando = $filaop && in_array((string) $filaop->generacion, [implementacion::PENDIENTE,
+                    implementacion::PROCESANDO], true);
+                $opvigente = $opon && documento_continuidad::is_current($filaop, (string) $fila->huella);
+                $opver = $opvigente ? documento_continuidad::version_number($filaop) : 0;
+                $opmarcas = $opvigente ? documento_operativo::review_marks_count((string) $filaop->contenido) : 0; ?>
+                <?php // Con esto cierra el proceso del modulo: el informe final y el documento operativo de la continuidad. ?>
                 <div class="alert alert-success">
                     <strong><?php echo get_string('cal_done', 'local_chatbot'); ?></strong>
-                    <div class="mt-2"><a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
-                        <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('cal_final_download', 'local_chatbot'); ?></a></div>
+                    <div class="mt-2 d-flex flex-wrap gap-2">
+                        <a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'final']))->out(false); ?>">
+                            <i class="fa fa-file-word-o me-1"></i> <?php echo get_string('cal_final_download', 'local_chatbot'); ?></a>
+                        <?php if ($opvigente): ?>
+                            <a class="chatbot-gatebtn" href="<?php echo (new moodle_url($pageurl, ['action' => 'operativo']))->out(false); ?>">
+                                <i class="fa fa-file-text-o me-1"></i> <?php echo get_string('cal_operativo_download', 'local_chatbot', $opver); ?></a>
+                        <?php endif; ?>
+                    </div>
                 </div>
+                <?php if (\local_chatbot\ux::on('produccionm3')): ?>
+                    <?php // Ajuste del 26-11-2026, bloque 4: produccion de los materiales de la continuidad (P1 a P4, opcional). ?>
+                    <div class="card border-primary-subtle mb-4">
+                        <div class="card-body py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div>
+                                <div class="fw-bold"><?php echo get_string('pm3_title', 'local_chatbot'); ?></div>
+                                <p class="small text-muted mb-0"><?php echo get_string('pm3_entry_help', 'local_chatbot'); ?></p>
+                            </div>
+                            <a class="chatbot-gatebtn" href="<?php echo (new moodle_url('/local/chatbot/produccion_m3.php',
+                                ['courseid' => $courseid]))->out(false); ?>"><i class="fa fa-cubes me-1"></i> <?php
+                                echo get_string('pm3_entry_btn', 'local_chatbot'); ?></a>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                <?php if ($opon): ?>
+                    <?php // Documento operativo de la experiencia de continuidad: se genera al confirmar; se puede regenerar. ?>
+                    <?php if ($opgenerando): ?>
+                        <div class="card shadow-sm border-0 mb-4" id="calidad-generando" role="status"
+                             data-id="<?php echo (int) $filaop->id; ?>" data-estado="<?php echo s($filaop->generacion); ?>"
+                             data-url="<?php echo s((new moodle_url('/local/chatbot/calidad.php', ['courseid' => $courseid]))->out(false)); ?>"
+                             data-sesskey="<?php echo sesskey(); ?>"
+                             data-volver="<?php echo s((new moodle_url($pageurl, ['g' => time()], 'producto'))->out(false)); ?>">
+                            <div class="card-body">
+                                <h5 class="mb-2"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span><?php
+                                    echo get_string('cal_operativo_generating', 'local_chatbot'); ?></h5>
+                                <p class="small text-muted mb-0"><?php echo get_string('diseno_generating_long', 'local_chatbot'); ?></p>
+                            </div>
+                        </div>
+                    <?php elseif ($opvigente): ?>
+                        <div class="card border mb-4">
+                            <div class="card-body py-3">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <p class="small text-muted mb-0"><?php echo get_string('cal_operativo_help', 'local_chatbot'); ?></p>
+                                    <form method="post" action="<?php echo $pageurl->out(false); ?>" class="m-0">
+                                        <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                        <button type="submit" name="action" value="generaroperativo" class="btn btn-outline-secondary btn-sm"
+                                                data-espera="<?php echo s(get_string('cal_operativo_generating', 'local_chatbot')); ?>">
+                                            <i class="fa fa-refresh me-1"></i> <?php echo get_string('cal_operativo_regenerate', 'local_chatbot'); ?>
+                                        </button>
+                                    </form>
+                                </div>
+                                <?php if ($opmarcas > 0): ?>
+                                    <div class="alert alert-warning small mt-2 mb-0 py-2">
+                                        <?php echo get_string('cal_operativo_revisar', 'local_chatbot', $opmarcas); ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="card border mb-4">
+                            <div class="card-body py-3">
+                                <?php if ($filaop && $filaop->generacion === implementacion::ERROR): ?>
+                                    <div class="alert alert-warning small mb-2 py-2"><?php
+                                        echo get_string('impl_error_' . ($filaop->error ?: 'servicio'), 'local_chatbot') . ' '
+                                            . get_string('diseno_error_retry', 'local_chatbot'); ?></div>
+                                <?php endif; ?>
+                                <p class="small text-muted mb-2"><?php echo get_string('cal_operativo_help', 'local_chatbot'); ?></p>
+                                <form method="post" action="<?php echo $pageurl->out(false); ?>" class="m-0">
+                                    <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                                    <button type="submit" name="action" value="generaroperativo" class="btn btn-primary btn-sm"
+                                            data-espera="<?php echo s(get_string('cal_operativo_generating', 'local_chatbot')); ?>">
+                                        <i class="fa fa-file-text-o me-1"></i> <?php echo get_string('cal_operativo_generate', 'local_chatbot'); ?>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
                 <?php if (\local_chatbot\ux::on('tablerom3')): ?>
                     <div class="alert alert-info">
                         <?php echo get_string('m3dash_survey_invite', 'local_chatbot', 3); ?>

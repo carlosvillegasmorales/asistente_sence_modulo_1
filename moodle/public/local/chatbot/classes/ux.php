@@ -103,6 +103,11 @@ class ux {
         // Pedido de Interfases del 23-11-2026: informe de validacion de la ficha descargable en PDF con logo de la consultora.
         'webcentro' => 1,       // Modulo 2: el Centro busca en la web los datos que faltan, con referencia, Editar y Aceptar (v1.32.0).
         'pdfvalidacion' => 1,   // Modulos 2 y 3: descarga en PDF con logo Interfases del informe de validacion de la ficha (v1.31.0).
+        // Propuesta de salida del Modulo 3 de Interfases (26-11-2026): Documento operativo de la experiencia de continuidad.
+        'docoperativom3' => 1,  // Modulo 3, Etapa 8: documento operativo de la continuidad en Word al confirmar la consolidacion (v1.33.0).
+        'materialesm3' => 1,    // Modulo 3, Etapa 6: catalogo, recuperacion de los materiales del Modulo 2, reglas 1 a 9 e inventario del repertorio (v1.34.0).
+        'docreflexionm3' => 1,  // Modulo 3, Etapa 15: documento operativo de reflexion sobre la practica en Word (v1.35.0).
+        'produccionm3' => 1,    // Modulo 3: produccion de los materiales de la continuidad (P1 a P4) con busqueda web, Editar y Aceptar (v1.34.0).
     ];
 
     /**

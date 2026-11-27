@@ -105,7 +105,9 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   cierre va como `[[\/WEB:n]]`), la plataforma arma las referencias (chilena/extranjera) y la persona acepta o edita
   cada fragmento (`resolve_web_block()`, `resolve_web_block_json()`); mientras haya pendientes, la edición completa
   queda bloqueada. En el Modo C, «Aceptar»/«Quitar» y «Editar» por opción (`edit_curated_option()`). Toda salida usa
-  `strip_web_marks()`. Toda norma citada debe ser chilena o de uso en Chile
+  `strip_web_marks()`. Desde v1.34.0 las marcas [REVISAR] también se aceptan o corrigen en materiales estructurados
+  (`json_review_marks()`, `resolve_mark_json()`) y, por el bloque 6, al aprobar se guarda la versión entregada en `entregado`
+  (`delivered_snapshot()`; el Módulo 3 lee `delivered_version()`, nunca `contenido` directo). Toda norma citada debe ser chilena o de uso en Chile
   (`exante::REGLA_FUENTES_CHILE`, también en las fuentes de conocimiento de los Módulos 2 y 3).
 - `classes/diagrama.php` — diagramas de cajas y flechas de los productos de las etapas: el modelo entrega un bloque
   «diagrama» (una línea por caja, `modo: ciclo` opcional) y se convierte en tabla con colores (editable y válida en Word);
@@ -160,7 +162,10 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   guardar) y los criterios de 2.1 **se marcan, no se escriben**: casillas `criterioN` con N = posición en el diseño (tope 20). (2) Los ítems aritméticos los resuelve el código, no el
   modelo (`POR_CALCULO`: c1_3, c1_4, c4_1, c4_3, c4_4; `system_checks()` y `apply_system_checks()`: presentes por criterio, tiempos
   contra el diseño, suma por nivel, logro %). `decide()` aplica la regla de los CRÍTICO; tiempo restante = total − utilizado. La huella
-  de la validación incluye ficha y diseño (`fingerprint()`): cambiar cualquiera la deja «desactualizada» y cierra la Fase 2. No
+  de la validación incluye ficha y diseño (`fingerprint()`): cambiar cualquiera la deja «desactualizada» y cierra la Fase 2. **Para
+  saber si una validación sigue vigente se usa `validation_current()`, nunca `huella === ficha_fingerprint()`**: `clean()` devuelve
+  todas las claves del formulario, así que sumar campos (la v1.24.9 llevó los criterios de 15 a 20) cambia la huella de toda ficha ya
+  validada; `validation_current()` compara también con el juego de claves del snapshot si las claves nuevas están vacías. No
   renumerar ids de ítems (los informes guardados los usan). Interruptores `fichaimpl`, `bienvenidam3` y `avisosimpl`.
 - `classes/calidad.php` + `calidad.php?courseid=ID&etapa=N` — **Módulo 3, Fases 2 y 3**: el Prompt Maestro del Módulo 3 como hojas
   de trabajo (propuesta de la IA, edición, ajustes, aceptación, Word): etapas 1 a 3 en la Fase 2 y 4 a 8 en la Fase 3. Requiere la
@@ -174,6 +179,39 @@ original el plugin vive en su propio repo, `moodle-chatbot-ia`; aquí no.)
   ajuste (`stage_def()`) y la suma de su tabla «Distribución del tiempo restante» se revisa contra el tiempo restante
   (`time_check()`). La etapa 8 consolida la Etapa 0 y las etapas 1 a 7 en Word (`consolidate()`, `final_cover()`; interruptor
   `consolidacionm3`; sin librería).
+- `classes/documento_continuidad.php` — **Módulo 3, salida de la Etapa 8: documento operativo de la experiencia de continuidad**
+  (v1.33.0, propuesta de Interfases del 26-11, interruptor `docoperativom3`, prompt `M3-OP-v1`, sin cambios de tablas). Se genera al
+  confirmar la consolidación (`after_confirm()` desde `calidad.php`; versión nueva solo si cambió lo que extrae, `source_fingerprint()`)
+  y se guarda como fila interna `etapa = calidad::OPERATIVO (16)` de `local_chatbot_calidad` (fuera de 1–8 y 9–15; `accepted()` la
+  ignora). Mismo patrón híbrido que `documento_operativo` (Módulo 2): el asistente extrae las secciones 1 a 7 de la Etapa 6 con los
+  datos exactos de la plataforma, y el código fija después lo que no es juicio (`assemble_html()`: datos generales de la ficha,
+  aprendizaje esperado y criterios textuales, tablas en blanco, filas fijas de 7.2 y nota de la Fase 4, tiempo restante y marcas
+  [REVISAR] de tiempo, estado del repertorio, orientación de la plantilla con `data-orientacion`) y agrega un anexo por instrumento
+  (Etapa 6 y, los recuperativos, Etapa 6 del diseño del Módulo 2). `cli/verificar_documento_continuidad.php` (45).
+- `classes/documento_reflexion.php` — **Módulo 3, Fase 4, salida de la Etapa 15: documento operativo de reflexión sobre la
+  práctica** (v1.35.0, propuesta de Interfases, interruptor `docreflexionm3`, prompt `M3-RX-v1`, sin cambios de tablas). Se pide al
+  confirmar la Etapa 15 (`after_confirm()` desde `expost.php`; versión nueva solo si cambian la ficha ex post, las Etapas 11 a 14 o
+  el ajuste) y se guarda como fila interna `etapa = calidad::REFLEXION (17)` (`accepted()` la ignora; `calidad::generate()` la
+  despacha a `generate_row()`). Sección 1 por código con `cycle_data()` (ficha ex post + `expost::results()`); Secciones 2 a 8 del
+  asistente; `assemble_html()` deja en blanco las columnas de la persona (`COLUMNAS_BLANCAS`, con `data-peso` para que el Word
+  les dé ancho), agrega los textos fijos, recuadros de respuesta y la Sección 9. `cli/verificar_documento_reflexion.php` (20).
+- `classes/produccion_m3.php` + `produccion_m3.php?courseid=ID` — **Módulo 3: materiales y producción de la experiencia de
+  continuidad** (v1.34.0, «Ajuste Prompt Maestro M3 - Producción de Materiales…» de Interfases del 26-11 + pedido del 27-11).
+  Bloques 1, 2, 3 y 5 (constantes textuales `CATALOGO`, `RECUPERACION`, `REGLAS`, `VERIFICACIONES_*`) entran al prompt de la Etapa 6
+  (`calidad::build_prompt()` con `materiales`, interruptor `materialesm3`) junto con `inventory_text()` (plan y repertorio del Centro
+  del diseño, una línea por material, sin contenido); las Etapas 4 y 5 reciben las reglas 8 y 9. Bloque 4: Etapas P1 a P4
+  (`produccionm3`), opcionales, con la Etapa 8 consolidada (`activation()`). **Usa las tablas y el motor del Centro del Módulo 2**:
+  el plan va en `local_chatbot_recurso_plan` con `fichaid = plan_key(implid)` = **−id de la ficha de implementación** (no
+  cruzarlo con los diseños, que son positivos); cada material lleva `categoria` y `origen` (JSON). `centro_recursos::run_resource()`
+  pide el contexto a `produccion_m3::resource_context()` cuando `fichaid < 0`. P1: `plan_rows()` cruza la lista del asistente con
+  el repertorio (`origin_row()`, `delivered_version()`, regla 8 con `code_issue()`, enlaces de Modo C). P2.3 de un ajustado con
+  origen en texto: el asistente da solo las secciones que cambian y `merge_adjusted()` conserva textuales las demás. Principio 3
+  modificado (`PRINCIPIO_EXACTITUD`, `REGLA_NORMATIVA_CHILE`): búsqueda web conforme a la normativa chilena vigente, siempre
+  activa en la continuidad. P4: `repertory_html()` y `status_map()` (manda sobre el del Módulo 2 en el documento operativo).
+  `cli/verificar_produccion_m3.php` (47).
+- `classes/material_ui.php` — **vista y acciones de un material**, compartidas por `centro_recursos.php` y `produccion_m3.php`
+  (referencias, propuesta, contenido y descargas, marcas [REVISAR] y fragmentos web con «Aceptar»/«Editar», curaduría, ajustes,
+  edición y aprobación). Los rótulos propios de cada página van en `txt`. Un cambio aquí afecta a los dos módulos.
 - `classes/modulo3_setup.php` + `cli/configurar_modulo3.php --curso=ID [--simular]` — **botones del curso del Módulo 3** (pedido del
   cliente del 06-11): al final de cada una de sus cuatro hojas, ubicadas por el nombre de la sección y no por id, una etiqueta con
   el botón y el texto exacto del cliente. «Ir a la Fase 1: Registro y Validación» → pestaña Fase 1 del curso; «Completar y validar

@@ -92,7 +92,8 @@ class documento_operativo {
             '',
             $html
         );
-        $patron = '/^(?:registro de ajustes|registro de vacios|vacios? (?:de informacion|y soluciones)|'
+        // «Detección de vacíos de información y medidas…» es el mismo cierre con otro nombre (caso real del 26-11-2026).
+        $patron = '/^(?:registro de ajustes|registro de vacios|(?:deteccion de )?vacios? (?:de informacion|y soluciones)|'
             . 'verificacion de (?:la )?calidad|referencias consultadas|fuentes web consultadas|'
             . '(?:anexo\s*:\s*)?verificacion de consistencia)/u';
         if (!preg_match_all('#<h([1-6])\b[^>]*>(.*?)</h\1>#isu', $html, $titulos, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {

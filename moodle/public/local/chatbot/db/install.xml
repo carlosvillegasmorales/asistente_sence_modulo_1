@@ -832,6 +832,9 @@
         <FIELD NAME="promptversion" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="error" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="fecha_verificacion" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="entregado" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Contenido de la version final entregada (JSON), para que el Modulo 3 lo lea y lo ajuste"/>
+        <FIELD NAME="categoria" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Modulo 3 (produccion de la continuidad): reutilizado, ajustado o nuevo"/>
+        <FIELD NAME="origen" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Modulo 3: material de origen, version, fuente, trayectoria, criterios y especificacion (JSON)"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>

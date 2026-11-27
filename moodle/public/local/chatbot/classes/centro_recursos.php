@@ -19,8 +19,21 @@ defined('MOODLE_INTERNAL') || die();
  */
 class centro_recursos {
 
-    /** @var string Version del prompt complementario del Centro de Produccion. */
-    const PROMPT_VERSION = 'M2-CR-v2';
+    /** @var string Version del prompt complementario del Centro de Produccion (v3: bloque 6 del ajuste del 26-11-2026). */
+    const PROMPT_VERSION = 'M2-CR-v3';
+
+    /**
+     * @var string Etapa 11, «Registra el material en el repositorio del diseño» (ajuste de Interfases del 26-11-2026, bloque
+     *      6, textual). La plataforma lo cumple guardando la version entregada en el campo «entregado» (approve_material()).
+     */
+    const REGISTRO_REPERTORIO = 'El repertorio conserva el contenido de la versión final de cada material entregado (texto, '
+        . 'código HTML, archivo, GIFT, script o ficha de recomendación), para que el asistente del Módulo 3 pueda leerlo y '
+        . 'ajustarlo en la experiencia de continuidad.';
+
+    /** @var string Etapa 12: uso del repertorio (reemplaza «… ni lo utiliza el Módulo 3»; bloque 6, textual). */
+    const REPERTORIO_USO = 'El repertorio es de uso exclusivo de la persona facilitadora. No se comparte con el organismo '
+        . 'ejecutor. El asistente del Módulo 3 lo lee, junto con el plan de producción, sin modificarlos, para reutilizar o '
+        . 'ajustar los materiales en la experiencia de aprendizaje de continuidad.';
 
     /** Titulo de la seccion de referencias web que arma la plataforma al final del material. */
     const WEB_REFERENCIAS = 'Referencias consultadas';
@@ -258,6 +271,148 @@ class centro_recursos {
      */
     public static function count_review_marks(string $texto): int {
         return count(self::extract_review_marks($texto));
+    }
+
+    /**
+     * Textos de un material estructurado (cuestionario, planilla o presentacion) en el orden del JSON. Funcion pura.
+     *
+     * @param mixed $valor JSON decodificado.
+     * @return string[]
+     */
+    private static function json_strings($valor): array {
+        if (is_string($valor)) {
+            return [$valor];
+        }
+        $out = [];
+        if (is_array($valor)) {
+            foreach ($valor as $v) {
+                $out = array_merge($out, self::json_strings($v));
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Marcas [REVISAR] de un material estructurado, en el orden en que aparecen en sus textos (el indice es el que usa
+     * resolve_mark_json()). Funcion pura.
+     *
+     * @param string $json Campo «estructurado».
+     * @return string[]
+     */
+    public static function json_review_marks(string $json): array {
+        $datos = json_decode($json, true);
+        if (!is_array($datos)) {
+            return [];
+        }
+        $out = [];
+        foreach (self::json_strings($datos) as $texto) {
+            if (preg_match_all('/\[REVISAR(?:\s*:\s*[^\]]+)?\]/u', $texto, $m)) {
+                $out = array_merge($out, $m[0]);
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Acepta o corrige una marca [REVISAR] dentro de un material estructurado (la marca numero $indice, desde 0, en el
+     * orden de json_review_marks()): sin reemplazo se quita la marca; con reemplazo, la marca se cambia por ese texto. Asi
+     * las marcas se pueden aceptar y editar en todo material, no solo en los de texto. Funcion pura.
+     *
+     * @param array $json
+     * @param int $indice
+     * @param string $reemplazo Texto plano.
+     * @return array|null El JSON actualizado, o null si la marca no existe.
+     */
+    public static function resolve_mark_json(array $json, int $indice, string $reemplazo = ''): ?array {
+        $visto = 0;
+        $hecho = false;
+        $reemplazo = trim(preg_replace('/\s+/u', ' ', $reemplazo));
+        $recorrer = static function($valor) use (&$recorrer, &$visto, &$hecho, $indice, $reemplazo) {
+            if (is_string($valor)) {
+                return preg_replace_callback('/\s*\[REVISAR(?:\s*:\s*[^\]]+)?\]/u',
+                    static function(array $m) use (&$visto, &$hecho, $indice, $reemplazo): string {
+                        if ($visto++ !== $indice) {
+                            return $m[0];
+                        }
+                        $hecho = true;
+                        return $reemplazo === '' ? '' : ' ' . $reemplazo;
+                    }, $valor);
+            }
+            if (is_array($valor)) {
+                foreach ($valor as $k => $v) {
+                    $valor[$k] = $recorrer($v);
+                }
+            }
+            return $valor;
+        };
+        $nuevo = $recorrer($json);
+        return $hecho ? $nuevo : null;
+    }
+
+    /**
+     * Version final de un material entregado, tal como la guarda el repertorio (bloque 6 del ajuste del 26-11-2026): todo
+     * lo que el Modulo 3 necesita para leerlo y ajustarlo sin depender de que el material siga igual. Funcion pura.
+     *
+     * @param \stdClass $r Fila de local_chatbot_recurso.
+     * @param int $fecha Momento de la entrega.
+     * @return string JSON.
+     */
+    public static function delivered_snapshot(\stdClass $r, int $fecha): string {
+        return json_encode([
+            'version' => (int) ($r->version ?? 0),
+            'estado' => (string) ($r->estado ?? ''),
+            'fecha' => $fecha,
+            'modo' => (string) ($r->modo ?? ''),
+            'formato' => (string) ($r->formato ?? ''),
+            'contenido' => (string) ($r->contenido ?? ''),
+            'estructurado' => (string) ($r->estructurado ?? ''),
+            'html_moodle' => (string) ($r->html_moodle ?? ''),
+            'seleccionados' => (string) ($r->seleccionados ?? ''),
+            'fecha_verificacion' => (string) ($r->fecha_verificacion ?? ''),
+            'refs_usadas' => (string) ($r->refs_usadas ?? ''),
+            'revisar_count' => (int) ($r->revisar_count ?? 0),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Version vigente de un material del repertorio: la entregada guardada o, si el material esta entregado y no la tiene
+     * (entregas anteriores a la v1.34.0), su contenido actual. Null si nunca se entrego. Funcion pura.
+     *
+     * @param \stdClass $r Fila de local_chatbot_recurso.
+     * @return array|null Mismas claves que delivered_snapshot().
+     */
+    public static function delivered_version(\stdClass $r): ?array {
+        $guardada = json_decode((string) ($r->entregado ?? ''), true);
+        if (is_array($guardada) && (int) ($guardada['version'] ?? 0) > 0) {
+            return $guardada;
+        }
+        if ((int) ($r->version ?? 0) > 0 && in_array((string) ($r->estado ?? ''),
+                [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)) {
+            return (array) json_decode(self::delivered_snapshot($r, (int) ($r->timemodified ?? 0)), true);
+        }
+        return null;
+    }
+
+    /**
+     * Lo que va antes del pie «Material producido con apoyo de IA…»: el codigo y, en los materiales de la experiencia de
+     * continuidad del Modulo 3 (con categoria), la categoria y el origen (P2.3 del ajuste del 26-11-2026). Funcion pura.
+     *
+     * @param \stdClass $r Fila de local_chatbot_recurso.
+     * @return string
+     */
+    public static function footer_prefix(\stdClass $r): string {
+        $categoria = trim((string) ($r->categoria ?? ''));
+        if ($categoria === '') {
+            return (string) ($r->codigo ?? '');
+        }
+        $origen = (array) json_decode((string) ($r->origen ?? ''), true);
+        $texto = (string) $r->codigo . ' · ' . produccion_m3::category_label($categoria);
+        $desde = trim((string) ($origen['origen_codigo'] ?? ''));
+        if ($desde !== '' && $categoria !== produccion_m3::CAT_NUEVO) {
+            $ver = trim((string) ($origen['origen_version'] ?? ''));
+            $texto .= ' · Origen: ' . $desde . ($ver !== '' ? ' ' . $ver : '');
+        }
+        return $texto;
     }
 
     /**
@@ -1117,8 +1272,6 @@ class centro_recursos {
             string $disenoTexto, string $fichaTexto, string $plataformaQuiz = '', array $yaProducidos = [],
             bool $conWeb = false): string {
         $modo = strtoupper(trim((string) ($material['modo'] ?? 'A')));
-        $esQuiz = self::is_quiz_material((string) $material['nombre'], (string) $material['formato']);
-        $formatos = self::detect_formats($modo, (string) $material['formato'], (string) $material['nombre'], $plataformaQuiz);
 
         $l = [
             'Eres el ' . exante::ROL . ' operando en el CENTRO DE PRODUCCIÓN DE RECURSOS (Etapa 10.3: Producción del contenido).',
@@ -1144,6 +1297,38 @@ class centro_recursos {
             '',
         ];
 
+        $l = array_merge($l, self::mode_instructions($material, $plataformaQuiz, $conWeb,
+            $material['codigo'] . ' · ' . self::PIE_MATERIAL));
+        $l[] = '';
+        $l[] = guardrails::injection_clause();
+        $l[] = '';
+        $l[] = 'FICHA DE DIAGNÓSTICO VALIDADA:';
+        $l[] = guardrails::isolate_user_content($fichaTexto);
+        $l[] = '';
+        $l[] = 'DISEÑO CONSOLIDADO VALIDADO:';
+        $l[] = guardrails::isolate_user_content($disenoTexto);
+        return implode("\n", $l);
+    }
+
+    /**
+     * Instrucciones de produccion segun el modo y el tipo de material (Modo C, cuestionario, planilla, presentacion o
+     * Markdown para pantalla, HTML, Word y PDF). Las comparten el Centro del Modulo 2 y la produccion de los materiales de
+     * la experiencia de continuidad del Modulo 3 (P2.3 del ajuste del 26-11-2026: «aplica las reglas de cada modo del
+     * Modulo 2»). Funcion pura.
+     *
+     * @param array $material ['codigo', 'nombre', 'modo', 'formato'].
+     * @param string $plataformaQuiz
+     * @param bool $conWeb Si se buscan en internet los datos que faltan.
+     * @param string $pie Linea exacta de cierre del material.
+     * @param array $web Argumentos adicionales de web_prompt_rules() (fuentes y reglas extra; Modulo 3).
+     * @return string[]
+     */
+    public static function mode_instructions(array $material, string $plataformaQuiz, bool $conWeb, string $pie,
+            array $web = []): array {
+        $modo = strtoupper(trim((string) ($material['modo'] ?? 'A')));
+        $esQuiz = self::is_quiz_material((string) $material['nombre'], (string) $material['formato']);
+        $formatos = self::detect_formats($modo, (string) $material['formato'], (string) $material['nombre'], $plataformaQuiz);
+        $l = [];
         if ($modo === 'C') {
             $l[] = 'INSTRUCCIONES MODO C (CURADURÍA DE RECURSOS EXISTENTES):';
             $l[] = '- Busca en internet recursos abiertos y gratuitos que cumplan exactamente la especificación del diseño '
@@ -1175,7 +1360,7 @@ class centro_recursos {
                 . '"opciones": ["...", "...", "...", "..."], "correcta": 0, "puntaje": 1, "retroalimentacion": "..."}], '
                 . '"fuentes": ["..."]}';
             if ($conWeb) {
-                foreach (self::web_prompt_rules(true) as $regla) {
+                foreach (self::web_prompt_rules(true, ...$web) as $regla) {
                     $l[] = $regla;
                 }
             }
@@ -1187,7 +1372,7 @@ class centro_recursos {
             $l[] = '{"titulo": "...", "introduccion": "...", "hojas": [{"nombre": "Hoja 1", "encabezados": ["Col 1", "Col 2"], '
                 . '"filas": [["...", "..."]]}], "fuentes": ["..."]}';
             if ($conWeb) {
-                foreach (self::web_prompt_rules(true) as $regla) {
+                foreach (self::web_prompt_rules(true, ...$web) as $regla) {
                     $l[] = $regla;
                 }
             }
@@ -1200,7 +1385,7 @@ class centro_recursos {
             $l[] = '{"titulo": "...", "subtitulo": "...", "diapositivas": [{"titulo": "...", "puntos": ["..."], "notas": "..."}], '
                 . '"fuentes": ["..."]}';
             if ($conWeb) {
-                foreach (self::web_prompt_rules(true) as $regla) {
+                foreach (self::web_prompt_rules(true, ...$web) as $regla) {
                     $l[] = $regla;
                 }
             }
@@ -1222,7 +1407,7 @@ class centro_recursos {
                 . 'como tarjetas con flechas.';
             $l[] = diseno::REGLA_FORMULAS;
             if ($conWeb) {
-                foreach (self::web_prompt_rules() as $regla) {
+                foreach (self::web_prompt_rules(false, ...$web) as $regla) {
                     $l[] = $regla;
                 }
             } else {
@@ -1230,19 +1415,10 @@ class centro_recursos {
             }
             $l[] = '- Si usaste materiales de referencia cargados, agrega al final el título «Fuentes utilizadas:» seguido de '
                 . 'una lista con viñetas en líneas separadas (una fuente por línea).';
-            $l[] = '- Cierra siempre con la línea exacta: «' . $material['codigo'] . ' · ' . self::PIE_MATERIAL . '»';
+            $l[] = '- Cierra siempre con la línea exacta: «' . $pie . '»';
             $l[] = '- No agregues saludos ni preguntas al final: la plataforma ya muestra los controles de revisión y aprobación.';
         }
-
-        $l[] = '';
-        $l[] = guardrails::injection_clause();
-        $l[] = '';
-        $l[] = 'FICHA DE DIAGNÓSTICO VALIDADA:';
-        $l[] = guardrails::isolate_user_content($fichaTexto);
-        $l[] = '';
-        $l[] = 'DISEÑO CONSOLIDADO VALIDADO:';
-        $l[] = guardrails::isolate_user_content($disenoTexto);
-        return implode("\n", $l);
+        return $l;
     }
 
     /**
@@ -1398,8 +1574,7 @@ class centro_recursos {
         } else {
             $html .= '<p><strong>Recordatorio:</strong> revisa siempre los materiales antes de usarlos con las personas participantes.</p>';
         }
-        $html .= '<p><em>Repertorio de uso exclusivo de la persona facilitadora para la implementación. '
-            . 'No se comparte con el organismo ejecutor ni lo utiliza el Módulo 3.</em></p>';
+        $html .= '<p><em>' . $e(self::REPERTORIO_USO) . '</em></p>';
         return $html;
     }
 
@@ -1742,6 +1917,82 @@ class centro_recursos {
     }
 
     /**
+     * Contexto de generacion de un material del Centro del Modulo 2: diseño consolidado, ficha de diagnostico, adjuntos,
+     * materiales de referencia y los constructores de prompt de las Etapas 10.2 a 10.4.
+     *
+     * @param \stdClass $r Fila de local_chatbot_recurso.
+     * @param int $userid
+     * @return array|null Claves: material, adjuntos, refparts, version, web, fuentes, rechazos y los constructores
+     *         estructura(ajuste), contenido(estructura, plataforma, conWeb) y ajuste(actual, pedido, enJson).
+     */
+    private static function resource_context(\stdClass $r, int $userid): ?array {
+        global $DB;
+        $ficha = $DB->get_record('local_chatbot_exante', ['id' => $r->fichaid, 'userid' => $userid]);
+        $plan = self::get_plan((int) $r->fichaid);
+        $filas = $ficha ? diseno::get_by_ficha((int) $ficha->id) : [];
+        $cons = $filas[diseno::CONSOLIDACION] ?? null;
+        if (!$ficha || !$plan || !$cons || !$cons->contenido) {
+            return null;
+        }
+
+        $fichaData = exante::clean((array) json_decode((string) $ficha->data, true));
+        $fichaTexto = pseudonymizer::scrub(exante::to_text($fichaData));
+        $disenoTexto = html_to_text((string) $cons->contenido, 0, false);
+        [$adjuntos] = exante::attachment_parts((int) $ficha->id);
+
+        $refIds = (array) json_decode((string) ($r->refs_usadas ?? '[]'), true);
+        [$refParts, $refNombres] = self::reference_parts((int) $ficha->id, $refIds);
+
+        $yaProducidos = [];
+        foreach (self::get_resources((int) $ficha->id) as $otro) {
+            if ((int) $otro->id !== (int) $r->id && in_array($otro->estado, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)) {
+                $yaProducidos[] = $otro->codigo . ': ' . $otro->nombre;
+            }
+        }
+        $matArr = [
+            'codigo' => (string) $r->codigo,
+            'nombre' => (string) $r->nombre,
+            'fase' => (string) $r->fase,
+            'modo' => (string) $r->modo,
+            'formato' => (string) $r->formato,
+            'especificacion' => (string) $r->especificacion,
+            'espec_detalle' => (string) $r->espec_detalle,
+        ];
+        $datos = (array) $plan->datos_arr;
+        return [
+            'material' => $matArr,
+            'adjuntos' => $adjuntos,
+            'refparts' => $refParts,
+            'version' => self::PROMPT_VERSION,
+            'web' => ux::on('webcentro'),
+            'fuentes' => 'el diseño ni en los materiales de referencia',
+            'rechazos' => ['Ese ajuste implica modificar el diseño validado'],
+            'estructura' => static fn(string $ajuste): string => self::build_structure_prompt($matArr, $datos, $disenoTexto,
+                $fichaTexto, $refNombres, $yaProducidos, $ajuste),
+            'contenido' => static fn(string $estructura, string $plataforma, bool $conWeb): string => self::build_content_prompt(
+                $matArr, $estructura, $datos, $disenoTexto, $fichaTexto, $plataforma, $yaProducidos, $conWeb),
+            'ajuste' => static fn(string $actual, string $pedido, bool $enJson): string => self::build_adjust_prompt($matArr,
+                $actual, $pedido, $enJson),
+        ];
+    }
+
+    /**
+     * Si la respuesta del asistente es el rechazo del principio 1 (el pedido cambia el diseño o la experiencia). Funcion pura.
+     *
+     * @param string $raw
+     * @param string[] $frases
+     * @return bool
+     */
+    public static function is_refusal(string $raw, array $frases): bool {
+        foreach ($frases as $frase) {
+            if ($frase !== '' && stripos($raw, $frase) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Ejecuta la generacion pendiente de un material (estructura 10.2, contenido 10.3 o ajuste 10.4).
      */
     public static function run_resource(int $id, int $userid): string {
@@ -1766,40 +2017,19 @@ class centro_recursos {
                 return exante::ERROR;
             }
 
-            $ficha = $DB->get_record('local_chatbot_exante', ['id' => $r->fichaid, 'userid' => $userid]);
-            $plan = self::get_plan((int) $r->fichaid);
-            $filas = $ficha ? diseno::get_by_ficha((int) $ficha->id) : [];
-            $cons = $filas[diseno::CONSOLIDACION] ?? null;
-            if (!$ficha || !$plan || !$cons || !$cons->contenido) {
+            // Contexto segun el modulo: el diseño validado (Centro del Modulo 2) o la experiencia de continuidad consolidada
+            // (produccion del Modulo 3, plan con fichaid negativo: menos el id de la ficha de implementacion).
+            $ctx = (int) $r->fichaid < 0 ? produccion_m3::resource_context($r, $userid) : self::resource_context($r, $userid);
+            if ($ctx === null) {
                 $DB->update_record('local_chatbot_recurso', (object) [
                     'id' => $id, 'generacion' => exante::ERROR, 'error' => 'sindiseno', 'timemodified' => time(),
                 ]);
                 return exante::ERROR;
             }
-
-            $fichaData = exante::clean((array) json_decode((string) $ficha->data, true));
-            $fichaTexto = pseudonymizer::scrub(exante::to_text($fichaData));
-            $disenoTexto = html_to_text((string) $cons->contenido, 0, false);
-            [$adjuntos] = exante::attachment_parts((int) $ficha->id);
-
-            $refIds = (array) json_decode((string) ($r->refs_usadas ?? '[]'), true);
-            [$refParts, $refNombres] = self::reference_parts((int) $ficha->id, $refIds);
-
-            $yaProducidos = [];
-            foreach (self::get_resources((int) $ficha->id) as $otro) {
-                if ((int) $otro->id !== (int) $r->id && in_array($otro->estado, [self::MAT_ENTREGADO, self::MAT_ENTREGADO_PARCIAL], true)) {
-                    $yaProducidos[] = $otro->codigo . ': ' . $otro->nombre;
-                }
-            }
-            $matArr = [
-                'codigo' => (string) $r->codigo,
-                'nombre' => (string) $r->nombre,
-                'fase' => (string) $r->fase,
-                'modo' => (string) $r->modo,
-                'formato' => (string) $r->formato,
-                'especificacion' => (string) $r->especificacion,
-                'espec_detalle' => (string) $r->espec_detalle,
-            ];
+            $matArr = $ctx['material'];
+            $adjuntos = $ctx['adjuntos'];
+            $refParts = $ctx['refparts'];
+            $version = (string) $ctx['version'];
             $modelo = ai\provider_factory::get_configured_model();
             $faseGen = (string) ($r->fase_gen ?: self::GEN_ESTRUCTURA);
             $modo = strtoupper(trim((string) $r->modo));
@@ -1811,8 +2041,7 @@ class centro_recursos {
             $esModoC = $modo === 'C';
 
             if ($faseGen === self::GEN_ESTRUCTURA) {
-                $prompt = self::build_structure_prompt($matArr, $plan->datos_arr, $disenoTexto, $fichaTexto,
-                    $refNombres, $yaProducidos, (string) ($r->ajustes ?? ''));
+                $prompt = $ctx['estructura']((string) ($r->ajustes ?? ''));
                 $parts = array_merge([['text' => $prompt]], $adjuntos, $refParts);
                 $res = exante::generate_steady([['role' => 'user', 'parts' => $parts]], 180, $modelo, false);
                 if (isset($res['error'])) {
@@ -1828,7 +2057,7 @@ class centro_recursos {
                     'estado' => self::MAT_ESTRUCTURA,
                     'generacion' => exante::LISTO,
                     'modelo' => (string) $modelo,
-                    'promptversion' => self::PROMPT_VERSION,
+                    'promptversion' => $version,
                     'error' => null,
                     'timemodified' => time(),
                 ]);
@@ -1840,7 +2069,7 @@ class centro_recursos {
                 $actual = $enJson
                     ? (string) $r->estructurado
                     : html_to_text(self::headings_as_markdown((string) ($r->contenido ?? '')), 0, false);
-                $prompt = self::build_adjust_prompt($matArr, $actual, (string) ($r->ajustes ?? ''), $enJson);
+                $prompt = $ctx['ajuste']($actual, (string) ($r->ajustes ?? ''), $enJson);
                 $parts = array_merge([['text' => $prompt]], $refParts);
                 $res = exante::generate_steady([['role' => 'user', 'parts' => $parts]], 240, $modelo, false);
                 if (isset($res['error'])) {
@@ -1850,7 +2079,7 @@ class centro_recursos {
                 if (trim($raw) === '') {
                     return self::fail_resource($id, 'ilegible');
                 }
-                if (stripos($raw, 'Ese ajuste implica modificar el diseño validado') !== false) {
+                if (self::is_refusal($raw, (array) $ctx['rechazos'])) {
                     $DB->update_record('local_chatbot_recurso', (object) [
                         'id' => $id,
                         'generacion' => exante::LISTO,
@@ -1861,12 +2090,12 @@ class centro_recursos {
                 }
                 if ($enJson) {
                     return self::store_produced_material($r, $raw, $esJsonModoB && !$esModoC, $esQuiz, $formatos,
-                        (string) $modelo, $esModoC);
+                        (string) $modelo, $esModoC, '', $version);
                 }
                 // Ajuste por seccion (10.4): solo las secciones indicadas; si el asistente entrego el material completo
                 // (la persona lo pidio), se toma completo.
                 $md = diseno::clean_markdown($raw);
-                $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
+                $pie = self::footer_prefix($r) . ' · ' . self::PIE_MATERIAL;
                 [$mdWeb, $bloquesWeb] = self::prepare_web_markdown($md, null, false);
                 $fusion = strpos($md, self::PIE_MATERIAL) === false
                     ? self::merge_sections((string) $r->contenido,
@@ -1875,16 +2104,15 @@ class centro_recursos {
                     return self::fail_resource($id, 'seccion');
                 }
                 return self::store_produced_material($r, $raw, false, $esQuiz, $formatos, (string) $modelo, false,
-                    (string) $fusion);
+                    (string) $fusion, $version);
             }
 
             // GEN_CONTENIDO (Etapa 10.3).
             $estructuraTxt = html_to_text((string) ($r->estructura ?? ''), 0, false);
             // Datos que faltan: en los materiales en Markdown (Modos A y B) el asistente los busca en la web y los marca
             // con su fuente para que la persona los edite o acepte (pedido de Interfases del 25-11-2026).
-            $webDatos = $modo !== 'C' && ux::on('webcentro') && exante::web_search_available();
-            $prompt = self::build_content_prompt($matArr, $estructuraTxt, $plan->datos_arr, $disenoTexto, $fichaTexto,
-                (string) ($r->plataforma_quiz ?? ''), $yaProducidos, $webDatos);
+            $webDatos = $modo !== 'C' && !empty($ctx['web']) && exante::web_search_available();
+            $prompt = $ctx['contenido']($estructuraTxt, (string) ($r->plataforma_quiz ?? ''), $webDatos);
             $parts = array_merge([['text' => $prompt]], $adjuntos, $refParts);
             $usarWeb = (($modo === 'C') && exante::web_search_available()) || $webDatos;
             $res = exante::generate_steady([['role' => 'user', 'parts' => $parts]], 240, $modelo, $usarWeb);
@@ -1894,8 +2122,7 @@ class centro_recursos {
             $raw = (string) gemini_client::extract_text($res);
             // Con busqueda web la respuesta a veces no viene como JSON limpio: se repite una vez sin busqueda.
             if ($webDatos && $esJsonModoB && !is_array(exante::decode_json($raw))) {
-                $prompt = self::build_content_prompt($matArr, $estructuraTxt, $plan->datos_arr, $disenoTexto, $fichaTexto,
-                    (string) ($r->plataforma_quiz ?? ''), $yaProducidos, false);
+                $prompt = $ctx['contenido']($estructuraTxt, (string) ($r->plataforma_quiz ?? ''), false);
                 $res = exante::generate_steady([['role' => 'user', 'parts' => array_merge([['text' => $prompt]], $adjuntos,
                     $refParts)]], 240, $modelo, false);
                 $raw = isset($res['error']) ? '' : (string) gemini_client::extract_text($res);
@@ -1907,7 +2134,17 @@ class centro_recursos {
             // obligatoria) y cada uno encontrado queda como fragmento web con su fuente (visto en el cliente el 25-11:
             // el asistente marcaba el dato en vez de buscarlo).
             if ($webDatos && self::count_review_marks($raw) > 0) {
-                $raw = self::fill_marks_from_web($raw, $matArr, $modelo, $esJsonModoB);
+                $raw = self::fill_marks_from_web($raw, $matArr, $modelo, $esJsonModoB, (string) $ctx['fuentes']);
+            }
+            // Modulo 3, material ajustado: el asistente entrego solo las secciones que cambian y la plataforma las aplica sobre
+            // la version de origen, que conserva textualmente las demas.
+            if (isset($ctx['fusion']) && !$esJsonModoB && $modo !== 'C') {
+                $fusion = $ctx['fusion']($raw);
+                if ($fusion === null) {
+                    return self::fail_resource($id, 'seccion');
+                }
+                return self::store_produced_material($r, $raw, false, $esQuiz, $formatos, (string) $modelo, false, $fusion,
+                    $version);
             }
             // Modo C: si ningun enlace existe, se busca una vez mas diciendo cuales fallaron.
             $cur = $modo === 'C' ? self::parse_curaduria_json($raw) : null;
@@ -1923,7 +2160,8 @@ class centro_recursos {
                     $raw = $raw2;
                 }
             }
-            return self::store_produced_material($r, $raw, $esJsonModoB, $esQuiz, $formatos, (string) $modelo, $modo === 'C');
+            return self::store_produced_material($r, $raw, $esJsonModoB, $esQuiz, $formatos, (string) $modelo, $modo === 'C',
+                '', $version);
         } finally {
             $candado->release();
         }
@@ -1933,7 +2171,8 @@ class centro_recursos {
      * Guarda el resultado producido (Modo A, B, Cuestionario o Modo C con verificacion real de enlaces).
      */
     private static function store_produced_material(\stdClass $r, string $raw, bool $esJsonModoB, bool $esQuiz,
-            array $formatos, string $modelo, bool $esModoC, string $htmlListo = ''): string {
+            array $formatos, string $modelo, bool $esModoC, string $htmlListo = '',
+            string $version = self::PROMPT_VERSION): string {
         global $DB;
         $estructurado = null;
         $fechaVerif = '';
@@ -1947,7 +2186,7 @@ class centro_recursos {
             $parsed['descartadas'] = $filtrado['descartadas'];
             $fechaVerif = userdate(time(), '%d-%m-%Y');
             $estructurado = json_encode($parsed, JSON_UNESCAPED_UNICODE);
-            $html = self::curaduria_html($parsed['opciones'], $fechaVerif, (string) $r->codigo);
+            $html = self::curaduria_html($parsed['opciones'], $fechaVerif, self::footer_prefix($r));
         } else if ($esJsonModoB) {
             $json = exante::decode_json($raw);
             if (!is_array($json)) {
@@ -1962,7 +2201,7 @@ class centro_recursos {
         } else {
             $md = diseno::clean_markdown($raw);
             if (strpos($md, self::PIE_MATERIAL) === false) {
-                $md .= "\n\n*" . $r->codigo . ' · ' . self::PIE_MATERIAL . '*';
+                $md .= "\n\n*" . self::footer_prefix($r) . ' · ' . self::PIE_MATERIAL . '*';
             }
             // Fragmentos obtenidos de la web: se comprueba cada enlace y se arma «Referencias consultadas».
             [$md, $bloquesWeb] = self::prepare_web_markdown($md, [self::class, 'verify_url']);
@@ -1981,7 +2220,7 @@ class centro_recursos {
             'estado' => self::MAT_BORRADOR,
             'generacion' => exante::LISTO,
             'modelo' => $modelo,
-            'promptversion' => self::PROMPT_VERSION,
+            'promptversion' => $version,
             'error' => null,
             'timemodified' => time(),
         ]);
@@ -1992,7 +2231,7 @@ class centro_recursos {
      * Vista previa HTML de un material estructurado (cuestionario, planilla o presentacion).
      */
     private static function json_preview_html(array $json, \stdClass $r, bool $esQuiz, array $formatos): string {
-        $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
+        $pie = self::footer_prefix($r) . ' · ' . self::PIE_MATERIAL;
         if ($esQuiz) {
             return recurso_export::to_printable_quiz_html($json, (string) $r->nombre, $pie);
         }
@@ -2099,12 +2338,14 @@ class centro_recursos {
      *
      * @return string[]
      */
-    public static function web_prompt_rules(bool $json = false): array {
-        return [
+    public static function web_prompt_rules(bool $json = false,
+            string $fuentes = 'el diseño validado, la ficha y los materiales de referencia cargados', array $extra = []): array {
+        return array_merge([
             'DATOS QUE FALTAN: BÚSQUEDA EN INTERNET CON REFERENCIA (amplía el principio 3):',
-            '- Usa primero el diseño validado, la ficha y los materiales de referencia cargados. Solo si un dato técnico, '
+            '- Usa primero ' . $fuentes . '. Solo si un dato técnico, '
                 . 'normativo o de seguridad que el material necesita no está en ellos, búscalo en internet.',
             '- ' . exante::REGLA_FUENTES_CHILE,
+        ], $extra, [
             $json
                 ? '- Envuelve cada fragmento redactado con información de internet así, dentro del mismo valor de texto del '
                     . 'JSON (enunciado, opción, retroalimentación, celda, punto o nota): [[WEB 1 | Título de la fuente | '
@@ -2125,7 +2366,7 @@ class centro_recursos {
             '- Antes de dejar una marca [REVISAR] por un dato técnico o normativo (por ejemplo, el número de una ley, decreto o '
                 . 'norma, un valor límite o un procedimiento), búscalo en internet. Si no lo encuentras en una fuente confiable, '
                 . 'no lo inventes: deja la marca [REVISAR: motivo] en el lugar exacto; la plataforma intentará buscarlo de nuevo.',
-        ];
+        ]);
     }
 
     /**
@@ -2157,11 +2398,12 @@ class centro_recursos {
      * @param array $marcas Salida de review_marks_context().
      * @return string
      */
-    public static function build_web_fill_prompt(array $material, array $marcas): string {
+    public static function build_web_fill_prompt(array $material, array $marcas,
+            string $fuentes = 'el diseño ni en los materiales de referencia'): string {
         $l = [
             'Eres el ' . exante::ROL . ' operando en el CENTRO DE PRODUCCIÓN DE RECURSOS. El material «' . $material['codigo']
-                . ' · ' . $material['nombre'] . '» dejó datos marcados con [REVISAR] porque no estaban en el diseño ni en '
-                . 'los materiales de referencia. Búscalos en internet ahora, uno por uno.',
+                . ' · ' . $material['nombre'] . '» dejó datos marcados con [REVISAR] porque no estaban en ' . $fuentes
+                . '. Búscalos en internet ahora, uno por uno.',
             '',
             '- ' . exante::REGLA_FUENTES_CHILE,
             '- Para cada marca redacta en español de Chile el texto breve que la reemplaza (una o dos frases, solo el dato '
@@ -2228,13 +2470,14 @@ class centro_recursos {
      * @param bool $json
      * @return string
      */
-    private static function fill_marks_from_web(string $raw, array $material, ?string $modelo, bool $json): string {
+    private static function fill_marks_from_web(string $raw, array $material, ?string $modelo, bool $json,
+            string $fuentes = 'el diseño ni en los materiales de referencia'): string {
         $marcas = self::review_marks_context($raw);
         if (!$marcas) {
             return $raw;
         }
         $res = exante::generate_steady([['role' => 'user', 'parts' => [['text' => self::build_web_fill_prompt($material,
-            $marcas)]]]], 150, $modelo, true);
+            $marcas, $fuentes)]]]], 150, $modelo, true);
         if (isset($res['error'])) {
             return $raw;
         }
@@ -2686,8 +2929,30 @@ class centro_recursos {
     public static function save_resolved_mark(int $id, int $userid, int $indice, string $reemplazo = ''): bool {
         global $DB;
         $r = self::get_resource($id, $userid);
-        if (!$r || !empty($r->estructurado)) {
+        if (!$r || (!empty($r->estructurado) && strtoupper(trim((string) $r->modo)) === 'C')) {
             return false;
+        }
+        if (!empty($r->estructurado)) {
+            // Cuestionario, planilla o presentacion: la marca se acepta o corrige en su JSON y se rehace la vista previa.
+            $json = self::resolve_mark_json((array) json_decode((string) $r->estructurado, true), $indice, $reemplazo);
+            if ($json === null) {
+                return false;
+            }
+            $esQuiz = self::is_quiz_material((string) $r->nombre, (string) $r->formato);
+            $formatos = self::detect_formats((string) $r->modo, (string) $r->formato, (string) $r->nombre,
+                (string) ($r->plataforma_quiz ?? ''));
+            $html = self::json_preview_html($json, $r, $esQuiz, $formatos);
+            $DB->update_record('local_chatbot_recurso', (object) [
+                'id' => $r->id,
+                'estructurado' => json_encode($json, JSON_UNESCAPED_UNICODE),
+                'contenido' => $html,
+                'html_moodle' => recurso_export::to_moodle_html(self::strip_web_marks($html), (string) $r->nombre,
+                    (string) $r->codigo),
+                'revisar_count' => self::count_review_marks($html),
+                'estado' => self::state_after_change((string) $r->estado, true),
+                'timemodified' => time(),
+            ]);
+            return true;
         }
         $nuevo = self::resolve_mark((string) $r->contenido, $indice, $reemplazo);
         if ($nuevo === null) {
@@ -2743,7 +3008,7 @@ class centro_recursos {
             return false;
         }
         $sel = array_map('intval', (array) (json_decode((string) ($r->seleccionados ?? '[]'), true) ?: []));
-        $html = self::curaduria_html((array) $cur['opciones'], (string) ($r->fecha_verificacion ?? ''), (string) $r->codigo, $sel);
+        $html = self::curaduria_html((array) $cur['opciones'], (string) ($r->fecha_verificacion ?? ''), self::footer_prefix($r), $sel);
         $DB->update_record('local_chatbot_recurso', (object) [
             'id' => $r->id,
             'estructurado' => json_encode($cur, JSON_UNESCAPED_UNICODE),
@@ -2764,7 +3029,7 @@ class centro_recursos {
         $cur = json_decode((string) $r->estructurado, true);
         $sel = array_values(array_unique(array_map('intval', $indices)));
         $html = self::curaduria_html((array) ($cur['opciones'] ?? []), (string) ($r->fecha_verificacion ?? ''),
-            (string) $r->codigo, $sel);
+            self::footer_prefix($r), $sel);
         $DB->update_record('local_chatbot_recurso', (object) [
             'id' => $r->id,
             'seleccionados' => json_encode($sel),
@@ -2785,11 +3050,16 @@ class centro_recursos {
             return;
         }
         $now = time();
+        $r->estado = $parcial ? self::MAT_ENTREGADO_PARCIAL : self::MAT_ENTREGADO;
+        $r->version = ((int) $r->version) + 1;
+        $r->revisar_count = self::count_review_marks((string) $r->contenido);
         $DB->update_record('local_chatbot_recurso', (object) [
             'id' => $r->id,
-            'estado' => $parcial ? self::MAT_ENTREGADO_PARCIAL : self::MAT_ENTREGADO,
-            'version' => ((int) $r->version) + 1,
-            'revisar_count' => self::count_review_marks((string) $r->contenido),
+            'estado' => $r->estado,
+            'version' => $r->version,
+            'revisar_count' => $r->revisar_count,
+            // Bloque 6 del ajuste del 26-11-2026: el repertorio conserva la version final entregada.
+            'entregado' => self::delivered_snapshot($r, $now),
             'timemodified' => $now,
         ]);
         $DB->set_field('local_chatbot_recurso_plan', 'estado', self::PLAN_EN_PRODUCCION, ['id' => $r->planid]);
@@ -2952,7 +3222,7 @@ class centro_recursos {
         $base = trim(mb_substr((string) $base, 0, 60, 'UTF-8'), '_') ?: 'material';
         $ver = ((int) $r->version) > 0 ? ('_v' . (int) $r->version) : '';
         $json = !empty($r->estructurado) ? json_decode(self::strip_web_marks((string) $r->estructurado), true) : null;
-        $pie = $r->codigo . ' · ' . self::PIE_MATERIAL;
+        $pie = self::footer_prefix($r) . ' · ' . self::PIE_MATERIAL;
 
         switch ($tipo) {
             case 'html':

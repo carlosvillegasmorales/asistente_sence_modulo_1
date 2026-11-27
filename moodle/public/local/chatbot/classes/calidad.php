@@ -41,6 +41,12 @@ class calidad {
     /** @var float Parte minima del texto de las etapas que debe conservar la consolidacion para darla por completa. */
     const CONSOLIDACION_MIN = 0.5;
 
+    /** @var int Fila interna del documento operativo de la continuidad (classes/documento_continuidad.php): no es una etapa. */
+    const OPERATIVO = 16;
+
+    /** @var int Fila interna del documento operativo de reflexion sobre la practica (salida de la Etapa 15, v1.35.0). */
+    const REFLEXION = 17;
+
     /** Tipos de ajuste (etapa 3). */
     const AJUSTE_REMEDIALES = 'acciones_remediales';
     const AJUSTE_PARCIAL = 'rediseno_parcial';
@@ -763,6 +769,60 @@ class calidad {
         return ['estado' => $estado, 'suma' => $tabla['suma'], 'restante' => $restante, 'reparto' => $reparto];
     }
 
+    /**
+     * Minutos totales de una secuencia instruccional (etapa 6): la fila «Total» de una tabla con una columna de minutos,
+     * duracion o tiempo (si hay varias, la mayor: el total de la experiencia y no el de un bloque) o, sin esa fila, la frase
+     * «tiempo total … N min». Sin ninguna de las dos no se estima. Funcion pura.
+     *
+     * @param string $html
+     * @return int|null
+     */
+    public static function sequence_minutes(string $html): ?int {
+        if (trim($html) === '') {
+            return null;
+        }
+        $mayor = null;
+        if (stripos($html, '<table') !== false) {
+            $dom = new \DOMDocument();
+            libxml_use_internal_errors(true);
+            $dom->loadHTML('<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>');
+            libxml_clear_errors();
+            foreach ($dom->getElementsByTagName('table') as $tabla) {
+                $columna = null;
+                foreach ($tabla->getElementsByTagName('tr') as $tr) {
+                    $celdas = [];
+                    foreach ($tr->childNodes as $nodo) {
+                        if ($nodo instanceof \DOMElement && in_array($nodo->nodeName, ['th', 'td'], true)) {
+                            $celdas[] = trim(preg_replace('/\s+/u', ' ', $nodo->textContent));
+                        }
+                    }
+                    if (!$celdas) {
+                        continue;
+                    }
+                    if ($columna === null) {
+                        foreach ($celdas as $k => $c) {
+                            if (preg_match('/minut|duracion|^tiempo/u', diseno::plain_lower($c))) {
+                                $columna = $k;
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+                    if (preg_match('/^\W*total\b/u', diseno::plain_lower($celdas[0])) && isset($celdas[$columna])
+                            && preg_match('/\d+/', $celdas[$columna], $n)) {
+                        $mayor = max((int) $mayor, (int) $n[0]);
+                    }
+                }
+            }
+        }
+        if ($mayor !== null) {
+            return $mayor;
+        }
+        $texto = diseno::plain_lower(html_entity_decode(strip_tags(str_replace(['</p>', '</li>', '</td>', '<br>'], ' ', $html)),
+            ENT_QUOTES, 'UTF-8'));
+        return preg_match('/tiempo total[^0-9]{0,80}(\d{1,4})\s*min/u', $texto, $m) ? (int) $m[1] : null;
+    }
+
     // ------------------------------------------------------------------------------------------
     // Pedido al modelo.
     // ------------------------------------------------------------------------------------------
@@ -791,8 +851,12 @@ class calidad {
         $l[] = '';
         $l[] = 'TAREA: ETAPA ' . $etapa . ': ' . \core_text::strtoupper($e['titulo']) . '.';
         $l[] = 'Desarrolla solo esta etapa; no adelantes las siguientes. Debe incluir obligatoriamente:';
+        $materiales = !empty($c['materiales']);
         foreach ($e['incluye'] as $item) {
-            $l[] = '- ' . $item;
+            // Ajuste de Interfases del 26-11-2026 (bloque 3): «Materiales de apoyo, según las reglas para los materiales de
+            // la experiencia de continuidad».
+            $l[] = '- ' . ($materiales && $etapa === 6 && $item === 'Materiales de apoyo'
+                ? 'Materiales de apoyo, según las reglas para los materiales de la experiencia de continuidad' : $item);
         }
         foreach ($e['indicaciones'] ?? [] as $indicacion) {
             $l[] = $indicacion;
@@ -857,6 +921,19 @@ class calidad {
             . 'un diagrama ayuda, entrégalo en un bloque de código con la etiqueta «diagrama»: una línea por caja, con «Título / '
             . 'detalle»; puedes agregar «titulo: ...» y «modo: ciclo» si los pasos se repiten en círculo. Entre 2 y 12 cajas.';
         $l[] = diseno::REGLA_FORMULAS;
+        if ($materiales && $etapa === 6) {
+            // Bloques 1, 2, 3 y 5 del ajuste del 26-11-2026: catalogo, recuperacion de los materiales del Modulo 2, reglas 1 a
+            // 9 y verificaciones de los materiales de la continuidad.
+            $l[] = '';
+            foreach (produccion_m3::stage6_rules() as $regla) {
+                $l[] = $regla;
+            }
+        } else if ($materiales && in_array($etapa, [4, 5], true)) {
+            $l[] = '';
+            foreach (produccion_m3::stage45_rules() as $regla) {
+                $l[] = $regla;
+            }
+        }
         $l[] = '';
         $l[] = 'CONTROL DE CALIDAD: antes de cerrar la etapa verifica la alineación con el aprendizaje esperado y los criterios '
             . 'de evaluación, que cada juicio esté fundamentado en la evidencia de la ficha, la coherencia entre brechas, '
@@ -886,6 +963,10 @@ class calidad {
         $l[] = (string) ($c['datos'] ?? '');
         $l[] = '';
         $l[] = (string) ($c['diseno'] ?? '');
+        if ($materiales && $etapa === 6 && trim((string) ($c['inventario'] ?? '')) !== '') {
+            $l[] = '';
+            $l[] = (string) $c['inventario'];
+        }
         if ($etapa >= 4 && !empty($c['ajuste'])) {
             $l[] = '';
             $l[] = 'TIPO DE AJUSTE DECIDIDO EN LA ETAPA 3 (aceptado por la persona): ' . \core_text::strtoupper(
@@ -1230,6 +1311,12 @@ class calidad {
      * @return int
      */
     public static function max_seconds(int $etapa): int {
+        if ($etapa === self::OPERATIVO) {
+            return documento_continuidad::MAX_SECONDS;
+        }
+        if ($etapa === self::REFLEXION) {
+            return documento_reflexion::MAX_SECONDS;
+        }
         return in_array($etapa, [self::CONSOLIDACION, expost::CONSOLIDACION], true) ? self::CONSOLIDACION_MAX : implementacion::PROCESO_MAX;
     }
 
@@ -1292,7 +1379,8 @@ class calidad {
         $salida = [];
         $huella = self::stages_fingerprint($filas, $validacion);
         foreach ($filas as $n => $fila) {
-            if ($fila->estado !== self::ACEPTADO) {
+            // El documento operativo de la continuidad se guarda como fila interna: no es una etapa aceptada.
+            if ($fila->estado !== self::ACEPTADO || in_array((int) $n, [self::OPERATIVO, self::REFLEXION], true)) {
                 continue;
             }
             // La consolidacion cuenta solo si las etapas no cambiaron despues de confirmarla.
@@ -1476,6 +1564,10 @@ class calidad {
      */
     private static function generate(\stdClass $fila): array {
         global $DB;
+        if ((int) $fila->etapa === self::REFLEXION) {
+            // Documento operativo de reflexion sobre la practica (salida de la Etapa 15 de la Fase 4).
+            return documento_reflexion::generate_row($fila);
+        }
         if (expost::is_phase4((int) $fila->etapa)) {
             // Fase 4 (evaluacion ex post): sus etapas se generan en classes/expost.php.
             return expost::generate($fila);
@@ -1497,6 +1589,10 @@ class calidad {
         if ((int) $fila->etapa === self::CONSOLIDACION) {
             return self::consolidate_ai($fila, $val, $filas);
         }
+        if ((int) $fila->etapa === self::OPERATIVO) {
+            // Documento operativo de la experiencia de continuidad (salida de la Etapa 8).
+            return documento_continuidad::generate_row($fila, $val, $data, $diseno, $filas);
+        }
 
         $ajuste = self::decided_adjustment($filas);
         if ((int) $fila->etapa >= 4 && $ajuste === null) {
@@ -1516,7 +1612,13 @@ class calidad {
         $libreria = implementacion::role_library('m3e' . (int) $fila->etapa,
             (string) ($diseno['ficha']->data['nivel'] ?? ''));
         $buscar = exante::web_search_available();
+        // Materiales de la continuidad (ajuste del 26-11-2026): la Etapa 6 recibe el plan de produccion y el repertorio del
+        // Centro del Modulo 2 del diseño elegido, en solo lectura y sin el contenido de los materiales (lectura economica).
+        $materiales = ux::on('materialesm3');
+        $inventario = ($materiales && (int) $fila->etapa === 6) ? produccion_m3::inventory_text(
+            centro_recursos::get_resources((int) $val->disenoid), centro_recursos::list_references((int) $val->disenoid)) : '';
         $prompt = self::build_prompt((int) $fila->etapa, [
+            'materiales' => $materiales, 'inventario' => $inventario,
             'ficha' => pseudonymizer::scrub(implementacion::to_text($data)),
             'datos' => self::analysis_text($analisis),
             'informe' => $informe, 'condicion' => (string) $val->condicion,

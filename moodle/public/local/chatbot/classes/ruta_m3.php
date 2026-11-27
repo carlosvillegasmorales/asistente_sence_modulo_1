@@ -137,7 +137,7 @@ class ruta_m3 {
         } else if ($val->estado !== implementacion::LISTO || !implementacion::can_advance($val->condicion)) {
             $estado = $val->estado === implementacion::LISTO ? self::FICHA_NO_APROBADA : self::FICHA_SIN;
         } else {
-            $estado = ($ficha && $val->huella === implementacion::ficha_fingerprint($ficha)) ? self::FICHA_OK
+            $estado = implementacion::validation_current($val, $ficha) ? self::FICHA_OK
                 : self::FICHA_DESACTUALIZADA;
         }
         $filas = $ficha ? calidad::get_by_impl((int) $ficha->id) : [];

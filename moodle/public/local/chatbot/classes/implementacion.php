@@ -1902,15 +1902,28 @@ class implementacion {
         $ids = array_keys($DB->get_records('local_chatbot_impl', ['userid' => $userid, 'courseid' => $courseid], '', 'id'));
         $siguiente = exante::next_in_use($ids, $fichaid, (int) $ficha->activa === 1 ? $fichaid : 0);
 
+        // Produccion de los materiales de la continuidad (v1.34.0): su plan usa como clave el id negativo de la ficha.
+        $clave = produccion_m3::plan_key($fichaid);
+        $refids = array_keys($DB->get_records('local_chatbot_recurso_ref', ['fichaid' => $clave], '', 'id'));
         $tx = $DB->start_delegated_transaction();
         expost::delete_for($fichaid);
         $DB->delete_records('local_chatbot_calidad', ['implid' => $fichaid]);
         foreach (['local_chatbot_m3_envio', 'local_chatbot_m3_encuesta'] as $tabla) {
             $DB->delete_records($tabla, ['implid' => $fichaid]);
         }
+        foreach (['local_chatbot_recurso_ref', 'local_chatbot_recurso', 'local_chatbot_recurso_plan'] as $tabla) {
+            $DB->delete_records($tabla, ['fichaid' => $clave]);
+        }
         $DB->delete_records('local_chatbot_impl_val', ['fichaid' => $fichaid]);
         $DB->delete_records('local_chatbot_impl', ['id' => $fichaid]);
         $tx->allow_commit();
+        if ($refids) {
+            $fs = get_file_storage();
+            $sysid = \context_system::instance()->id;
+            foreach ($refids as $rid) {
+                $fs->delete_area_files($sysid, 'local_chatbot', centro_recursos::FILEAREA_REF, (int) $rid);
+            }
+        }
 
         if ($siguiente !== null && (int) $ficha->activa === 1) {
             self::activate($userid, $courseid, $siguiente);
@@ -1964,6 +1977,54 @@ class implementacion {
     public static function ficha_fingerprint(\stdClass $ficha): string {
         $diseno = (int) $ficha->disenoid > 0 ? self::get_design((int) $ficha->disenoid, (int) $ficha->userid) : null;
         return self::fingerprint($ficha->data, (int) $ficha->disenoid, $diseno ? $diseno['huella'] : '');
+    }
+
+    /**
+     * Si una validacion corresponde a la ficha de hoy. Una ficha validada antes de que el formulario sumara campos (la
+     * v1.24.9 paso de 15 a 20 criterios) tiene la huella calculada sin esas claves: sigue vigente si las claves nuevas estan
+     * vacias y la huella coincide con el juego de claves del momento de validar (el de su snapshot). Sin esto, toda ficha
+     * validada antes de un cambio del formulario quedaba «desactualizada» sin que nadie la tocara.
+     *
+     * @param \stdClass|null $val Validacion (con huella y snapshot).
+     * @param \stdClass|null $ficha Ficha de hoy (con data ya limpia).
+     * @return bool
+     */
+    public static function validation_current(?\stdClass $val, ?\stdClass $ficha): bool {
+        if (!$val || !$ficha) {
+            return false;
+        }
+        $diseno = (int) $ficha->disenoid > 0 ? self::get_design((int) $ficha->disenoid, (int) $ficha->userid) : null;
+        return self::fingerprint_matches((string) ($val->huella ?? ''), (array) $ficha->data, (string) ($val->snapshot ?? ''),
+            (int) $ficha->disenoid, $diseno ? (string) $diseno['huella'] : '');
+    }
+
+    /**
+     * La comparacion de validation_current(), sin base de datos. Funcion pura.
+     *
+     * @param string $huella Huella guardada en la validacion.
+     * @param array $data Ficha de hoy (ya limpia).
+     * @param string $snapshot JSON de la ficha tal como se valido.
+     * @param int $disenoid
+     * @param string $diseno Huella del diseño de hoy.
+     * @return bool
+     */
+    public static function fingerprint_matches(string $huella, array $data, string $snapshot, int $disenoid, string $diseno): bool {
+        if ($huella === '') {
+            return false;
+        }
+        if ($huella === self::fingerprint($data, $disenoid, $diseno)) {
+            return true;
+        }
+        $previa = json_decode($snapshot, true);
+        if (!is_array($previa) || !$previa) {
+            return false;
+        }
+        foreach (array_diff_key($data, $previa) as $valor) {
+            if (trim((string) $valor) !== '') {
+                return false;
+            }
+        }
+        return $huella === self::fingerprint(array_intersect_key($data, $previa), $disenoid, $diseno);
     }
 
     /**
@@ -2065,7 +2126,7 @@ class implementacion {
         $ficha = self::get_ficha($userid, $courseid);
         $val = self::latest_validation($userid, $courseid);
         if (!$ficha || !$val || $val->estado !== self::LISTO || !self::can_advance($val->condicion)
-                || self::criteria_count($ficha->data) === 0 || $val->huella !== self::ficha_fingerprint($ficha)) {
+                || self::criteria_count($ficha->data) === 0 || !self::validation_current($val, $ficha)) {
             return null;
         }
         // Prompt Maestro: «No inicies el proceso sin el diseño seleccionado, su plan formativo y la ficha enviada».

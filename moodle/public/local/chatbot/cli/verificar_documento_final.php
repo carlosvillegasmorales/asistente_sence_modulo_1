@@ -450,5 +450,14 @@ preg_match('/<w:tblGrid>(.*?)<\/w:tblGrid>/s', $d17, $g17);
 preg_match_all('/w:w="(\d+)"/', $g17[1] ?? '', $c17);
 local_chatbot_verificar(count($c17[1]) === 6 && (int) $c17[1][3] > (int) $c17[1][1] * 1.4,
     'la columna de textos largos («Corrección que corresponde») sale bastante más ancha que la de textos medianos');
+
+// Orientacion fijada por el HTML (documento operativo de la continuidad, v1.33.0): data-orientacion manda sobre is_wide().
+$siete = '<tr>' . str_repeat('<th>Col</th>', 7) . '</tr><tr>' . str_repeat('<td>x</td>', 7) . '</tr>';
+$d18 = $construir('<h1>Etapa 1: A</h1><table>' . $siete . '</table>');
+$d19 = $construir('<h1>Etapa 1: A</h1><table data-orientacion="v">' . $siete . '</table>');
+$d20 = $construir('<h1>Etapa 1: A</h1><table data-orientacion="h"><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>');
+local_chatbot_verificar(strpos($d18, 'w:orient="landscape"') !== false && strpos($d19, 'w:orient="landscape"') === false
+    && strpos($d20, 'w:orient="landscape"') !== false,
+    'data-orientacion="v" deja en vertical una tabla de siete columnas y "h" lleva a horizontal una de dos; sin él, decide is_wide()');
 echo "Documento final conforme al ejemplo del cliente: {$total} casos verificados | Fallidos: {$fallidos}\n";
 exit($fallidos > 0 ? 1 : 0);

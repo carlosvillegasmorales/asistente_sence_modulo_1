@@ -168,6 +168,14 @@ local_chatbot_verificar(
         && stripos($anexosReal, 'Registro de ajustes') === false,
     'extract_stage6_instruments() titula «Anexo N · Instrumento…» cada instrumento, sin numerar subtítulos ni perder contenido'
 );
+// Caso real (26-11-2026): el cierre de vacios se titulo «4. Detección de vacíos de información y medidas…» y quedaba pegado al
+// ultimo anexo.
+$anexosDeteccion = documento_operativo::extract_stage6_instruments('<h2>Etapa 6: Instrumentos evaluativos</h2>'
+    . '<h3>3. Instrumentos evaluativos redactados</h3><h4>3.1. Instrumento 1: Rúbrica</h4><p>Rúbrica.</p>'
+    . '<h3>4. Detección de vacíos de información y medidas de aseguramiento de calidad</h3><p>Vacío detectado.</p>');
+local_chatbot_verificar(strpos($anexosDeteccion, 'Anexo 1 · Instrumento 1: Rúbrica') !== false
+    && stripos($anexosDeteccion, 'Detección de vacíos') === false && strpos($anexosDeteccion, 'Vacío detectado.') === false,
+    'extract_stage6_instruments() quita también el cierre «Detección de vacíos de información…»');
 local_chatbot_verificar(documento_operativo::annex_per_instrument('<h3>Rúbrica final</h3><p>x</p>') === '<h3>Rúbrica final</h3><p>x</p>',
     'annex_per_instrument() no toca una Etapa 6 sin títulos «Instrumento N»');
 $anexosCompuestos = documento_operativo::annex_per_instrument(
